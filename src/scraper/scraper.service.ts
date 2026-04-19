@@ -41,7 +41,9 @@ export class ScraperService {
         await this.webSearchService.markScraped(log.id);
         this.logger.log(`Scraped: ${log.url}`);
       } catch (err) {
-        this.logger.warn(`Failed to scrape ${log.url}: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to scrape ${log.url}: ${(err as Error).message}`,
+        );
       }
     }
   }

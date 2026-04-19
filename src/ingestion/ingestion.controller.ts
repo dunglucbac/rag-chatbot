@@ -17,7 +17,8 @@ export class IngestionController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: '/tmp',
-        filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+        filename: (_req, file, cb) =>
+          cb(null, `${Date.now()}-${file.originalname}`),
       }),
       fileFilter: (_req, file, cb) => {
         cb(null, file.mimetype === 'application/pdf');

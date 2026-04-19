@@ -22,7 +22,11 @@ export class WebSearchService {
     const { data } = await axios.post<{ results: TavilyResult[] }>(
       'https://api.tavily.com/search',
       { query, max_results: 3 },
-      { headers: { Authorization: `Bearer ${this.config.get<string>('tavily.apiKey')}` } },
+      {
+        headers: {
+          Authorization: `Bearer ${this.config.get<string>('tavily.apiKey')}`,
+        },
+      },
     );
     const results = data.results ?? [];
 
