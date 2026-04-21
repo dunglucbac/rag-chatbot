@@ -83,12 +83,20 @@ docker-compose up -d
 
 ### 4. Run the app
 
+Get a public webhook URL first:
+
+```bash
+ngrok http 3000
+```
+
+Copy the HTTPS URL, set it as `TELEGRAM_WEBHOOK_URL` in `.env`, then run:
+
 ```bash
 npm run start:dev   # development
 npm run start:prod  # production
 ```
 
-The server starts on `http://localhost:3000` and registers the Telegram webhook automatically.
+The server starts on `http://localhost:3000` and registers the Telegram webhook at `TELEGRAM_WEBHOOK_URL/telegram/webhook`.
 
 ---
 
