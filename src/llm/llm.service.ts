@@ -15,6 +15,9 @@ export class LlmService {
       return new ChatAnthropic({
         model: 'claude-sonnet-4-5',
         apiKey: this.config.get<string>('llm.anthropicApiKey'),
+        clientOptions: {
+          baseURL: this.config.get<string>('llm.anthropicBaseUrl'),
+        },
       });
     }
 

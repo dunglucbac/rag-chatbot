@@ -10,6 +10,7 @@ export default () => ({
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL,
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingProvider: process.env.EMBEDDING_PROVIDER ?? 'openai',
   },
