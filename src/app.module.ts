@@ -10,6 +10,8 @@ import { WebSearchModule } from './web-search/web-search.module';
 import { AgentModule } from './agent/agent.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { ScraperModule } from './scraper/scraper.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -24,5 +26,7 @@ import { ScraperModule } from './scraper/scraper.module';
     TelegramModule,
     ScraperModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
