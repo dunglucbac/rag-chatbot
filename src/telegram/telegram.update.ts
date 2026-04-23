@@ -16,7 +16,8 @@ export class TelegramUpdate {
       try {
         const reply = await this.agentService.invoke(userId, message);
         await ctx.reply(reply);
-      } catch {
+      } catch (err) {
+        console.error('Agent error:', err);
         await ctx.reply('Sorry, something went wrong. Please try again.');
       }
     });
