@@ -1,0 +1,59 @@
+{
+  "info": {
+    "name": "RAG Chatbot",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/",
+        "description": "Returns system health status, server hostname, and request timestamp."
+      }
+    },
+    {
+      "name": "Ingest PDF",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/ingest/pdf",
+        "description": "Upload a PDF file to ingest into the vector store.",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "PDF file to ingest (application/pdf only)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Telegram Webhook",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/telegram/webhook",
+        "description": "Receives Telegram update payloads. Called by Telegram servers — not for manual use in production.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"update_id\": 123456789,\n  \"message\": {\n    \"message_id\": 1,\n    \"from\": {\n      \"id\": 987654321,\n      \"is_bot\": false,\n      \"first_name\": \"Thomas\"\n    },\n    \"chat\": {\n      \"id\": 987654321,\n      \"type\": \"private\",\n      \"first_name\": \"Thomas\"\n    },\n    \"date\": 1713000000,\n    \"text\": \"Hello, what can you do?\"\n  }\n}"
+        }
+      }
+    }
+  ]
+}

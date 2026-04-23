@@ -53,7 +53,7 @@ Background Scraper (every 6h):
 - Anthropic or OpenAI API key
 - OpenAI API key (always required for embeddings)
 - Tavily API key
-- Public HTTPS URL for the Telegram webhook (e.g. ngrok)
+- Public HTTPS URL for the Telegram webhook (ngrok or VS Code port forwarding)
 
 ---
 
@@ -83,13 +83,25 @@ docker-compose up -d
 
 ### 4. Run the app
 
-Get a public webhook URL first:
+Get a public HTTPS URL for the Telegram webhook using one of these options:
 
+**Option A — ngrok:**
 ```bash
 ngrok http 3000
 ```
 
-Copy the HTTPS URL, set it as `TELEGRAM_WEBHOOK_URL` in `.env`, then run:
+**Option B — VS Code port forwarding:**
+1. Open the **Ports** panel in VS Code
+2. Forward port `3000`
+3. Right-click → set visibility to **Public**
+4. Copy the HTTPS URL
+
+Set the URL in `.env`:
+```env
+TELEGRAM_WEBHOOK_URL=https://your-public-url
+```
+
+Then start the app:
 
 ```bash
 npm run start:dev   # development
