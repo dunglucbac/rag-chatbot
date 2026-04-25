@@ -1,5 +1,6 @@
 import { Controller, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import type { Update } from 'telegraf/types';
 import { TelegramService } from './telegram.service';
 import { AgentService } from '../agent/agent.service';
 
@@ -24,7 +25,7 @@ export class TelegramUpdate {
   }
 
   @Post('webhook')
-  async handleWebhook(@Req() req: Request, @Res() res: Response) {
-    await this.telegramService.bot.handleUpdate(req.body, res);
+  async handleWebhook(@Req() { body }: Request, @Res() res: Response) {
+    await this.telegramService.bot.handleUpdate(body as Update, res);
   }
 }
