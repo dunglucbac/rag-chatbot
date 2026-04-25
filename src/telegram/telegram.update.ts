@@ -24,6 +24,9 @@ export class TelegramUpdate {
     });
   }
 
+  /** Receives Telegram update payloads and forwards them to Telegraf for dispatch.
+   * Telegram → POST /telegram/webhook → handleWebhook → handleUpdate → bot.on('text', ...)
+   */
   @Post('webhook')
   async handleWebhook(@Req() { body }: Request, @Res() res: Response) {
     await this.telegramService.bot.handleUpdate(body as Update, res);
