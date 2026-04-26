@@ -4,6 +4,8 @@
 
 The application is a NestJS monolith composed of loosely coupled modules. All AI logic runs through LangChain/LangGraph; PostgreSQL with pgvector handles both relational data and vector embeddings.
 
+The product is centered on **receipt intelligence**: users can upload or forward receipts, the system extracts merchants, totals, taxes, and line items, and the chatbot helps analyze spending over time. Manual expense entry is treated as a fallback, not the primary workflow.
+
 ---
 
 ## Module Map
@@ -15,7 +17,8 @@ AppModule
 ├── LlmModule             — Claude / GPT-4o abstraction
 ├── VectorStoreModule     — PGVector read/write
 ├── WebSearchModule       — Tavily API + search log
-├── IngestionModule       — PDF → chunks → embeddings
+├── IngestionModule       — receipt / document ingestion and parsing
+├── ReceiptModule         — receipt entities, itemized spend analytics, summaries
 ├── AgentModule           — LangGraph ReAct agent
 ├── TelegramModule        — Telegraf bot + webhook
 └── ScraperModule         — background cron scraper
@@ -25,7 +28,7 @@ AppModule
 
 ## Data Flows
 
-### 1. Chat (Telegram → Agent → LLM)
+### 1. Chat and spending analysis (Telegram → Agent → LLM)
 
 ```
 User message (Telegram)
@@ -34,23 +37,26 @@ User message (Telegram)
   → AgentService.invoke(userId, message)
       → createReactAgent per-invocation
             llm: LlmService.getModel()
-            tools: [search_knowledge_base, search_web(userId)]
+            tools: [search_knowledge_base, search_receipts, search_web(userId)]
             (web search tool is created per-invoke to capture userId)
       → LangGraph ReAct decides which tools to call
           ├── search_knowledge_base({ query })
           │     → VectorStoreService.similaritySearch(query, k=4)
           │     → returns top-4 chunks formatted as "Source: <url>\n<text>"
           │     → "No relevant information found." if empty
+          ├── search_receipts({ query, dateRange? })
+          │     → ReceiptService/AnalyticsService queries itemized expense data
+          │     → returns summaries such as total spend, category breakdowns, merchant history, and trends
           └── search_web({ query })
                 → WebSearchService.search(query, userId)
                 → POST https://api.tavily.com/search (max_results: 3)
                 → saves each result URL to web_search_logs (scraped: false)
                 → returns formatted results prefixed with ⚠️ web search notice
-      → LLM synthesizes context into final answer
+      → LLM synthesizes context into final answer or advice
   → ctx.reply(answer)
 ```
 
-### 2. File ingestion
+### 2. Receipt and document ingestion
 
 ```
 POST /ingest/file (multipart/form-data, field: "file")
@@ -59,6 +65,10 @@ POST /ingest/file (multipart/form-data, field: "file")
       → create `ingestion_jobs` row with status=pending
       → persist metadata about the original filename, storage path, MIME type, and source type
       → queue background processing
+  → job processor decides whether the file is a receipt, invoice, or generic document
+      → receipt path: OCR / text extraction → merchant, date, totals, taxes, currency, line items
+      → document path: chunk text → embeddings for knowledge-base search
+      → normalize extracted receipt data into relational tables for analytics
   → { message: "File queued for ingestion", job: { id, status } }
 ```
 
@@ -84,6 +94,27 @@ Cron: 0 */6 * * *  (ScraperService.scrapeAndEmbed)
 ---
 
 ## Database Schema
+
+### `receipts` and `receipt_items` (relational analytics data)
+
+| Column | Type | Description |
+|---|---|---|
+| receipts.id | uuid | Primary key |
+| receipts.userId | varchar | Owner of the receipt |
+| receipts.merchant | text | Store / merchant name |
+| receipts.purchasedAt | timestamp | Receipt date and time |
+| receipts.total | numeric | Grand total |
+| receipts.tax | numeric | Tax amount, if available |
+| receipts.currency | varchar | Currency code |
+| receipts.source | varchar | Upload, email, or other source |
+| receipts.rawText | text | OCR/text extraction output for traceability |
+| receipt_items.id | uuid | Primary key |
+| receipt_items.receiptId | uuid | Parent receipt |
+| receipt_items.name | text | Item name |
+| receipt_items.quantity | numeric | Quantity, if detected |
+| receipt_items.unitPrice | numeric | Unit price, if detected |
+| receipt_items.totalPrice | numeric | Line item total |
+| receipt_items.category | text | Optional inferred category |
 
 ### `document_embeddings` (managed by PGVector)
 
@@ -161,7 +192,9 @@ npm run migration:revert
 ## Key Design Decisions
 
 - **Agent per invocation** — `AgentService.invoke` creates a fresh `createReactAgent` on every call rather than reusing one. This is intentional: the web search tool must close over the current `userId` to correctly attribute search logs.
+- **Receipt data is the source of truth for analytics** — itemized receipts are normalized into relational tables so the chatbot can answer spending questions reliably without re-reading raw receipt text every time.
 - **Scraper enriches the knowledge base over time** — web search results are immediately returned to the user as raw Tavily snippets, but the full page content is scraped asynchronously and added to the vector store, improving future knowledge base hits for similar queries.
 - **No conversation memory in the agent** — messages are stored in the `messages` table but the agent currently does not load prior messages as context. Each invocation is stateless from the LLM's perspective.
+- **Future shopping advice is layered on top of analytics** — once spending history is captured, the assistant can compare frequently purchased items against online prices from a curated set of stores and suggest cheaper options.
 - **Receipt-first finance tracking is a better fit than manual expense entry** — for this use case, the primary workflow should be receipt ingestion and line-item extraction, not asking the user to type each purchase manually. The system should parse receipts, store itemized expenses, and support analytics over weeks or months.
 - **Future shopping advice can be layered on top** — once itemized spending is stored, the agent can compare recurring purchases against online store prices and suggest cheaper alternatives from a curated list of stores when web search is enabled.
