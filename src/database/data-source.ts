@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
 import configuration from '../config/configuration';
-import { IngestionJob } from '../ingestion/ingestion-job.entity';
 
 const config = configuration();
 
@@ -13,7 +12,7 @@ export const AppDataSource = new DataSource({
   username: config.db.user,
   password: config.db.pass,
   database: config.db.name,
-  entities: [IngestionJob],
+  entities: ['src/**/*.entity.ts'],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,
 });
