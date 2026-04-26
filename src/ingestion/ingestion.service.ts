@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { IngestionJobService } from './ingestion-job.service';
 import { IngestionQueueService } from './ingestion-queue.service';
-import { IngestionSourceType } from './ingestion.types';
+import { IngestionSourceType, INGESTION_JOB_STATUSES } from './ingestion.types';
 import * as path from 'path';
 
 @Injectable()
@@ -27,7 +27,7 @@ export class IngestionService {
       storagePath: file.path,
       mimeType: file.mimetype,
       sourceType,
-      status: 'pending',
+      status: INGESTION_JOB_STATUSES[0],  //Pending
       metadata: {
         size: file.size,
         mimetype: file.mimetype,
