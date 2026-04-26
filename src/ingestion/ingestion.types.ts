@@ -1,6 +1,8 @@
-export type IngestionSourceType = 'pdf' | 'image' | 'receipt';
+export const INGESTION_SOURCE_TYPES = ['pdf', 'image', 'receipt'] as const;
+export type IngestionSourceType = (typeof INGESTION_SOURCE_TYPES)[number];
 
-export type IngestionJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export const INGESTION_JOB_STATUSES = ['pending', 'processing', 'completed', 'failed'] as const;
+export type IngestionJobStatus = (typeof INGESTION_JOB_STATUSES)[number];
 
 export type IngestionJobUpdate = {
   originalFilename?: string;

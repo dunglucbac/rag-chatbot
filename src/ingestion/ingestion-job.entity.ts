@@ -6,39 +6,39 @@ export class IngestionJob {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'original_filename' })
   originalFilename: string;
 
-  @Column()
+  @Column({ name: 'storage_path' })
   storagePath: string;
 
-  @Column()
+  @Column({ name: 'mime_type' })
   mimeType: string;
 
-  @Column({ default: 'pdf' })
+  @Column({ name: 'source_type', type: 'enum', enum: ['pdf', 'image', 'receipt'], default: 'pdf' })
   sourceType: IngestionSourceType;
 
-  @Column({ default: 'pending' })
+  @Column({ name: 'status', type: 'enum', enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' })
   status: IngestionJobStatus;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'extracted_text', type: 'text', nullable: true })
   extractedText: string | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'chunk_count', type: 'int', default: 0 })
   chunkCount: number;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ name: 'completed_at', type: 'timestamp', nullable: true })
   completedAt: Date | null;
 }
