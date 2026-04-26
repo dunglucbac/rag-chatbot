@@ -7,6 +7,11 @@ export default () => ({
     pass: process.env.DB_PASS,
     name: process.env.DB_NAME,
   },
+  redis: {
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    password: process.env.REDIS_PASSWORD,
+  },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
