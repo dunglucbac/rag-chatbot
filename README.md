@@ -74,12 +74,6 @@ cp .env.example .env
 ```
 
 Fill in your values — see `.env.example` for all required keys.
-If you want to expose port to setup webhook please use following command
-```bash
-brew install cloudflared
-
-cloudflared tunnel --url http://localhost:3000
-```
 
 ### 3. Start the database
 
@@ -105,6 +99,11 @@ ngrok http 3000
 Set the URL in `.env`:
 ```env
 TELEGRAM_WEBHOOK_URL=https://your-public-url
+```
+
+**Option C — cloudfare tunnel:**
+```bash
+cloudflared tunnel --url http://localhost:3000
 ```
 
 Then start the app:
