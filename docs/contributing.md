@@ -11,6 +11,7 @@
 ```bash
 npm install
 docker-compose up -d
+npm run migration:run
 npm run start:dev
 ```
 

@@ -50,21 +50,16 @@ User message (Telegram)
   → ctx.reply(answer)
 ```
 
-### 2. PDF Ingestion
+### 2. File ingestion
 
 ```
-POST /ingest/pdf (multipart/form-data, field: "file")
-  → FileInterceptor (multer diskStorage → /tmp/<timestamp>-<name>.pdf)
-  → fileFilter: rejects non application/pdf silently
-  → IngestionService.ingestPdf(filePath)
-      → PDFLoader loads pages
-      → RecursiveCharacterTextSplitter
-            chunkSize: 1000, chunkOverlap: 200
-      → VectorStoreService.addDocuments(chunks)
-            → OpenAI text-embedding-3-small (1536 dimensions)
-            → INSERT INTO document_embeddings
-      → fs.unlinkSync(filePath)
-  → { message: "PDF ingested", chunks: N }
+POST /ingest/file (multipart/form-data, field: "file")
+  → FileInterceptor (multer diskStorage → storage/uploads/<timestamp>-<name>)
+  → IngestionService.createJobFromUpload(file)
+      → create `ingestion_jobs` row with status=pending
+      → persist metadata about the original filename, storage path, MIME type, and source type
+      → queue background processing
+  → { message: "File queued for ingestion", job: { id, status } }
 ```
 
 ### 3. Background Web Scraper (every 6 hours)
@@ -108,7 +103,6 @@ Cron: 0 */6 * * *  (ScraperService.scrapeAndEmbed)
 | threadId | varchar | Conversation thread |
 | role | enum | `human` or `ai` |
 | content | text | Message text |
-| toolsUsed | varchar | Tools invoked for this turn (nullable) |
 | createdAt | timestamp | Auto-generated |
 
 ### `web_search_logs` (TypeORM entity)
@@ -126,14 +120,21 @@ Cron: 0 */6 * * *  (ScraperService.scrapeAndEmbed)
 
 ## LLM Provider Abstraction
 
-`LlmService.getModel()` reads `LLM_PROVIDER` and returns a LangChain `BaseChatModel`:
+`LlmService.getModel()` reads `LLM_PROVIDER` and returns a LangChain `BaseChatModel`.
 
-| `LLM_PROVIDER` | Model |
-|---|---|
-| `anthropic` (default) | `claude-sonnet-4-5` via `ChatAnthropic` |
-| `openai` | `gpt-4o` via `ChatOpenAI` |
+Embeddings always use OpenAI `text-embedding-3-small` regardless of the LLM provider, so `OPENAI_API_KEY` is always required.
 
-Embeddings always use OpenAI `text-embedding-3-small` regardless of the LLM provider — `OPENAI_API_KEY` is always required.
+## Database Migrations
+
+TypeORM migrations are managed from `src/database/data-source.ts`, which points to `src/database/migrations/*.ts`.
+
+Recommended commands:
+
+```bash
+npm run migration:generate -- --name MigrationName
+npm run migration:run
+npm run migration:revert
+```
 
 ---
 
