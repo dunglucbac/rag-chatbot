@@ -1,44 +1,65 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import type { IngestionJobStatus, IngestionSourceType } from './ingestion.types';
+import {
+  BaseEntity,
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+import type {
+  IngestionJobStatus,
+  IngestionSourceType,
+} from './ingestion.types';
 
 @Entity('ingestion_jobs')
-export class IngestionJob {
+export class IngestionJob extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  declare id: string;
 
   @Column({ name: 'original_filename' })
-  originalFilename: string;
+  declare originalFilename: string;
 
   @Column({ name: 'storage_path' })
-  storagePath: string;
+  declare storagePath: string;
 
   @Column({ name: 'mime_type' })
-  mimeType: string;
+  declare mimeType: string;
 
-  @Column({ name: 'source_type', type: 'enum', enum: ['pdf', 'image', 'receipt'], default: 'pdf' })
-  sourceType: IngestionSourceType;
+  @Column({
+    name: 'source_type',
+    type: 'enum',
+    enum: ['pdf', 'image', 'receipt'],
+    default: 'pdf',
+  })
+  declare sourceType: IngestionSourceType;
 
-  @Column({ name: 'status', type: 'enum', enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' })
-  status: IngestionJobStatus;
+  @Column({
+    name: 'status',
+    type: 'enum',
+    enum: ['pending', 'processing', 'completed', 'failed'],
+    default: 'pending',
+  })
+  declare status: IngestionJobStatus;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage: string | null;
+  declare errorMessage: string | null;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
-  metadata: Record<string, unknown> | null;
+  declare metadata: Record<string, unknown> | null;
 
   @Column({ name: 'extracted_text', type: 'text', nullable: true })
-  extractedText: string | null;
+  declare extractedText: string | null;
 
   @Column({ name: 'chunk_count', type: 'int', default: 0 })
-  chunkCount: number;
+  declare chunkCount: number;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  declare createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  declare updatedAt: Date;
 
   @Column({ name: 'completed_at', type: 'timestamp', nullable: true })
-  completedAt: Date | null;
+  declare completedAt: Date | null;
 }

@@ -1,30 +1,31 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
+  BaseEntity,
   Column,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 
 @Entity('messages')
-export class Message {
+export class Message extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  declare id: string;
 
   @Column()
-  userId: string;
+  declare userId: string;
 
   @Column()
-  threadId: string;
+  declare threadId: string;
 
   @Column({ type: 'text' })
-  content: string;
+  declare content: string;
 
   @Column({ type: 'enum', enum: ['human', 'ai'] })
-  role: 'human' | 'ai';
+  declare role: 'human' | 'ai';
 
   @Column({ nullable: true })
-  toolsUsed: string;
+  declare toolsUsed: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  declare createdAt: Date;
 }
