@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IngestionJob } from './ingestion-job.entity';
+import { IngestionJob } from './entities/ingestion-job.entity';
 import { IngestionJobStatus, IngestionJobUpdate } from './ingestion.types';
 
 @Injectable()

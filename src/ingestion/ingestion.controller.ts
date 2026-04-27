@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { IngestionService } from './ingestion.service';
 import { IngestionJobService } from './ingestion-job.service';
+import { IngestionJobDto } from './dto/ingestion-job.dto';
 
 const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
@@ -38,13 +39,16 @@ export class IngestionController {
   )
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     const job = await this.ingestionService.createJobFromUpload(file);
-    return { message: 'File queued for ingestion', job };
+    return {
+      message: 'File queued for ingestion',
+      job: IngestionJobDto.fromEntity(job),
+    };
   }
 
   @Get('jobs/:id')
   async getJob(@Param('id') id: string) {
     const job = await this.jobService.findById(id);
     if (!job) throw new NotFoundException('Ingestion job not found');
-    return job;
+    return IngestionJobDto.fromEntity(job);
   }
 }
