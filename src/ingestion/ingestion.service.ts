@@ -27,7 +27,7 @@ export class IngestionService {
       storagePath: file.path,
       mimeType: file.mimetype,
       sourceType,
-      status: INGESTION_JOB_STATUSES[0],  //Pending
+      status: INGESTION_JOB_STATUSES[0], //Pending
       metadata: {
         size: file.size,
         mimetype: file.mimetype,
@@ -45,10 +45,16 @@ export class IngestionService {
     return job;
   }
 
-  private detectSourceType(mimeType: string, filename: string): IngestionSourceType {
+  private detectSourceType(
+    mimeType: string,
+    filename: string,
+  ): IngestionSourceType {
     const extension = path.extname(filename).toLowerCase();
 
-    if (mimeType.startsWith('image/') || IngestionService.imageExtensions.includes(extension)) {
+    if (
+      mimeType.startsWith('image/') ||
+      IngestionService.imageExtensions.includes(extension)
+    ) {
       return 'image';
     }
 

@@ -20,7 +20,11 @@ export class IngestionJobService {
     return this.jobRepository.findOneBy({ id });
   }
 
-  async updateStatus(id: string, status: IngestionJobStatus, patch: IngestionJobUpdate = {}) {
+  async updateStatus(
+    id: string,
+    status: IngestionJobStatus,
+    patch: IngestionJobUpdate = {},
+  ) {
     const job = await this.findById(id);
     if (!job) {
       return null;
