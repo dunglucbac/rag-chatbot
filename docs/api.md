@@ -6,12 +6,12 @@ Base URL: `http://localhost:3000`
 
 ## Ingestion
 
-### Upload PDF
+### Upload file
 
-Ingests a PDF into the vector knowledge base. The file is split into 1000-character chunks with 200-character overlap, embedded, and stored in PostgreSQL.
+Queues an uploaded document for ingestion. The file is stored on disk and a background job is created to process it.
 
 ```
-POST /ingest/pdf
+POST /ingest/file
 Content-Type: multipart/form-data
 ```
 
@@ -19,20 +19,23 @@ Content-Type: multipart/form-data
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| file | file | yes | PDF file (application/pdf only) |
+| file | file | yes | Uploaded file |
 
 **Response 201**
 
 ```json
 {
-  "message": "PDF ingested",
-  "chunks": 42
+  "message": "File queued for ingestion",
+  "job": {
+    "id": "uuid",
+    "status": "pending"
+  }
 }
 ```
 
 **Notes**
-- Non-PDF files are silently rejected by the file filter (no error is returned — the upload will succeed but nothing is stored)
-- The temp file at `/tmp` is deleted after ingestion
+- The file is written to `storage/uploads` under the project root
+- Use `GET /ingest/jobs/:id` to inspect ingestion status
 
 ---
 
@@ -50,6 +53,8 @@ Content-Type: application/json
 **Body** — standard [Telegram Update object](https://core.telegram.org/bots/api#update)
 
 **Response** — delegated to Telegraf
+
+> Note: the application also exposes `/health` for basic health checks.
 
 ---
 

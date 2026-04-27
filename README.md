@@ -16,10 +16,12 @@ Agent (LangGraph ReAct)
     LLM (Claude Sonnet 4.5 / GPT-4o)
 
 Ingestion Pipeline:
-    POST /ingest/pdf
-    → PDFLoader + RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
-    → OpenAI text-embedding-3-small
-    → PGVector (document_embeddings table)
+    POST /ingest/file
+    → save upload to local storage
+    → create ingestion_jobs row in Postgres
+    → push job to Redis Stream
+    → Python worker extracts text/OCR
+    → store chunks + metadata in PGVector
 
 Background Scraper (every 6h):
     → Fetch unscraped Tavily URLs from web_search_logs
@@ -42,6 +44,8 @@ Background Scraper (every 6h):
 | Web Search | Tavily API |
 | Chat Interface | Telegram (Telegraf) |
 | Scraping | Cheerio + axios |
+| Queue | Redis Stream |
+| Parsing Worker | Python + Docling |
 
 ---
 
@@ -75,13 +79,21 @@ cp .env.example .env
 
 Fill in your values — see `.env.example` for all required keys.
 
-### 3. Start the database
+### 3. Start the database stack
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Run the app
+### 4. Run database migrations
+
+```bash
+npm run migration:run
+```
+
+This will create the app schema using TypeORM migrations.
+
+### 5. Run the app
 
 Get a public HTTPS URL for the Telegram webhook using one of these options:
 
@@ -101,6 +113,11 @@ Set the URL in `.env`:
 TELEGRAM_WEBHOOK_URL=https://your-public-url
 ```
 
+**Option C — cloudfare tunnel:**
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+
 Then start the app:
 
 ```bash
@@ -112,19 +129,45 @@ The server starts on `http://localhost:3000` and registers the Telegram webhook 
 
 ---
 
+## Database Migrations
+
+The app uses TypeORM migrations instead of `synchronize`.
+
+Available scripts:
+
+```bash
+npm run migration:generate
+npm run migration:run
+npm run migration:revert
+```
+
+### Notes
+
+- `init.sql` is only used to enable the `vector` extension in Postgres.
+- Database tables and column changes should be made through migrations.
+- Ingestion job columns use snake_case in the database.
+
+---
+
 ## API
 
-### Upload a PDF
+### Upload a file
 
 ```
-POST /ingest/pdf
+POST /ingest/file
 Content-Type: multipart/form-data
 
-file: <pdf file>
+file: <pdf or image file>
 ```
 
 ```json
-{ "message": "PDF ingested", "chunks": 42 }
+{ "id": "job-id", "status": "pending" }
+```
+
+### Get ingestion job status
+
+```
+GET /ingest/jobs/:id
 ```
 
 ---
@@ -150,8 +193,8 @@ src/
 │       └── web-search.tool.ts
 ├── config/             # Environment configuration
 ├── conversation/       # Message entity
-├── database/           # TypeORM / PostgreSQL setup
-├── ingestion/          # PDF upload and chunking pipeline
+├── database/           # TypeORM / PostgreSQL setup + migrations
+├── ingestion/          # Upload, job tracking, and queue handoff
 ├── llm/                # LLM provider abstraction (Claude / GPT-4o)
 ├── scraper/            # Background web scraper (cron, every 6h)
 ├── telegram/           # Telegram bot handler + webhook

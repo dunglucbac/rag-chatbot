@@ -1,26 +1,67 @@
 import { Injectable } from '@nestjs/common';
-import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
-import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { VectorStoreService } from '../vector-store/vector-store.service';
-import * as fs from 'fs';
+import { IngestionJobService } from './ingestion-job.service';
+import { IngestionQueueService } from './ingestion-queue.service';
+import { IngestionSourceType, INGESTION_JOB_STATUSES } from './ingestion.types';
+import * as path from 'path';
 
 @Injectable()
 export class IngestionService {
-  constructor(private readonly vectorStore: VectorStoreService) {}
+  private static readonly imageExtensions: ReadonlyArray<string> = [
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.tif',
+    '.tiff',
+  ];
 
-  async ingestPdf(filePath: string): Promise<number> {
-    const loader = new PDFLoader(filePath);
-    const docs = await loader.load();
+  constructor(
+    private readonly jobService: IngestionJobService,
+    private readonly queueService: IngestionQueueService,
+  ) {}
 
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
+  async createJobFromUpload(file: Express.Multer.File) {
+    const sourceType = this.detectSourceType(file.mimetype, file.originalname);
+    const job = await this.jobService.create({
+      originalFilename: file.originalname,
+      storagePath: file.path,
+      mimeType: file.mimetype,
+      sourceType,
+      status: INGESTION_JOB_STATUSES[0], //Pending
+      metadata: {
+        size: file.size,
+        mimetype: file.mimetype,
+      },
     });
-    const chunks = await splitter.splitDocuments(docs);
 
-    await this.vectorStore.addDocuments(chunks);
+    await this.queueService.enqueue({
+      jobId: job.id,
+      storagePath: job.storagePath,
+      mimeType: job.mimeType,
+      originalFilename: job.originalFilename,
+      sourceType: job.sourceType,
+    });
 
-    fs.unlinkSync(filePath);
-    return chunks.length;
+    return job;
+  }
+
+  private detectSourceType(
+    mimeType: string,
+    filename: string,
+  ): IngestionSourceType {
+    const extension = path.extname(filename).toLowerCase();
+
+    if (
+      mimeType.startsWith('image/') ||
+      IngestionService.imageExtensions.includes(extension)
+    ) {
+      return 'image';
+    }
+
+    if (extension === '.pdf' || mimeType === 'application/pdf') {
+      return 'pdf';
+    }
+
+    return 'receipt';
   }
 }
