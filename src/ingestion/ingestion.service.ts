@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { IngestionJobService } from './ingestion-job.service';
-import { IngestionQueueService } from './ingestion-queue.service';
-import { IngestionSourceType, INGESTION_JOB_STATUSES } from './ingestion.types';
 import * as path from 'path';
+import { IngestionJobService } from './ingestion-job.service';
+import { IngestionSourceType, INGESTION_JOB_STATUSES } from './ingestion.types';
 
 @Injectable()
 export class IngestionService {
@@ -15,10 +14,7 @@ export class IngestionService {
     '.tiff',
   ];
 
-  constructor(
-    private readonly jobService: IngestionJobService,
-    private readonly queueService: IngestionQueueService,
-  ) {}
+  constructor(private readonly jobService: IngestionJobService) {}
 
   async createJobFromUpload(file: Express.Multer.File) {
     const sourceType = this.detectSourceType(file.mimetype, file.originalname);
@@ -32,14 +28,6 @@ export class IngestionService {
         size: file.size,
         mimetype: file.mimetype,
       },
-    });
-
-    await this.queueService.enqueue({
-      jobId: job.id,
-      storagePath: job.storagePath,
-      mimeType: job.mimeType,
-      originalFilename: job.originalFilename,
-      sourceType: job.sourceType,
     });
 
     return job;

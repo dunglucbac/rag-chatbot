@@ -14,16 +14,28 @@ The design should keep the API fast, push heavy work into workers, and make it e
 ## Design decision
 
 ### Broker choice
-Use **RabbitMQ** for the workflow broker if the goal is to support multiple event types, explicit routing, retries, and future workflow expansion.
+Use **RabbitMQ** as the workflow broker.
 
-Why RabbitMQ fits this workflow better than Redis Streams:
+Why RabbitMQ fits this workflow:
 - different file types need different processing paths
 - PDF parsing, receipt extraction, and payment review are separate responsibilities
 - the system may later fan out to more than one consumer per event
 - retry and dead-letter handling are easier to organize by queue
+- routing keys and event patterns map cleanly to the ingestion lifecycle
 
-### When Redis is still acceptable
-Redis is fine for a first version if you want the simplest possible queue and already use Redis heavily. It is a good shortcut for a single background worker, but it becomes less expressive once routing and workflow branching grow.
+### Message handling style
+Use a standardized event envelope for every message and consume events with NestJS `@EventPattern()` listeners.
+
+Suggested message contract:
+- `event_id`
+- `event_type`
+- `job_id`
+- `correlation_id`
+- `attempt`
+- `created_at`
+- `payload`
+
+Keep the event type names as a TypeScript `as const` list rather than an enum so the event names remain the single source of truth.
 
 ## Proposed architecture
 
@@ -79,6 +91,13 @@ Suggested event names / routing keys:
 - `payment.review.requested`
 - `job.failed`
 
+Suggested NestJS listener style:
+- `@EventPattern('doc.pdf.parse.requested')`
+- `@EventPattern('image.classify.requested')`
+- `@EventPattern('receipt.persist.requested')`
+- `@EventPattern('payment.review.requested')`
+- `@EventPattern('job.failed')`
+
 ### 4) Python worker services
 Use Python for parsing and classification because the document/OCR tooling is richer there.
 
@@ -123,6 +142,21 @@ Optional fields for downstream classification:
 - `amount`
 - `confidence`
 - `notes`
+
+Suggested TypeScript contract:
+
+```ts
+export const INGESTION_EVENT_TYPES = [
+  'ingest.file.detected',
+  'doc.pdf.parse.requested',
+  'image.classify.requested',
+  'receipt.persist.requested',
+  'payment.review.requested',
+  'job.failed',
+] as const;
+
+export type IngestionEventType = (typeof INGESTION_EVENT_TYPES)[number];
+```
 
 Example payload shape:
 
