@@ -7,10 +7,9 @@ export default () => ({
     pass: process.env.DB_PASS,
     name: process.env.DB_NAME,
   },
-  redis: {
-    host: process.env.REDIS_HOST ?? 'localhost',
-    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-    password: process.env.REDIS_PASSWORD,
+  rabbitmq: {
+    url: process.env.RABBITMQ_URL ?? 'amqp://localhost',
+    queue: process.env.RABBITMQ_QUEUE ?? 'ingestion_jobs',
   },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',

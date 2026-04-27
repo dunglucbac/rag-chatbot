@@ -148,8 +148,8 @@ Example payload shape:
 1. Client uploads a PDF.
 2. Ingestion service detects `pdf`.
 3. Service saves the file and creates a job record.
-4. Service publishes `doc.pdf.parse.requested`.
-5. PDF parser worker tries text extraction first.
+4. Service publishes `doc.pdf.parse.requested` to RabbitMQ.
+5. PDF parser worker consumes the message and tries text extraction first.
 6. If the PDF is scanned or text is weak, worker falls back to OCR.
 7. Worker stores normalized content and metadata.
 8. Worker emits completion or failure event.
