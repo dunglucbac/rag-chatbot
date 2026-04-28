@@ -8,6 +8,10 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import amqp, { type Channel, type Connection } from 'amqplib';
 import { DispatchEnvelope } from '@modules/common/common.types';
+import {
+  MESSAGE_QUEUE_BINDINGS,
+  MESSAGE_QUEUE_EXCHANGE,
+} from '@modules/message-queue/message-queue.constants';
 
 @Injectable()
 export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
@@ -24,7 +28,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     );
     this.exchange = this.configService.get<string>(
       'rabbitmq.exchange',
-      'ingest.topic',
+      MESSAGE_QUEUE_EXCHANGE,
     );
   }
 
@@ -62,6 +66,16 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     await this.channel.assertExchange(this.exchange, 'topic', {
       durable: true,
     });
+
+    for (const binding of MESSAGE_QUEUE_BINDINGS) {
+      await this.channel.assertQueue(binding.queue, { durable: true });
+      await this.channel.bindQueue(
+        binding.queue,
+        this.exchange,
+        binding.routingKey,
+      );
+    }
+
     this.logger.log(`Connected to RabbitMQ exchange ${this.exchange}`);
   }
 
