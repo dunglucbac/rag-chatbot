@@ -5,13 +5,13 @@ import { IngestionService } from '@modules/ingestion/ingestion.service';
 import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
-import { CommonModule } from '@modules/common/common.module';
+import { MessageQueueModule } from '@modules/message-queue/message-queue.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([IngestionJob]),
     VectorStoreModule,
-    CommonModule,
+    MessageQueueModule,
   ],
   controllers: [IngestionController],
   providers: [IngestionService, IngestionJobRepository],

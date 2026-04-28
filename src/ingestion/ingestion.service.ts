@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
-import { CommonDispatchService } from '@modules/common/common-dispatch.service';
+import { MessageQueueService } from '@modules/message-queue/message-queue.service';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import {
   INGESTION_JOB_STATUSES,
@@ -20,7 +20,7 @@ export class IngestionService {
 
   constructor(
     private readonly jobRepository: IngestionJobRepository,
-    private readonly dispatchService: CommonDispatchService,
+    private readonly messageQueueService: MessageQueueService,
   ) {}
 
   async createJobFromUpload(file: Express.Multer.File) {
@@ -38,14 +38,17 @@ export class IngestionService {
       },
     });
 
-    const dispatched = this.dispatchService.dispatch('ingest.file.detected', {
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
-      sourceType,
-      fileExtension: path.extname(file.originalname).toLowerCase(),
-      fileSize: file.size,
-    });
+    const dispatched = await this.messageQueueService.dispatch(
+      'ingest.file.detected',
+      {
+        originalFilename: file.originalname,
+        storagePath: file.path,
+        mimeType: file.mimetype,
+        sourceType,
+        fileExtension: path.extname(file.originalname).toLowerCase(),
+        fileSize: file.size,
+      },
+    );
 
     return { job, event: dispatched };
   }

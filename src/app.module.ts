@@ -5,7 +5,7 @@ import configuration from './config/configuration';
 import { DatabaseModule } from '@modules/database/database.module';
 import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
 import { LlmModule } from '@modules/llm/llm.module';
-import { CommonModule } from '@modules/common/common.module';
+import { MessageQueueModule } from '@modules/message-queue/message-queue.module';
 import { IngestionModule } from '@modules/ingestion/ingestion.module';
 import { WebSearchModule } from '@modules/web-search/web-search.module';
 import { AgentModule } from './agent/agent.module';
@@ -21,7 +21,7 @@ import { AppService } from './app.service';
     DatabaseModule,
     VectorStoreModule,
     LlmModule,
-    CommonModule,
+    MessageQueueModule,
     IngestionModule,
     WebSearchModule,
     AgentModule,
