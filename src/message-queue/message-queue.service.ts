@@ -36,7 +36,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     await this.close();
   }
 
-  async dispatch<TPayload extends Record<string, unknown>>(
+  async publish<TPayload extends Record<string, unknown>>(
     eventType: string,
     payload?: TPayload,
   ): Promise<DispatchEnvelope<TPayload>> {
@@ -47,7 +47,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
       payload,
     };
 
-    await this.publish(envelope);
+    await this.sendToBroker(envelope);
 
     return envelope;
   }
@@ -65,7 +65,7 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Connected to RabbitMQ exchange ${this.exchange}`);
   }
 
-  private async publish<TPayload extends Record<string, unknown>>(
+  private async sendToBroker<TPayload extends Record<string, unknown>>(
     envelope: DispatchEnvelope<TPayload>,
   ): Promise<void> {
     if (!this.channel) {

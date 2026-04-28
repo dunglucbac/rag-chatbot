@@ -6,6 +6,8 @@ import {
   INGESTION_JOB_STATUSES,
   IngestionSourceType,
 } from '@modules/ingestion/ingestion.types';
+import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
+import { DispatchEnvelope } from '@modules/common/common.types';
 
 @Injectable()
 export class IngestionService {
@@ -18,12 +20,23 @@ export class IngestionService {
     '.tiff',
   ];
 
+  private static readonly sourceTypeUploadEvents: Record<
+    IngestionSourceType,
+    string
+  > = {
+    image: 'ingest.image.uploaded',
+    pdf: 'ingest.pdf.uploaded',
+    receipt: 'ingest.file.uploaded',
+  };
+
   constructor(
     private readonly jobRepository: IngestionJobRepository,
     private readonly messageQueueService: MessageQueueService,
   ) {}
 
-  async createJobFromUpload(file: Express.Multer.File) {
+  async createJobFromUpload(
+    file: Express.Multer.File,
+  ): Promise<{ job: IngestionJob; event: DispatchEnvelope }> {
     const sourceType = this.detectSourceType(file.mimetype, file.originalname);
     const job = await this.jobRepository.create({
       originalFilename: file.originalname,
@@ -38,17 +51,15 @@ export class IngestionService {
       },
     });
 
-    const dispatched = await this.messageQueueService.dispatch(
-      'ingest.file.detected',
-      {
-        originalFilename: file.originalname,
-        storagePath: file.path,
-        mimeType: file.mimetype,
-        sourceType,
-        fileExtension: path.extname(file.originalname).toLowerCase(),
-        fileSize: file.size,
-      },
-    );
+    const eventType = IngestionService.sourceTypeUploadEvents[sourceType];
+    const dispatched = await this.messageQueueService.publish(eventType, {
+      originalFilename: file.originalname,
+      storagePath: file.path,
+      mimeType: file.mimetype,
+      sourceType,
+      fileExtension: path.extname(file.originalname).toLowerCase(),
+      fileSize: file.size,
+    });
 
     return { job, event: dispatched };
   }

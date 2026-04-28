@@ -8,8 +8,10 @@ export default () => ({
     name: process.env.DB_NAME,
   },
   rabbitmq: {
-    url: process.env.RABBITMQ_URL ?? 'amqp://localhost',
+    url: process.env.RABBITMQ_URL ?? 'amqp://app:app123@localhost:5672',
     exchange: process.env.RABBITMQ_EXCHANGE ?? 'ingest.topic',
+    user: process.env.RABBITMQ_DEFAULT_USER ?? 'app',
+    pass: process.env.RABBITMQ_DEFAULT_PASS ?? 'app123',
   },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
