@@ -36,7 +36,7 @@ When adding new functionality, follow the same modular NestJS approach.
 
 ### Module-local structure
 
-Keep module-specific code inside the module folder.
+Keep feature-specific code inside the feature folder.
 
 Preferred layout:
 - `src/<module>/<module>.module.ts`
@@ -46,9 +46,41 @@ Preferred layout:
 - `src/<module>/dtos/`
 - `src/<module>/<module>.types.ts`
 
+### Repository pattern
+
+Use a repository layer for persistence and keep orchestration in services.
+
+Preferred pattern:
+- `src/repositories/base/base.interface.repository.ts` for shared repository contracts
+- `src/repositories/base/base.repository.ts` for shared repository behavior
+- `src/repositories/<feature>.repository.ts` for domain-specific repositories
+- `src/<feature>/<feature>.service.ts` for orchestration and workflow logic
+
+Guidelines:
+- Repositories should wrap TypeORM or other persistence concerns.
+- Services should call repositories and coordinate business flow.
+- Keep TypeORM details out of controllers and most services when possible.
+- Add domain-specific repository methods only when they are truly persistence-related.
+
+### Generic pattern
+
+Prefer shared generic helpers for repeated shapes and workflows.
+
+Examples:
+- `BaseRepositoryInterface<T>` for repository contracts
+- `BaseRepository<T>` for common CRUD behavior
+- shared pagination/sort response types in `src/common/common.types.ts`
+- common dispatch/event envelope helpers in `src/common/`
+
+Rules:
+- Use generics when the behavior is reusable across multiple modules.
+- Keep generic helpers small and predictable.
+- Do not over-abstract feature-specific logic into shared code.
+- If a helper needs domain-specific branching, keep it in the feature module instead.
+
 ### Types
 
-- Put module-scoped TypeScript types in `<module>.module.types.ts` when the module needs its own reusable type definitions.
+- Put module-scoped TypeScript types in `<module>.types.ts` when the module needs reusable type definitions.
 - Keep source-of-truth literals and unions centralized in the module type file.
 - Use shared types only when they are truly cross-module.
 - If a type is reused across modules, move it to `src/common/` instead of duplicating it.
