@@ -9,6 +9,9 @@ export const INGESTION_JOB_STATUSES = [
 ] as const;
 export type IngestionJobStatus = (typeof INGESTION_JOB_STATUSES)[number];
 
+export const INGESTION_EVENT_TYPES = ['ingest.file.detected'] as const;
+export type IngestionEventType = (typeof INGESTION_EVENT_TYPES)[number];
+
 export type IngestionJobUpdate = {
   originalFilename?: string;
   storagePath?: string;
@@ -22,10 +25,12 @@ export type IngestionJobUpdate = {
   completedAt?: Date | null;
 };
 
-export type IngestionQueuePayload = {
+export type IngestionDispatchPayload = {
   jobId: string;
+  originalFilename: string;
   storagePath: string;
   mimeType: string;
-  originalFilename: string;
   sourceType: IngestionSourceType;
+  fileExtension: string;
+  fileSize: number;
 };

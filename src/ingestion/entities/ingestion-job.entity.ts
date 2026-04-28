@@ -10,7 +10,7 @@ import {
 import type {
   IngestionJobStatus,
   IngestionSourceType,
-} from '../ingestion.types';
+} from '@modules/ingestion/ingestion.types';
 
 @Entity('ingestion_jobs')
 export class IngestionJob extends BaseEntity {

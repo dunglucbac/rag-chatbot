@@ -1,8 +1,8 @@
 import type {
   IngestionJobStatus,
   IngestionSourceType,
-} from '../ingestion.types';
-import type { IngestionJob } from '../entities/ingestion-job.entity';
+} from '@modules/ingestion/ingestion.types';
+import type { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 
 export class IngestionJobDto {
   declare id: string;
@@ -15,6 +15,7 @@ export class IngestionJobDto {
   declare createdAt: Date;
   declare updatedAt: Date;
   declare completedAt: Date | null;
+  declare metadata: Record<string, unknown> | null;
 
   static fromEntity(entity: IngestionJob): IngestionJobDto {
     const dto = new IngestionJobDto();
@@ -28,6 +29,7 @@ export class IngestionJobDto {
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;
     dto.completedAt = entity.completedAt;
+    dto.metadata = entity.metadata;
     return dto;
   }
 }

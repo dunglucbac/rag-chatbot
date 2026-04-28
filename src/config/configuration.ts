@@ -9,7 +9,7 @@ export default () => ({
   },
   rabbitmq: {
     url: process.env.RABBITMQ_URL ?? 'amqp://localhost',
-    queue: process.env.RABBITMQ_QUEUE ?? 'ingestion_jobs',
+    exchange: process.env.RABBITMQ_EXCHANGE ?? 'ingest.topic',
   },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
