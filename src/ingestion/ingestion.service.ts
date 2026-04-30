@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as path from 'path';
-import { MessageQueueService } from '@modules/message-queue/message-queue.service';
+import { MessageQueueService } from '@modules/message-queue';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import {
   INGESTION_JOB_STATUSES,

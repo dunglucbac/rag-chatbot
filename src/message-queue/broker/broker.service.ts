@@ -5,17 +5,17 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'crypto';
 import amqp, { type Channel, type Connection } from 'amqplib';
-import { DispatchEnvelope } from '@modules/common/common.types';
 import {
   MESSAGE_QUEUE_BINDINGS,
   MESSAGE_QUEUE_EXCHANGE,
 } from '@modules/message-queue/message-queue.constants';
 
 @Injectable()
-export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(MessageQueueService.name);
+export class MessageQueueBrokerService
+  implements OnModuleInit, OnModuleDestroy
+{
+  private readonly logger = new Logger(MessageQueueBrokerService.name);
   private connection?: Connection;
   private channel?: Channel;
   private readonly exchange: string;
@@ -40,25 +40,9 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     await this.close();
   }
 
-  async publish<TPayload extends Record<string, unknown>>(
-    eventType: string,
-    payload?: TPayload,
-  ): Promise<DispatchEnvelope<TPayload>> {
-    const envelope: DispatchEnvelope<TPayload> = {
-      eventId: randomUUID(),
-      eventType,
-      createdAt: new Date().toISOString(),
-      payload,
-    };
-
-    await this.sendToBroker(envelope);
-
-    return envelope;
-  }
-
-  private async connect(): Promise<void> {
+  async connect(): Promise<{ channel: Channel; exchange: string }> {
     if (this.connection && this.channel) {
-      return;
+      return { channel: this.channel, exchange: this.exchange };
     }
 
     this.connection = await amqp.connect(this.url);
@@ -77,36 +61,10 @@ export class MessageQueueService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.logger.log(`Connected to RabbitMQ exchange ${this.exchange}`);
+    return { channel: this.channel, exchange: this.exchange };
   }
 
-  private async sendToBroker<TPayload extends Record<string, unknown>>(
-    envelope: DispatchEnvelope<TPayload>,
-  ): Promise<void> {
-    if (!this.channel) {
-      await this.connect();
-    }
-
-    const payloadBuffer = Buffer.from(JSON.stringify(envelope));
-    const published = this.channel?.publish(
-      this.exchange,
-      envelope.eventType,
-      payloadBuffer,
-      {
-        contentType: 'application/json',
-        messageId: envelope.eventId,
-        timestamp: Date.now(),
-        persistent: true,
-      },
-    );
-
-    if (!published) {
-      this.logger.warn(
-        `RabbitMQ publish returned false for ${envelope.eventType}`,
-      );
-    }
-  }
-
-  private async close(): Promise<void> {
+  async close(): Promise<void> {
     await this.channel?.close().catch(() => undefined);
     await this.connection?.close().catch(() => undefined);
     this.channel = undefined;

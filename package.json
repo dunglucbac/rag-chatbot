@@ -84,6 +84,11 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
+    "moduleNameMapper": {
+      "^@modules/(.*)$": "<rootDir>/$1",
+      "^@configs/(.*)$": "<rootDir>/config/$1",
+      "^@repositories/(.*)$": "<rootDir>/repositories/$1"
+    },
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
