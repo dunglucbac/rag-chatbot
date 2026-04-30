@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { IngestionController } from './ingestion.controller';
-import { IngestionService } from './ingestion.service';
-import { VectorStoreModule } from '../vector-store/vector-store.module';
-import { IngestionJob } from './entities/ingestion-job.entity';
-import { IngestionJobService } from './ingestion-job.service';
-import { IngestionQueueService } from './ingestion-queue.service';
+import { IngestionController } from '@modules/ingestion/ingestion.controller';
+import { IngestionService } from '@modules/ingestion/ingestion.service';
+import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
+import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
+import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
+import { MessageQueueModule } from '@modules/message-queue/message-queue.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([IngestionJob]), VectorStoreModule],
+  imports: [
+    TypeOrmModule.forFeature([IngestionJob]),
+    VectorStoreModule,
+    MessageQueueModule,
+  ],
   controllers: [IngestionController],
-  providers: [IngestionService, IngestionJobService, IngestionQueueService],
-  exports: [IngestionJobService, IngestionQueueService],
+  providers: [IngestionService, IngestionJobRepository],
+  exports: [IngestionJobRepository],
 })
 export class IngestionModule {}

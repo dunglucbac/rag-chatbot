@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { IngestionJobService } from './ingestion-job.service';
-import { IngestionQueueService } from './ingestion-queue.service';
-import { IngestionSourceType, INGESTION_JOB_STATUSES } from './ingestion.types';
 import * as path from 'path';
+import { MessageQueueService } from '@modules/message-queue';
+import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
+import {
+  INGESTION_JOB_STATUSES,
+  IngestionSourceType,
+} from '@modules/ingestion/ingestion.types';
+import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
+import { DispatchEnvelope } from '@modules/common/common.types';
 
 @Injectable()
 export class IngestionService {
@@ -15,34 +20,48 @@ export class IngestionService {
     '.tiff',
   ];
 
+  private static readonly sourceTypeUploadEvents: Record<
+    IngestionSourceType,
+    string
+  > = {
+    image: 'ingest.image.uploaded',
+    pdf: 'ingest.pdf.uploaded',
+    receipt: 'ingest.file.uploaded',
+  };
+
   constructor(
-    private readonly jobService: IngestionJobService,
-    private readonly queueService: IngestionQueueService,
+    private readonly jobRepository: IngestionJobRepository,
+    private readonly messageQueueService: MessageQueueService,
   ) {}
 
-  async createJobFromUpload(file: Express.Multer.File) {
+  async createJobFromUpload(
+    file: Express.Multer.File,
+  ): Promise<{ job: IngestionJob; event: DispatchEnvelope }> {
     const sourceType = this.detectSourceType(file.mimetype, file.originalname);
-    const job = await this.jobService.create({
+    const job = await this.jobRepository.create({
       originalFilename: file.originalname,
       storagePath: file.path,
       mimeType: file.mimetype,
       sourceType,
-      status: INGESTION_JOB_STATUSES[0], //Pending
+      status: INGESTION_JOB_STATUSES[0],
       metadata: {
         size: file.size,
         mimetype: file.mimetype,
+        originalExtension: path.extname(file.originalname).toLowerCase(),
       },
     });
 
-    await this.queueService.enqueue({
-      jobId: job.id,
-      storagePath: job.storagePath,
-      mimeType: job.mimeType,
-      originalFilename: job.originalFilename,
-      sourceType: job.sourceType,
+    const eventType = IngestionService.sourceTypeUploadEvents[sourceType];
+    const dispatched = await this.messageQueueService.publish(eventType, {
+      originalFilename: file.originalname,
+      storagePath: file.path,
+      mimeType: file.mimetype,
+      sourceType,
+      fileExtension: path.extname(file.originalname).toLowerCase(),
+      fileSize: file.size,
     });
 
-    return job;
+    return { job, event: dispatched };
   }
 
   private detectSourceType(

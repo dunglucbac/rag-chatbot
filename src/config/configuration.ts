@@ -7,10 +7,13 @@ export default () => ({
     pass: process.env.DB_PASS,
     name: process.env.DB_NAME,
   },
-  redis: {
-    host: process.env.REDIS_HOST ?? 'localhost',
-    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-    password: process.env.REDIS_PASSWORD,
+  rabbitmq: {
+    url: process.env.RABBITMQ_URL ?? 'amqp://app:app123@localhost:5672',
+    exchange: process.env.RABBITMQ_EXCHANGE ?? 'ingest.topic',
+    user: process.env.RABBITMQ_DEFAULT_USER ?? 'app',
+    pass: process.env.RABBITMQ_DEFAULT_PASS ?? 'app123',
+    imageQueue: process.env.RABBITMQ_IMAGE_QUEUE ?? 'ingest.image.queue',
+    pdfQueue: process.env.RABBITMQ_PDF_QUEUE ?? 'ingest.pdf.queue',
   },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',

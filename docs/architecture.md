@@ -62,14 +62,18 @@ User message (Telegram)
 POST /ingest/file (multipart/form-data, field: "file")
   → FileInterceptor (multer diskStorage → storage/uploads/<timestamp>-<name>)
   → IngestionService.createJobFromUpload(file)
+      → detect source type from MIME type + extension
       → create `ingestion_jobs` row with status=pending
       → persist metadata about the original filename, storage path, MIME type, and source type
-      → queue background processing
+      → build a dispatch envelope with shared generic event fields
+  → CommonDispatchService.dispatch(eventType, payload)
+      → returns a standardized event envelope for later RabbitMQ publishing
+  → a future RabbitMQ publisher will send the envelope to the broker
   → job processor decides whether the file is a receipt, invoice, or generic document
       → receipt path: OCR / text extraction → merchant, date, totals, taxes, currency, line items
       → document path: chunk text → embeddings for knowledge-base search
       → normalize extracted receipt data into relational tables for analytics
-  → { message: "File queued for ingestion", job: { id, status } }
+  → { message: "File uploaded and detected", job: { id, status }, event: { ... } }
 ```
 
 ### 3. Background Web Scraper (every 6 hours)
@@ -192,6 +196,8 @@ npm run migration:revert
 ## Key Design Decisions
 
 - **Agent per invocation** — `AgentService.invoke` creates a fresh `createReactAgent` on every call rather than reusing one. This is intentional: the web search tool must close over the current `userId` to correctly attribute search logs.
+- **Repository pattern for persistence** — persistence lives behind repository classes in `src/repositories/`, while feature services handle orchestration. This keeps TypeORM and storage concerns out of controllers and keeps domain logic easier to test.
+- **Generic base repository pattern** — shared CRUD behavior should live in `BaseRepository<T>` and shared contracts should live in `BaseRepositoryInterface<T>`. Feature repositories should extend the base repository and only add domain-specific persistence methods.
 - **Receipt data is the source of truth for analytics** — itemized receipts are normalized into relational tables so the chatbot can answer spending questions reliably without re-reading raw receipt text every time.
 - **Scraper enriches the knowledge base over time** — web search results are immediately returned to the user as raw Tavily snippets, but the full page content is scraped asynchronously and added to the vector store, improving future knowledge base hits for similar queries.
 - **No conversation memory in the agent** — messages are stored in the `messages` table but the agent currently does not load prior messages as context. Each invocation is stateless from the LLM's perspective.

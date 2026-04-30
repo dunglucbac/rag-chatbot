@@ -8,12 +8,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
-import { IngestionService } from './ingestion.service';
-import { IngestionJobService } from './ingestion-job.service';
-import { IngestionJobDto } from './dto/ingestion-job.dto';
+import { diskStorage } from 'multer';
+import { IngestionService } from '@modules/ingestion/ingestion.service';
+import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
+import { IngestionJobDto } from '@modules/ingestion/dto/ingestion-job.dto';
+import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
 
 const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
@@ -21,7 +22,7 @@ const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 export class IngestionController {
   constructor(
     private readonly ingestionService: IngestionService,
-    private readonly jobService: IngestionJobService,
+    private readonly jobRepository: IngestionJobRepository,
   ) {}
 
   @Post('file')
@@ -37,17 +38,29 @@ export class IngestionController {
       }),
     }),
   )
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    const job = await this.ingestionService.createJobFromUpload(file);
+  async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<
+    ApiResponse<{
+      job: IngestionJobDto;
+      event: Awaited<
+        ReturnType<IngestionService['createJobFromUpload']>
+      >['event'];
+    }>
+  > {
+    const result = await this.ingestionService.createJobFromUpload(file);
+
     return {
-      message: 'File queued for ingestion',
-      job: IngestionJobDto.fromEntity(job),
+      status: 'success',
+      message: 'File uploaded and detected',
+      data: {
+        job: IngestionJobDto.fromEntity(result.job),
+        event: result.event,
+      },
     };
   }
 
   @Get('jobs/:id')
   async getJob(@Param('id') id: string) {
-    const job = await this.jobService.findById(id);
+    const job = await this.jobRepository.findById(id);
     if (!job) throw new NotFoundException('Ingestion job not found');
     return IngestionJobDto.fromEntity(job);
   }

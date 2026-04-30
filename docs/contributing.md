@@ -26,9 +26,48 @@ src/<feature>/
 ├── <feature>.module.ts
 ├── <feature>.service.ts
 ├── <feature>.controller.ts   (if it exposes HTTP endpoints)
-└── entities/
-    └── <entity>.entity.ts    (if it owns database tables)
+├── entities/
+│   └── <entity>.entity.ts    (if it owns database tables)
+└── dtos/
+    └── <dto>.dto.ts
 ```
+
+### Repository pattern
+
+Persistence should live behind repository classes in `src/repositories/`.
+
+Recommended structure:
+
+```
+src/repositories/
+├── base/
+│   ├── base.interface.repository.ts
+│   └── base.repository.ts
+└── <feature>.repository.ts
+```
+
+Guidelines:
+- Repositories should wrap TypeORM or other persistence concerns.
+- Feature services should orchestrate workflow and call repositories.
+- Add domain-specific repository methods only when they are persistence-related.
+- Prefer `BaseRepositoryInterface<T>` and `BaseRepository<T>` for shared CRUD behavior.
+
+### Generic pattern
+
+Use shared generic helpers when several modules need the same shape or behavior.
+
+Examples:
+- `BaseRepositoryInterface<T>` for repository contracts
+- `BaseRepository<T>` for common CRUD behavior
+- `FindAllResponse<T>` for paginated lists
+- `SortParams`, `SearchParams`, and `PaginateParams` for query helpers
+- shared dispatch/envelope helpers in `src/common/`
+
+Guidelines:
+- Keep generic helpers small and predictable.
+- Avoid over-abstracting feature-specific logic.
+- Put reusable shared types in `src/common/common.types.ts` when they are truly cross-module.
+- Prefer feature-specific code to remain in the feature module unless it is clearly reusable.
 
 ### Code style
 
