@@ -1,7 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { IngestionController } from '@modules/ingestion/ingestion.controller';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
-import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 
 describe('IngestionController', () => {
   it('returns a standardized accepted response for uploaded files', async () => {
@@ -28,21 +27,10 @@ describe('IngestionController', () => {
 
     const ingestionService = {
       createJobFromUpload: jest.fn().mockResolvedValue({ job, event: null }),
+      getJob: jest.fn(),
     } as unknown as IngestionService;
-    const jobRepository = {
-      findById: jest.fn(),
-    } as unknown as IngestionJobRepository;
 
-    const controller = new IngestionController(ingestionService, jobRepository);
-
-    const expectedJob = {
-      id: 'job-123',
-      fileId: 'file-123',
-      userId: 'user-123',
-      status: 'pending',
-      originalFilename: 'statement.pdf',
-      mimeType: 'application/pdf',
-    } as const;
+    const controller = new IngestionController(ingestionService);
 
     const result = await controller.uploadFile(
       {
@@ -59,24 +47,58 @@ describe('IngestionController', () => {
       status: 'success',
       message: 'File accepted for ingestion',
       data: {
+        job: {
+          id: 'job-123',
+          fileId: 'file-123',
+          userId: 'user-123',
+          status: 'pending',
+          originalFilename: 'statement.pdf',
+          mimeType: 'application/pdf',
+        },
         accepted: true,
       },
     });
-    expect(result.data.job).toMatchObject(expectedJob);
   });
 
-  it('wraps job lookups in the standard api response', async () => {
+  it('wraps job lookups in the standard api error', async () => {
     const ingestionService = {
       createJobFromUpload: jest.fn(),
+      getJob: jest.fn().mockRejectedValue(new NotFoundException()),
     } as unknown as IngestionService;
-    const jobRepository = {
-      findById: jest.fn().mockResolvedValue(null),
-    } as unknown as IngestionJobRepository;
 
-    const controller = new IngestionController(ingestionService, jobRepository);
+    const controller = new IngestionController(ingestionService);
 
     await expect(controller.getJob('missing')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('wraps job lookups in the standard api response', async () => {
+    const job = {
+      id: 'job-123',
+      fileId: 'file-123',
+      userId: 'user-123',
+      status: 'pending',
+      originalFilename: 'statement.pdf',
+      mimeType: 'application/pdf',
+    } as const;
+    const ingestionService = {
+      getJob: jest.fn().mockResolvedValue(job),
+    } as unknown as IngestionService;
+
+    const controller = new IngestionController(ingestionService);
+
+    const result = await controller.getJob('job-123');
+    expect(result).toMatchObject({
+      status: 'success',
+      message: 'Ingestion job fetched',
+      data: {
+        job: {
+          id: 'job-123',
+          fileId: 'file-123',
+          userId: 'user-123',
+        },
+      },
+    });
   });
 });

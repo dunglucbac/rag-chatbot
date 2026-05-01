@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
@@ -84,10 +88,21 @@ export class IngestionService {
     // for now we can fire and forget the event, we will add a retry mechanism later
     const dispatched = await this.messageQueueService.publish(
       eventType,
-      payload,
       normalizedCorrelationId,
+      1, // schema version now it is being hardcoded but later can be use to version the event
+      1, // number attempt we first start with 1
+      payload,
     );
     return { job, event: dispatched };
+  }
+
+  async getJob(id: string): Promise<IngestionJob> {
+    const job = await this.jobRepository.findById(id);
+    if (!job) {
+      throw new NotFoundException('Ingestion job not found');
+    }
+
+    return job;
   }
 
   private normalizeCorrelationId(correlationId?: string | null): string {

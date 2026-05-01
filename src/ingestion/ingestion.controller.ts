@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Headers,
-  NotFoundException,
   Param,
   Post,
   UploadedFile,
@@ -14,7 +13,6 @@ import * as path from 'path';
 import { diskStorage } from 'multer';
 import { randomUUID } from 'crypto';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
-import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { IngestionJobDto } from '@modules/ingestion/dto/ingestion-job.dto';
 import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
 
@@ -22,10 +20,7 @@ const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
 @Controller('ingest')
 export class IngestionController {
-  constructor(
-    private readonly ingestionService: IngestionService,
-    private readonly jobRepository: IngestionJobRepository,
-  ) {}
+  constructor(private readonly ingestionService: IngestionService) {}
 
   @Post('file')
   @UseInterceptors(
@@ -73,8 +68,7 @@ export class IngestionController {
   async getJob(
     @Param('id') id: string,
   ): Promise<ApiResponse<{ job: IngestionJobDto }>> {
-    const job = await this.jobRepository.findById(id);
-    if (!job) throw new NotFoundException('Ingestion job not found');
+    const job = await this.ingestionService.getJob(id);
     return {
       status: 'success',
       message: 'Ingestion job fetched',
