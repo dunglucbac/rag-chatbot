@@ -15,6 +15,7 @@ export class MessageQueueConsumer implements OnModuleInit {
     private readonly broker: MessageQueueBrokerService,
     private readonly transport: MessageQueueTransportService,
   ) {}
+
   async onModuleInit(): Promise<void> {
     const broker = await this.broker.connect();
     this.channel = broker.channel;
@@ -39,7 +40,11 @@ export class MessageQueueConsumer implements OnModuleInit {
           this.transport.handleMessage(
             this.channel as Channel,
             msg,
-            binding.queue.includes('pdf') ? 'pdf' : 'image',
+            binding.queue.includes('pdf')
+              ? 'pdf'
+              : binding.queue.includes('image')
+                ? 'image'
+                : 'status',
           ),
         { noAck: false },
       );

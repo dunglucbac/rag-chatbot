@@ -9,15 +9,25 @@ describe('MessageQueueTransportService', () => {
     const channel = { ack, nack } as never;
     const msg = {
       content: Buffer.from(
-        JSON.stringify({ eventType: 'ingest.image.uploaded' }),
+        JSON.stringify({
+          schemaVersion: 1,
+          eventType: 'image.classify.requested',
+        }),
       ),
     } as never;
 
-    new MessageQueueTransportService({
-      route,
-    } as MessageQueueRoutingService).handleMessage(channel, msg, 'image');
+    const jobRepository = {
+      updateStatus: jest.fn(),
+    } as never;
 
-    expect(route).toHaveBeenCalledWith('ingest.image.uploaded');
+    new MessageQueueTransportService(
+      {
+        route,
+      } as MessageQueueRoutingService,
+      jobRepository,
+    ).handleMessage(channel, msg, 'image');
+
+    expect(route).toHaveBeenCalledWith('image.classify.requested');
     expect(ack).toHaveBeenCalledWith(msg);
     expect(nack).not.toHaveBeenCalled();
   });
@@ -28,9 +38,16 @@ describe('MessageQueueTransportService', () => {
     const channel = { ack, nack } as never;
     const msg = { content: Buffer.from('{') } as never;
 
-    new MessageQueueTransportService({
-      route: jest.fn(),
-    } as MessageQueueRoutingService).handleMessage(channel, msg, 'pdf');
+    const jobRepository = {
+      updateStatus: jest.fn(),
+    } as never;
+
+    new MessageQueueTransportService(
+      {
+        route: jest.fn(),
+      } as MessageQueueRoutingService,
+      jobRepository,
+    ).handleMessage(channel, msg, 'pdf');
 
     expect(nack).toHaveBeenCalledWith(msg, false, false);
     expect(ack).not.toHaveBeenCalled();
