@@ -1,10 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 import { MessageQueueService } from '@modules/message-queue';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import {
   INGESTION_JOB_STATUSES,
-  IngestionSourceType,
+  type IngestionClassification,
+  type IngestionFileType,
 } from '@modules/ingestion/ingestion.types';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { DispatchEnvelope } from '@modules/common/common.types';
@@ -20,15 +27,6 @@ export class IngestionService {
     '.tiff',
   ];
 
-  private static readonly sourceTypeUploadEvents: Record<
-    IngestionSourceType,
-    string
-  > = {
-    image: 'ingest.image.uploaded',
-    pdf: 'ingest.pdf.uploaded',
-    receipt: 'ingest.file.uploaded',
-  };
-
   constructor(
     private readonly jobRepository: IngestionJobRepository,
     private readonly messageQueueService: MessageQueueService,
@@ -36,38 +34,72 @@ export class IngestionService {
 
   async createJobFromUpload(
     file: Express.Multer.File,
+    userId: string,
+    correlationId: string,
+    sourceContext?: Record<string, unknown> | null,
   ): Promise<{ job: IngestionJob; event: DispatchEnvelope }> {
-    const sourceType = this.detectSourceType(file.mimetype, file.originalname);
+    const fileType = this.detectFileType(file.mimetype, file.originalname);
+    const classification: IngestionClassification = 'unknown';
+    const checksumSha256 = this.computeChecksum(file.path);
+    const fileId = this.deriveFileId(file.path);
+    const eventType =
+      fileType === 'pdf'
+        ? 'doc.pdf.parse.requested'
+        : 'image.classify.requested';
+
     const job = await this.jobRepository.create({
+      userId,
+      fileId,
       originalFilename: file.originalname,
       storagePath: file.path,
       mimeType: file.mimetype,
-      sourceType,
+      fileType,
+      classification,
       status: INGESTION_JOB_STATUSES[0],
+      checksumSha256,
+      correlationId,
       metadata: {
         size: file.size,
         mimetype: file.mimetype,
         originalExtension: path.extname(file.originalname).toLowerCase(),
+        sourceContext: sourceContext ?? null,
       },
     });
 
-    const eventType = IngestionService.sourceTypeUploadEvents[sourceType];
-    const dispatched = await this.messageQueueService.publish(eventType, {
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
-      sourceType,
-      fileExtension: path.extname(file.originalname).toLowerCase(),
-      fileSize: file.size,
-    });
+    const event = await this.messageQueueService.publish(
+      eventType,
+      {
+        jobId: job.id,
+        fileId,
+        userId,
+        fileType,
+        classification,
+        originalFilename: file.originalname,
+        storagePath: file.path,
+        mimeType: file.mimetype,
+        fileExtension: path.extname(file.originalname).toLowerCase(),
+        fileSize: file.size,
+        checksumSha256,
+        sourceContext: sourceContext ?? null,
+      },
+      correlationId,
+    );
 
-    return { job, event: dispatched };
+    return { job, event };
   }
 
-  private detectSourceType(
+  async getJobById(id: string): Promise<IngestionJob> {
+    const job = await this.jobRepository.findById(id);
+    if (!job) {
+      throw new NotFoundException('Ingestion job not found');
+    }
+    return job;
+  }
+
+  private detectFileType(
     mimeType: string,
     filename: string,
-  ): IngestionSourceType {
+  ): IngestionFileType {
     const extension = path.extname(filename).toLowerCase();
 
     if (
@@ -81,6 +113,16 @@ export class IngestionService {
       return 'pdf';
     }
 
-    return 'receipt';
+    throw new BadRequestException('Unsupported file type');
+  }
+
+  private computeChecksum(filePath: string): string {
+    const hash = crypto.createHash('sha256');
+    hash.update(fs.readFileSync(filePath));
+    return hash.digest('hex');
+  }
+
+  private deriveFileId(filePath: string): string {
+    return path.basename(filePath, path.extname(filePath));
   }
 }

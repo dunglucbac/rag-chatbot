@@ -1,7 +1,7 @@
 import {
   Controller,
   Get,
-  NotFoundException,
+  Headers,
   Param,
   Post,
   UploadedFile,
@@ -11,19 +11,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { diskStorage } from 'multer';
+import { randomUUID } from 'crypto';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
-import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
-import { IngestionJobDto } from '@modules/ingestion/dto/ingestion-job.dto';
-import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
 
 const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
 @Controller('ingest')
 export class IngestionController {
-  constructor(
-    private readonly ingestionService: IngestionService,
-    private readonly jobRepository: IngestionJobRepository,
-  ) {}
+  constructor(private readonly ingestionService: IngestionService) {}
 
   @Post('file')
   @UseInterceptors(
@@ -34,34 +29,35 @@ export class IngestionController {
           cb(null, uploadDir);
         },
         filename: (_req, file, cb) =>
-          cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`),
+          cb(
+            null,
+            `${randomUUID()}${path.extname(file.originalname).toLowerCase()}`,
+          ),
       }),
     }),
   )
-  async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<
-    ApiResponse<{
-      job: IngestionJobDto;
-      event: Awaited<
-        ReturnType<IngestionService['createJobFromUpload']>
-      >['event'];
-    }>
-  > {
-    const result = await this.ingestionService.createJobFromUpload(file);
-
-    return {
-      status: 'success',
-      message: 'File uploaded and detected',
-      data: {
-        job: IngestionJobDto.fromEntity(result.job),
-        event: result.event,
-      },
-    };
+  uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Headers('x-correlation-id') correlationIdHeader?: string,
+  ) {
+    const correlationId = this.normalizeCorrelationId(correlationIdHeader);
+    return this.ingestionService.createJobFromUpload(
+      file,
+      'anonymous',
+      correlationId,
+    );
   }
 
   @Get('jobs/:id')
-  async getJob(@Param('id') id: string) {
-    const job = await this.jobRepository.findById(id);
-    if (!job) throw new NotFoundException('Ingestion job not found');
-    return IngestionJobDto.fromEntity(job);
+  getJob(@Param('id') id: string) {
+    return this.ingestionService.getJobById(id);
+  }
+
+  private normalizeCorrelationId(value?: string): string {
+    const trimmed = value?.trim();
+    if (trimmed && /^[A-Za-z0-9_-]{1,64}$/.test(trimmed)) {
+      return trimmed;
+    }
+    return randomUUID();
   }
 }

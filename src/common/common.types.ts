@@ -29,5 +29,8 @@ export type DispatchEnvelope<
   eventId: string;
   eventType: string;
   createdAt: string;
+  schemaVersion: number;
+  attempt: number;
+  correlationId: string;
   payload?: TPayload;
 };

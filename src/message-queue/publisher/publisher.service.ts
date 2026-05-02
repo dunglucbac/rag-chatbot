@@ -9,17 +9,23 @@ export class MessageQueueService {
 
   async publish<TPayload extends Record<string, unknown>>(
     eventType: string,
-    payload?: TPayload,
+    payload: TPayload,
+    correlationId: string,
+    schemaVersion: number = 1,
+    attempt: number = 1,
   ): Promise<DispatchEnvelope<TPayload>> {
     const envelope: DispatchEnvelope<TPayload> = {
+      schemaVersion: schemaVersion,
       eventId: randomUUID(),
       eventType,
+      correlationId,
+      attempt: attempt,
       createdAt: new Date().toISOString(),
       payload,
     };
 
     const { channel, exchange } = await this.broker.connect();
-    const published = channel.publish(
+    channel.publish(
       exchange,
       envelope.eventType,
       Buffer.from(JSON.stringify(envelope)),
@@ -30,10 +36,6 @@ export class MessageQueueService {
         persistent: true,
       },
     );
-
-    if (!published) {
-      // intentionally left to preserve existing behavior without coupling to logger here
-    }
 
     return envelope;
   }
