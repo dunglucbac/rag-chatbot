@@ -1,291 +1,323 @@
-# Ingestion Plan: PDFs, Receipts, and OCR
+# Ingestion PRD: Async Upload, Job Tracking, and Event Contract
 
-## Goal
-Build an ingestion pipeline that can handle:
+## Problem Statement
 
-- text-based PDFs
-- scanned PDFs
-- uploaded receipt images (`.png`, `.jpg`, `.webp`)
-- payment screenshots
-- future document types without rewriting the pipeline
+The ingestion service needs to accept user-uploaded files quickly while deferring expensive parsing, OCR, classification, chunking, and persistence work to asynchronous workers. The current implementation has the beginnings of RabbitMQ bindings and an `ingestion_jobs` table, but the event names and message payloads are not yet aligned with the desired workflow contract.
 
-The design should keep the API fast, push heavy work into workers, and make it easy to add more extraction or classification steps later.
+The next implementation slice should make ingestion reliable enough to support future PDF parsing, image classification, receipt extraction, payment screenshot review, and Telegram/webhook uploads without forcing a redesign of the API or queue contract.
 
-## Design decision
+## Solution
 
-### Broker choice
-Use **RabbitMQ** as the workflow broker.
+Build the first stable ingestion slice around asynchronous upload acceptance and job orchestration.
 
-Why RabbitMQ fits this workflow:
-- different file types need different processing paths
-- PDF parsing, receipt extraction, and payment review are separate responsibilities
-- the system may later fan out to more than one consumer per event
-- retry and dead-letter handling are easier to organize by queue
-- routing keys and event patterns map cleanly to the ingestion lifecycle
+The API will:
 
-### Message handling style
-Use a standardized event envelope for every message and consume events with NestJS `@EventPattern()` listeners.
+- Accept PDF and image uploads.
+- Store each uploaded file persistently.
+- Generate an immutable `file_id` for every new uploaded file.
+- Create an `ingestion_job` record tied to a strict `user_id`, `file_id`, `file_type`, and `classification`.
+- Compute and store a SHA-256 checksum for the uploaded file.
+- Publish a direct requested-work event to RabbitMQ.
+- Return a standardized response containing the accepted job, not the full broker message.
+- Expose a standardized job-status endpoint.
 
-Suggested message contract:
+Workers will be added later. The first slice should define event contracts so Python workers can consume requested-work events and eventually publish status/result events back to NestJS. NestJS should own database status updates; workers should not write directly to Postgres.
+
+## User Stories
+
+1. As an API client, I want to upload a PDF and receive a job id immediately, so that the request remains fast while parsing happens asynchronously.
+2. As an API client, I want to upload an image and receive a job id immediately, so that OCR and classification can happen asynchronously.
+3. As an API client, I want the upload response to follow the shared API response shape, so that client handling is consistent.
+4. As an API client, I want the upload response to include the job and accepted state, so that I know the file was queued for ingestion.
+5. As an API client, I do not want to receive internal broker payloads in the upload response, so that the public API stays stable and implementation details remain hidden.
+6. As an API client, I want to query an ingestion job by id, so that I can poll for status after upload.
+7. As an API client, I want the job-status response to use the same API wrapper as uploads, so that response handling is predictable.
+8. As a future authenticated user, I want every job to be tied to a user id, so that ownership can be enforced once authentication is added.
+9. As a future Telegram/webhook integration, I want each uploaded file to receive a backend-generated immutable file id, so that webhook-delivered files can be processed consistently.
+10. As a future Telegram/webhook integration, I want optional source context to travel with the job and event, so that platform-specific metadata can be attached without changing the core ingestion contract.
+11. As a backend operator, I want unsupported file types rejected before a job is created, so that invalid work does not enter the queue.
+12. As a backend operator, I want each uploaded file to have a checksum, so that duplicate detection and file verification can be added later.
+13. As a backend operator, I want the job to remain `pending` until a worker starts processing, so that status reflects the real lifecycle.
+14. As a backend operator, I want publish failures to mark the job as `failed`, so that jobs do not silently disappear when RabbitMQ is unavailable.
+15. As a backend operator, I want upload success to require successful broker publication, so that `accepted: true` means worker processing has actually been requested.
+16. As a Python worker author, I want stable requested-work event names, so that each worker has a clear responsibility.
+17. As a Python worker author, I want `routingKey` and message-body `event_type` to match, so that messages can be replayed, inspected, and validated safely.
+18. As a Python worker author, I want every message to include a schema version, so that workers can evolve safely as the ingestion contract changes.
+19. As a Python worker author, I want domain identifiers such as `job_id`, `file_id`, and `user_id` in the event payload, so that message metadata remains separate from application data.
+20. As a system maintainer, I want NestJS to own database status updates, so that workers do not need direct Postgres access.
+21. As a system maintainer, I want future worker result/status events defined early, so that the requested-work contract has a clear path to completion handling.
+22. As a developer, I want the current `source_type` concept split into `file_type` and `classification`, so that file containers and document meaning are not conflated.
+23. As a developer, I want images and PDFs routed to direct requested-work events, so that the first worker step is explicit.
+24. As a developer, I want correlation ids generated or propagated, so that all events for an upload can be traced together.
+25. As a developer, I want invalid supplied correlation ids normalized by generating a new id, so that tracing stays safe without rejecting otherwise valid uploads.
+
+## Implementation Decisions
+
+### Scope of this slice
+
+This slice covers asynchronous upload acceptance, persistent job tracking, standardized API responses, and a stable RabbitMQ event contract. It does not implement PDF parsing, OCR, image classification, receipt persistence, payment review, or worker result consumers yet.
+
+### File acceptance
+
+The upload API should accept:
+
+- PDFs identified by MIME type or `.pdf` extension.
+- Images identified by image MIME type or supported extensions such as `.png`, `.jpg`, `.jpeg`, `.webp`, `.tif`, and `.tiff`.
+
+Unsupported file types should be rejected synchronously with a normal NestJS bad-request error. No job should be created and no event should be published for unsupported uploads.
+
+### File identity
+
+Every uploaded file should receive a backend-generated immutable `file_id`.
+
+For the first implementation, Multer should generate a UUID-based filename and the service may derive the `file_id` from the saved filename. The system should not allow callers to supply or replace `file_id` values. If replacement or deduplication is needed later, it should be modeled separately with checksums, source metadata, or explicit supersession fields.
+
+### User identity
+
+`user_id` should be required in the service contract, job record, and event payload. The controller should pass `user_id` into the ingestion service. Until authentication is added, the controller may use a temporary source for `user_id`; later this should be replaced with the authenticated request user without changing the service contract.
+
+### Job schema
+
+The ingestion job model should support:
+
+- `id`
+- `user_id`
+- `file_id`
+- `original_filename`
+- `storage_path`
+- `mime_type`
+- `file_type`
+- `classification`
+- `status`
+- `checksum_sha256`
+- `correlation_id`
+- `error_message`
+- `metadata`
+- `extracted_text`
+- `chunk_count`
+- `created_at`
+- `updated_at`
+- `completed_at`
+
+`source_type` should be replaced or evolved into two separate concepts:
+
+- `file_type`: `pdf` or `image`
+- `classification`: `receipt`, `payment`, `document`, or `unknown`
+
+At upload time, `classification` should default to `unknown`.
+
+### Job statuses
+
+Use five user-facing domain statuses:
+
+- `pending`: upload accepted and requested-work event published; no worker has started yet.
+- `processing`: a worker has started processing the job.
+- `needs_review`: the job requires user input or manual review.
+- `completed`: ingestion completed successfully.
+- `failed`: ingestion failed terminally.
+
+Operational states such as retrying, dead-lettered, queued, and cancelled are out of scope for the first slice.
+
+### Checksum
+
+The service should compute a SHA-256 checksum after the file is saved and before publishing the event. Store it as `checksum_sha256` and include it in the event payload. The first slice should not reject duplicates; checksum-based deduplication can be added later.
+
+### Source context
+
+The ingestion contract should support optional `source_context` metadata. This should be generic JSON rather than Telegram-specific fields.
+
+Examples of future source context include:
+
+- source platform
+- external file id
+- chat or conversation id
+- message id
+- webhook update id
+
+For the current upload endpoint, `source_context` may be absent or null.
+
+### Correlation id
+
+The upload endpoint should support an optional `x-correlation-id` header. If present, the backend should trim and validate it with a conservative maximum length and safe-character policy. If it is absent or invalid, the backend should generate a new UUID instead of rejecting the upload.
+
+The selected correlation id should be stored on the job and included in the event envelope.
+
+### Queue topology and event names
+
+Use RabbitMQ with the existing topic exchange concept. The first slice should publish direct requested-work events rather than generic uploaded events.
+
+Requested-work events:
+
+- `doc.pdf.parse.requested`
+- `image.classify.requested`
+
+Future status/result events should be defined in the contract, but consumers do not need to be implemented in this slice:
+
+- `job.processing.started`
+- `doc.pdf.parse.completed`
+- `image.classify.completed`
+- `job.failed`
+
+PDF uploads should publish `doc.pdf.parse.requested`.
+
+Image uploads should publish `image.classify.requested`.
+
+### Event envelope
+
+Every ingestion event should use a strict versioned envelope. The RabbitMQ routing key must match the envelope `event_type`.
+
+Envelope metadata should include:
+
+- `schema_version`
 - `event_id`
 - `event_type`
-- `job_id`
 - `correlation_id`
 - `attempt`
 - `created_at`
 - `payload`
 
-Keep the event type names as a TypeScript `as const` list rather than an enum so the event names remain the single source of truth.
+Domain data belongs in `payload`, including:
 
-## Proposed architecture
-
-### 1) NestJS API layer
-- Accept file uploads from the client.
-- Store files in persistent storage instead of deleting them immediately.
-- Create an `ingestion_job` record in Postgres.
-- Publish a message to the broker.
-- Return the job id immediately so the request stays fast.
-
-### 2) Postgres job tracking
-Use a table to track ingestion lifecycle.
-
-Suggested statuses:
-- `pending`
-- `processing`
-- `needs_review`
-- `completed`
-- `failed`
-
-Suggested fields:
-- `id`
+- `job_id`
+- `file_id`
+- `user_id`
+- `file_type`
+- `classification`
 - `original_filename`
 - `storage_path`
 - `mime_type`
-- `file_type` (`pdf`, `image`)
-- `classification` (`receipt`, `payment`, `document`, `unknown`)
-- `status`
-- `error_message`
-- `created_at`
-- `updated_at`
-- `completed_at`
-
-### 3) Queue topology
-Use one topic exchange and route by event type.
-
-Suggested exchange:
-- `ingest.topic`
-
-Suggested queues:
-- `queue.doc.pdf.parse`
-- `queue.image.classify`
-- `queue.receipt.persist`
-- `queue.payment.review`
-- `queue.retry.*`
-- `queue.dlq.*`
-
-Suggested event names / routing keys:
-- `ingest.file.detected`
-- `doc.pdf.parse.requested`
-- `image.classify.requested`
-- `receipt.persist.requested`
-- `payment.review.requested`
-- `job.failed`
-
-Suggested NestJS listener style:
-- `@EventPattern('doc.pdf.parse.requested')`
-- `@EventPattern('image.classify.requested')`
-- `@EventPattern('receipt.persist.requested')`
-- `@EventPattern('payment.review.requested')`
-- `@EventPattern('job.failed')`
-
-### 4) Python worker services
-Use Python for parsing and classification because the document/OCR tooling is richer there.
-
-Recommended worker split:
-- PDF parser worker
-- image classifier worker
-- receipt persistence worker
-- payment review worker
-- retry / dead-letter handler
-
-## Message payload
-
-Keep every message wrapped in a common envelope.
-
-Common fields:
-- `event_id`
-- `event_type`
-- `user_id`
-- `job_id`
-- `file_id`
-- `file_type`
-- `storage_uri`
-- `mime_type`
-- `correlation_id`
-- `attempt`
-- `created_at`
-
-Optional fields for PDFs:
-- `page_count`
-- `checksum`
-- `parse_hint`
-
-Optional fields for images:
-- `image_width`
-- `image_height`
-- `ocr_hint`
+- `file_extension`
+- `file_size`
+- `checksum_sha256`
 - `source_context`
 
-Optional fields for downstream classification:
-- `classification`
-- `merchant`
-- `amount`
-- `confidence`
-- `notes`
+`schema_version` should start at `1`.
 
-Suggested TypeScript contract:
+### Publish behavior
 
-```ts
-export const INGESTION_EVENT_TYPES = [
-  'ingest.file.detected',
-  'doc.pdf.parse.requested',
-  'image.classify.requested',
-  'receipt.persist.requested',
-  'payment.review.requested',
-  'job.failed',
-] as const;
+The direct create-then-publish approach is acceptable for this slice.
 
-export type IngestionEventType = (typeof INGESTION_EVENT_TYPES)[number];
-```
+The service should:
 
-Example payload shape:
+1. Create the job as `pending`.
+2. Publish the requested-work event.
+3. Return success only if publishing succeeds.
+4. If publishing fails, mark the job as `failed` with an error message and return an error to the caller.
 
-```json
-{
-  "event_id": "evt_123",
-  "event_type": "doc.pdf.parse.requested",
-  "user_id": "user_7",
-  "job_id": "job_abc",
-  "file_id": "file_abc",
-  "file_type": "pdf",
-  "storage_uri": "s3://bucket/file.pdf",
-  "mime_type": "application/pdf",
-  "correlation_id": "req_99",
-  "attempt": 1,
-  "created_at": "2026-04-27T10:00:00Z"
-}
-```
+A transactional outbox is intentionally deferred. The event envelope should be designed so an outbox publisher can publish the same message shape later.
 
-## Workflow by file type
+### Worker status model
 
-### PDF workflow
-1. Client uploads a PDF.
-2. Ingestion service detects `pdf`.
-3. Service saves the file and creates a job record.
-4. Service publishes `doc.pdf.parse.requested` to RabbitMQ.
-5. PDF parser worker consumes the message and tries text extraction first.
-6. If the PDF is scanned or text is weak, worker falls back to OCR.
-7. Worker stores normalized content and metadata.
-8. Worker emits completion or failure event.
+Future Python workers should not write directly to Postgres. They should publish status/result events back to RabbitMQ, and NestJS should consume those events and update job status.
 
-### Image workflow
-1. Client uploads an image.
-2. Ingestion service detects image type.
-3. Service publishes `image.classify.requested`.
-4. Image classifier worker decides whether the image is a receipt or a payment screenshot.
-5. If it is a receipt, worker publishes `receipt.persist.requested`.
-6. If it is a banking or payment screenshot, worker publishes `payment.review.requested`.
-7. If classification confidence is low, route to review instead of auto-saving.
+For this slice, define the contract and leave consumers for a later implementation phase.
 
-### Receipt workflow
-1. Receipt is classified.
-2. Receipt persistence worker extracts structured fields if available.
-3. Worker saves receipt data linked to the user/account.
-4. Worker marks the job complete.
+### API responses
 
-### Payment screenshot workflow
-1. Image is classified as a payment or banking transaction screenshot.
-2. Review worker creates a pending follow-up task.
-3. The app later asks the user what they spent.
-4. Once the user confirms, the transaction can be categorized and stored.
+Keep `ApiResponse<TData>` as the standard wrapper.
 
-## OCR strategy
-Docling supports OCR for scanned PDFs and embedded bitmaps.
-It can work with multiple OCR engines:
+The upload endpoint should return a dedicated upload-accepted response containing:
 
-- EasyOCR
-- Tesseract
-- RapidOCR
-- OcrMac
+- `job`
+- `accepted: true`
 
-Recommended approach:
+The upload response should not return the full broker event envelope.
 
-### Primary OCR choice
-Start with one OCR engine that is easiest to deploy in your environment.
+The job-status endpoint should return a separate standardized job response.
 
-Good defaults:
-- **Tesseract** if you want a mature open-source baseline
-- **RapidOCR** if you want a lightweight modern option
-- **OcrMac** if you are targeting local macOS developer workflows
+Both responses should use the shared API response wrapper.
 
-### Fallback strategy
-- Try direct PDF text extraction first.
-- If little or no text is found, fall back to OCR.
-- Use OCR for receipt images and scanned PDFs automatically.
+## Testing Decisions
 
-### Why OCR matters for receipts
-Receipts often contain:
-- tiny text
-- skewed scans
-- low-contrast photos
-- embedded bitmap text inside PDFs
+Tests should focus on externally visible behavior rather than implementation details.
 
-That is exactly where OCR adds value.
+Good tests for this slice should verify:
 
-## What to store in the vector database
-For each chunk, keep metadata such as:
-- source job id
-- file name
-- page number
-- chunk index
-- document type
-- OCR engine used
-- confidence / extraction notes if available
+- A supported PDF upload creates a pending job and publishes `doc.pdf.parse.requested`.
+- A supported image upload creates a pending job and publishes `image.classify.requested`.
+- The published routing key matches the envelope `event_type`.
+- The event envelope includes `schema_version`, `event_id`, `correlation_id`, `attempt`, `created_at`, and a payload with `job_id`, `file_id`, `user_id`, file metadata, checksum, and classification.
+- Unsupported uploads are rejected and do not create jobs or publish events.
+- Upload success does not expose the full event payload.
+- Upload response uses the standardized API wrapper and includes `accepted: true`.
+- Job-status response uses the standardized API wrapper.
+- Invalid `x-correlation-id` values result in generated correlation ids rather than rejected uploads.
+- Publish failure marks the job as `failed` and causes the upload endpoint to return an error.
 
-This will make search, debugging, and reprocessing much easier.
+Modules worth testing in isolation:
 
-## Why this design is better than synchronous ingestion
-- Handles large files safely
-- Supports scanned PDFs and receipts
-- Works across multiple app instances
-- Enables retries and failure tracking
-- Keeps NestJS responsive
-- Lets Python own the complex parsing logic
-- Makes future receipt and payment workflows easy to add
+- File type detection.
+- Correlation id normalization.
+- Event envelope construction.
+- Upload orchestration in the ingestion service.
 
-## Implementation phases
+Integration tests should cover the controller/service boundary and verify standardized response shapes.
 
-### Phase 1
-- Add ingestion job table
-- Change upload flow to store files persistently
-- Return job id immediately
-- Add queue publish on upload
+## Out of Scope
 
-### Phase 2
-- Add broker producer in NestJS
-- Add Python worker consumers
-- Implement status updates and retries
+The following are out of scope for this slice:
 
-### Phase 3
-- Integrate Docling parsing
-- Add OCR fallback for scanned PDFs and images
-- Add receipt-specific metadata extraction
-- Add payment screenshot classification path
+- Authentication and ownership enforcement.
+- Telegram webhook implementation.
+- Uploaded files table.
+- File replacement or caller-supplied file ids.
+- Checksum-based deduplication.
+- Transactional outbox publishing.
+- PDF parsing implementation.
+- OCR implementation.
+- Image classification implementation.
+- Receipt extraction and persistence.
+- Payment screenshot review flow.
+- Worker result/status event consumers.
+- Retry queues, dead-letter queues, and monitoring dashboards.
+- Vector database chunking and embedding changes.
 
-### Phase 4
-- Add dead-letter handling and monitoring
-- Improve chunk metadata and search quality
-- Add user review flow for payment screenshots
+## Further Notes
 
-## Suggested next step
-Implement the job table, routing keys, and upload/status API first, then wire in the Python workers and OCR pipeline.
+This design intentionally keeps the first implementation slice small while making the contract strict enough for future workers and webhook ingestion. The most important architectural decisions are:
+
+- `file_id` is immutable and backend-generated.
+- `user_id` is required in the service, database, and event payload even before authentication is fully implemented.
+- `job_id`, `file_id`, and `user_id` are domain payload data, not envelope metadata.
+- `event_type` is duplicated in the message body and RabbitMQ routing key intentionally.
+- `file_type` and `classification` are separate fields.
+- Upload success means the requested-work event was published successfully.
+- NestJS remains the owner of job status updates; Python workers communicate results through events.
+
+## Suggested Implementation Phases
+
+### Phase 1: Async upload and event contract
+
+- Add strict event constants and envelope types.
+- Update queue bindings to requested-work routing keys.
+- Add `file_id`, `user_id`, `file_type`, `classification`, `checksum_sha256`, and `correlation_id` to jobs.
+- Generate UUID filenames and derive immutable `file_id`.
+- Compute checksums.
+- Publish direct requested-work events.
+- Standardize upload and job-status responses.
+
+### Phase 2: Worker result/status events
+
+- Add NestJS consumers for worker status/result events.
+- Enforce valid job status transitions.
+- Handle worker failures through `job.failed`.
+
+### Phase 3: PDF parsing and OCR
+
+- Add Python PDF parser worker.
+- Extract direct text first.
+- Fall back to OCR for scanned PDFs.
+- Store normalized content and metadata.
+
+### Phase 4: Image classification and receipt/payment workflows
+
+- Add image classifier worker.
+- Route receipts to receipt persistence.
+- Route payment screenshots or low-confidence results to review.
+
+### Phase 5: Reliability and operations
+
+- Add transactional outbox.
+- Add retry and dead-letter handling.
+- Add monitoring and operational dashboards.
+- Add checksum-based deduplication if needed.
