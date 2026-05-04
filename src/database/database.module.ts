@@ -1,22 +1,24 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
+import { WebSearchLog } from '@modules/web-search/entities/web-search-log.entity';
+import { Message } from '@modules/conversation/entities/message.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('db.host'),
-        port: config.get<number>('db.port'),
-        username: config.get<string>('db.user'),
-        password: config.get<string>('db.pass'),
-        database: config.get<string>('db.name'),
-        autoLoadEntities: true,
+        host: configService.get('db.host'),
+        port: configService.get('db.port'),
+        username: configService.get('db.user'),
+        password: configService.get('db.pass'),
+        database: configService.get('db.name'),
+        entities: [IngestionJob, WebSearchLog, Message],
         synchronize: false,
-        migrations: ['src/database/migrations/*.ts'],
-        migrationsRun: true,
+        logging: false,
       }),
     }),
   ],
