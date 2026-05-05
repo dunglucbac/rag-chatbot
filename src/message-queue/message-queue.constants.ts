@@ -5,14 +5,6 @@ export const MESSAGE_QUEUE_STATUS_QUEUE = 'ingest.status.queue';
 
 export const MESSAGE_QUEUE_BINDINGS = [
   {
-    queue: MESSAGE_QUEUE_IMAGE_QUEUE,
-    routingKey: 'image.classify.requested',
-  },
-  {
-    queue: MESSAGE_QUEUE_PDF_QUEUE,
-    routingKey: 'doc.pdf.parse.requested',
-  },
-  {
     queue: MESSAGE_QUEUE_STATUS_QUEUE,
     routingKey: 'job.processing.started',
   },

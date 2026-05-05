@@ -88,10 +88,10 @@ export class IngestionService {
     // for now we can fire and forget the event, we will add a retry mechanism later
     const dispatched = await this.messageQueueService.publish(
       eventType,
+      payload,
       normalizedCorrelationId,
       1, // schema version now it is being hardcoded but later can be use to version the event
       1, // number attempt we first start with 1
-      payload,
     );
     return { job, event: dispatched };
   }

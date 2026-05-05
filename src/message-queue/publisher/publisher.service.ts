@@ -11,13 +11,15 @@ export class MessageQueueService {
     eventType: string,
     payload: TPayload,
     correlationId: string,
+    schemaVersion: number,
+    attempt: number,
   ): Promise<DispatchEnvelope<TPayload>> {
     const envelope: DispatchEnvelope<TPayload> = {
-      schemaVersion: 1,
+      schemaVersion: schemaVersion,
       eventId: randomUUID(),
       eventType,
       correlationId,
-      attempt: 1,
+      attempt: attempt,
       createdAt: new Date().toISOString(),
       payload,
     };
