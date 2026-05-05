@@ -1,15 +1,22 @@
 import type {
+  IngestionClassification,
+  IngestionFileType,
   IngestionJobStatus,
-  IngestionSourceType,
 } from '@modules/ingestion/ingestion.types';
 import type { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 
 export class IngestionJobDto {
   declare id: string;
+  declare fileId: string;
+  declare userId: string;
   declare originalFilename: string;
+  declare storagePath: string;
   declare mimeType: string;
-  declare sourceType: IngestionSourceType;
+  declare fileType: IngestionFileType;
+  declare classification: IngestionClassification;
   declare status: IngestionJobStatus;
+  declare checksumSha256: string | null;
+  declare correlationId: string | null;
   declare errorMessage: string | null;
   declare chunkCount: number;
   declare createdAt: Date;
@@ -20,10 +27,16 @@ export class IngestionJobDto {
   static fromEntity(entity: IngestionJob): IngestionJobDto {
     const dto = new IngestionJobDto();
     dto.id = entity.id;
+    dto.fileId = entity.fileId;
+    dto.userId = entity.userId;
     dto.originalFilename = entity.originalFilename;
+    dto.storagePath = entity.storagePath;
     dto.mimeType = entity.mimeType;
-    dto.sourceType = entity.sourceType;
+    dto.fileType = entity.fileType;
+    dto.classification = entity.classification;
     dto.status = entity.status;
+    dto.checksumSha256 = entity.checksumSha256;
+    dto.correlationId = entity.correlationId;
     dto.errorMessage = entity.errorMessage;
     dto.chunkCount = entity.chunkCount;
     dto.createdAt = entity.createdAt;

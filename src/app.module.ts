@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
-import { DatabaseModule } from '@modules/database/database.module';
+import { DatabaseModule } from './database/database.module';
 import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
 import { LlmModule } from '@modules/llm/llm.module';
 import { MessageQueueModule } from '@modules/message-queue/message-queue.module';

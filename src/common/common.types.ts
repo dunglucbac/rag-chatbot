@@ -26,6 +26,9 @@ export type PaginateParams = {
 export type DispatchEnvelope<
   TPayload extends Record<string, unknown> = Record<string, unknown>,
 > = {
+  schemaVersion: number;
+  correlationId: string;
+  attempt: number;
   eventId: string;
   eventType: string;
   createdAt: string;

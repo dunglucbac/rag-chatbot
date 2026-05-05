@@ -9,11 +9,17 @@ export class MessageQueueService {
 
   async publish<TPayload extends Record<string, unknown>>(
     eventType: string,
-    payload?: TPayload,
+    payload: TPayload,
+    correlationId: string,
+    schemaVersion: number,
+    attempt: number,
   ): Promise<DispatchEnvelope<TPayload>> {
     const envelope: DispatchEnvelope<TPayload> = {
+      schemaVersion: schemaVersion,
       eventId: randomUUID(),
       eventType,
+      correlationId,
+      attempt: attempt,
       createdAt: new Date().toISOString(),
       payload,
     };
@@ -32,7 +38,7 @@ export class MessageQueueService {
     );
 
     if (!published) {
-      // intentionally left to preserve existing behavior without coupling to logger here
+      throw new Error(`Failed to publish event ${eventType}`);
     }
 
     return envelope;

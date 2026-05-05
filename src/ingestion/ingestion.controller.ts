@@ -1,7 +1,7 @@
 import {
   Controller,
   Get,
-  NotFoundException,
+  Headers,
   Param,
   Post,
   UploadedFile,
@@ -11,8 +11,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { diskStorage } from 'multer';
+import { randomUUID } from 'crypto';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
-import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { IngestionJobDto } from '@modules/ingestion/dto/ingestion-job.dto';
 import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
 
@@ -20,10 +20,7 @@ const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
 @Controller('ingest')
 export class IngestionController {
-  constructor(
-    private readonly ingestionService: IngestionService,
-    private readonly jobRepository: IngestionJobRepository,
-  ) {}
+  constructor(private readonly ingestionService: IngestionService) {}
 
   @Post('file')
   @UseInterceptors(
@@ -34,34 +31,50 @@ export class IngestionController {
           cb(null, uploadDir);
         },
         filename: (_req, file, cb) =>
-          cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`),
+          cb(
+            null,
+            `${randomUUID()}${path.extname(file.originalname).toLowerCase()}`,
+          ),
       }),
     }),
   )
-  async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Headers('x-user-id') userId?: string,
+    @Headers('x-correlation-id') correlationId?: string,
+  ): Promise<
     ApiResponse<{
       job: IngestionJobDto;
-      event: Awaited<
-        ReturnType<IngestionService['createJobFromUpload']>
-      >['event'];
+      accepted: true;
     }>
   > {
-    const result = await this.ingestionService.createJobFromUpload(file);
+    const result = await this.ingestionService.createJobFromUpload(
+      file,
+      userId ?? 'demo-user',
+      correlationId,
+    );
 
     return {
       status: 'success',
-      message: 'File uploaded and detected',
+      message: 'File accepted for ingestion',
       data: {
         job: IngestionJobDto.fromEntity(result.job),
-        event: result.event,
+        accepted: true,
       },
     };
   }
 
   @Get('jobs/:id')
-  async getJob(@Param('id') id: string) {
-    const job = await this.jobRepository.findById(id);
-    if (!job) throw new NotFoundException('Ingestion job not found');
-    return IngestionJobDto.fromEntity(job);
+  async getJob(
+    @Param('id') id: string,
+  ): Promise<ApiResponse<{ job: IngestionJobDto }>> {
+    const job = await this.ingestionService.getJob(id);
+    return {
+      status: 'success',
+      message: 'Ingestion job fetched',
+      data: {
+        job: IngestionJobDto.fromEntity(job),
+      },
+    };
   }
 }

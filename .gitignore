@@ -23,3 +23,4 @@ lerna-debug.log*
 .temp
 .tmp
 .DS_Store
+storage/uploads/
