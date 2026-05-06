@@ -39,3 +39,6 @@ Examples: financial strategy books, investment guides, tax documentation.
 
 ## Ingestion Job
 A processing task created when a file is uploaded. Tracks the file through classification, extraction, and storage. States: `pending` → `processing` → `needs_review` (optional) → `completed` or `failed`.
+
+## Python Worker
+A separate Python service that consumes file processing events from RabbitMQ, extracts text using OCR or PDF readers, classifies files using LLM, parses receipts into structured data, chunks documents for embedding, and publishes results back to the system via events. Deployed as containerized workers for horizontal scaling.

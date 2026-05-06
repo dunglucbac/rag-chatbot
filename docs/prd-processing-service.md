@@ -1,4 +1,4 @@
-# PRD: Event-Driven File Processing Service
+# PRD: Event-Driven File Processing with Python Worker
 
 ## Problem Statement
 
@@ -13,7 +13,7 @@ The existing NestJS monolith creates ingestion jobs but has no mechanism to:
 
 ## Solution
 
-Build a separate Processing Service in Python that consumes file processing events from RabbitMQ, extracts and classifies content using OCR and LLMs, and publishes structured results back to the system. The service will:
+Build a separate Python Worker that consumes file processing events from RabbitMQ, extracts and classifies content using OCR and LLMs, and publishes structured results back to the system. The service will:
 
 - Automatically extract text from uploaded files using appropriate strategies (direct text extraction for PDFs, OCR for images)
 - Classify files as receipts, payments, or knowledge documents using LLM
@@ -36,10 +36,10 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 8. As a user, I want duplicate receipts to be detected, so that I don't accidentally track the same expense twice
 9. As a user, I want to confirm parsed receipt details when the system is uncertain, so that I can correct errors before they're saved
 10. As a user, I want receipts to be auto-approved after 24 hours if I don't respond, so that I'm not blocked by confirmation prompts
-11. As a developer, I want the Processing Service to be horizontally scalable, so that we can handle increased upload volume
+11. As a developer, I want the Python Worker to be horizontally scalable, so that we can handle increased upload volume
 12. As a developer, I want file processing to be asynchronous, so that upload requests don't timeout waiting for OCR/LLM calls
 13. As a developer, I want processing failures to be retryable, so that transient errors don't lose user data
-14. As a developer, I want event-driven architecture, so that new consumers can subscribe to processing results without modifying the Processing Service
+14. As a developer, I want event-driven architecture, so that new consumers can subscribe to processing results without modifying the Python Worker
 15. As a system, I want to use Tesseract OCR for cost savings, so that we minimize API costs while maintaining acceptable accuracy
 16. As a system, I want to use Claude Haiku for classification, so that we get fast, cheap decisions
 17. As a system, I want to use Claude Sonnet for line-item parsing, so that we get accurate structured extraction
@@ -51,12 +51,12 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 
 ### Architecture
 
-- **Separate Python service** for file processing, deployed as containerized workers consuming from RabbitMQ
-- **Event-driven communication** between NestJS and Processing Service via RabbitMQ events
+- **Separate Python worker** for file processing, deployed as containerized workers consuming from RabbitMQ
+- **Event-driven communication** between NestJS and Python Worker via RabbitMQ events
 - **Strategy pattern** for extraction (PDFExtractor, OCRExtractor) and classification routing
 - **Shared filesystem** for file access initially (volume mount), with planned migration to S3 for production
 
-### Processing Service Modules
+### Python Worker Modules
 
 1. **EventConsumer**: RabbitMQ connection management, consumes `doc.pdf.parse.requested` and `image.classify.requested` events
 2. **ExtractionStrategy**: Abstract interface with two implementations:
@@ -214,7 +214,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 
 ### Testing Strategy
 
-- Processing Service: pytest with fixtures for sample files
+- Python Worker: pytest with fixtures for sample files
 - NestJS modules: Jest with TypeORM in-memory database for repository tests
 - Event contracts: JSON schema validation tests to catch breaking changes
 
@@ -232,9 +232,9 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 
 ## Further Notes
 
-- The Processing Service should read the same LLM provider config as NestJS to stay consistent, but can choose different model tiers per task (Haiku for classification, Sonnet for parsing)
+- The Python Worker should read the same LLM provider config as NestJS to stay consistent, but can choose different model tiers per task (Haiku for classification, Sonnet for parsing)
 - Correlation IDs from ingestion jobs should flow through all events for distributed tracing
 - The `needs_review` status creates a human-in-the-loop workflow that can be expanded later (e.g., batch review UI, confidence thresholds per user)
 - Document chunking strategy (1000 chars, 200 overlap) is a starting point and should be tuned based on RAG retrieval quality
 - Payment workflow assumes 1 item by default unless user specifies multiple items
-- The event-driven architecture allows future consumers (notifications, audit logs, analytics) without changing the Processing Service
+- The event-driven architecture allows future consumers (notifications, audit logs, analytics) without changing the Python Worker

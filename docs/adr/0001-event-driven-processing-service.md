@@ -1,4 +1,4 @@
-# ADR 0001: Event-Driven Processing Service for File Ingestion
+# ADR 0001: Event-Driven Python Worker for File Ingestion
 
 **Status:** Accepted  
 **Date:** 2026-05-05  
@@ -16,7 +16,7 @@ The existing NestJS monolith handles uploads and creates ingestion jobs, but doe
 
 ## Decision
 
-We will build a separate **Processing Service** in Python that:
+We will build a separate **Python Worker** that:
 
 1. **Consumes events from RabbitMQ:**
    - `doc.pdf.parse.requested`
@@ -45,21 +45,21 @@ We will build a separate **Processing Service** in Python that:
 
 ### Positive
 
-- **Decoupled architecture:** Processing Service doesn't know about NestJS internals, only event contracts
-- **Horizontal scaling:** Deploy multiple Processing Service instances; RabbitMQ distributes load
+- **Decoupled architecture:** Python Worker doesn't know about NestJS internals, only event contracts
+- **Horizontal scaling:** Deploy multiple Python Worker instances; RabbitMQ distributes load
 - **Language-appropriate tools:** Python ecosystem for OCR (Tesseract) and document processing
 - **Resilient:** Failed jobs can be retried via RabbitMQ; dead letter queue for permanent failures
-- **Extensible:** New consumers can subscribe to events without changing Processing Service
+- **Extensible:** New consumers can subscribe to events without changing Python Worker
 
 ### Negative
 
 - **Eventual consistency:** Receipt data isn't immediately queryable after upload
-- **Distributed debugging:** Tracing failures across NestJS → RabbitMQ → Processing Service → back to NestJS requires correlation IDs
+- **Distributed debugging:** Tracing failures across NestJS → RabbitMQ → Python Worker → back to NestJS requires correlation IDs
 - **Operational complexity:** Two services to deploy, monitor, and maintain instead of one monolith
 
 ### Neutral
 
-- **Shared filesystem required (initially):** Processing Service reads files from `storage/uploads/` via volume mount. Migration to S3 planned for production.
+- **Shared filesystem required (initially):** Python Worker reads files from `storage/uploads/` via volume mount. Migration to S3 planned for production.
 
 ## Alternatives Considered
 
@@ -67,7 +67,7 @@ We will build a separate **Processing Service** in Python that:
 **Rejected because:** OCR and LLM calls can take 30+ seconds. Blocking HTTP requests that long causes timeouts and poor UX.
 
 ### Alternative 2: Call NestJS APIs instead of events
-**Rejected because:** Tight coupling between services. Processing Service would need to know about `/receipts`, `/vector-store` endpoints. Events provide better decoupling and allow multiple consumers.
+**Rejected because:** Tight coupling between services. Python Worker would need to know about `/receipts`, `/vector-store` endpoints. Events provide better decoupling and allow multiple consumers.
 
 ### Alternative 3: Use AWS Textract instead of Tesseract
 **Deferred:** Start with free Tesseract. If accuracy becomes a problem, swap to Textract using strategy pattern. LLM structured parsing will catch most OCR errors anyway.
