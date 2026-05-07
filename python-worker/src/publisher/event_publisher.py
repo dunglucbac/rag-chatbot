@@ -2,14 +2,16 @@ import json
 
 
 class EventPublisher:
-    def __init__(self, channel):
+    def __init__(self, channel, exchange="ingest.topic"):
         self.channel = channel
+        self.exchange = exchange
 
     def publish(self, event_type: str, payload: dict):
-        """Publish an event to RabbitMQ"""
+        """Publish an event to RabbitMQ topic exchange"""
         message = json.dumps(payload)
         self.channel.basic_publish(
-            exchange='',
+            exchange=self.exchange,
             routing_key=event_type,
-            body=message
+            body=message,
+            properties=None,
         )

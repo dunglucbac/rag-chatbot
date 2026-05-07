@@ -25,3 +25,18 @@ def test_preserves_text_with_overlap():
     # Last part of first chunk should appear in second chunk
     if len(chunks) >= 2:
         assert chunks[0][-10:] in chunks[1]
+
+
+def test_attaches_metadata_to_chunks():
+    """Each chunk should include provided metadata"""
+    chunker = ChunkingService(chunk_size=50, overlap=10)
+
+    text = "A" * 150
+    metadata = {"source": "test.pdf", "page": 1}
+    chunks = chunker.chunk_with_metadata(text, metadata)
+
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert chunk["content"]
+        assert chunk["metadata"]["source"] == "test.pdf"
+        assert chunk["metadata"]["page"] == 1

@@ -56,6 +56,24 @@ services:
       - uploads:/app/storage/uploads
     command: npm run start:dev
 
+  python-worker:
+    build:
+      context: ./python-worker
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672
+      RABBITMQ_EXCHANGE: ingest.topic
+      RABBITMQ_PREFETCH_COUNT: "10"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    volumes:
+      - uploads:/app/storage/uploads
+    deploy:
+      replicas: 2
+
 volumes:
   pgdata:
   rabbitmqdata:

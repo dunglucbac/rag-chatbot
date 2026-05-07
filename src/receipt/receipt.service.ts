@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { ReceiptRepository } from './repositories/receipt.repository';
 
 @Injectable()
@@ -6,7 +7,10 @@ export class ReceiptService {
   constructor(private readonly receiptRepository: ReceiptRepository) {}
 
   async saveFromEvent(eventData: any) {
-    const { userId, receipt, lineItems } = eventData;
+    const { userId, receipt, lineItems, rawText } = eventData;
+
+    const checksumContent = rawText || JSON.stringify({ userId, receipt, lineItems });
+    const checksumSha256 = createHash('sha256').update(checksumContent).digest('hex');
 
     const receiptData = {
       userId,
@@ -16,7 +20,8 @@ export class ReceiptService {
       tax: receipt.tax,
       currency: receipt.currency,
       source: 'telegram',
-      checksumSha256: eventData.jobId,
+      rawText,
+      checksumSha256,
       items: lineItems?.map((item: any) => ({
         name: item.name,
         quantity: item.quantity,

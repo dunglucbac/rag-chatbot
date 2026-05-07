@@ -84,4 +84,49 @@ describe('ReceiptService', () => {
     expect(createCall.items).toHaveLength(2);
     expect(createCall.items[0].name).toBe('Latte');
   });
+
+  it('rejects duplicate receipts', async () => {
+    const eventData = {
+      jobId: 'job-123',
+      userId: 'user-456',
+      receipt: {
+        merchant: 'Starbucks',
+        purchasedAt: '2026-05-05T10:30:00Z',
+        total: 12.5,
+        currency: 'USD',
+      },
+      lineItems: [],
+    };
+
+    const duplicateError = new Error('duplicate key value violates unique constraint');
+    (duplicateError as any).code = '23505';
+    (repository.create as jest.Mock).mockRejectedValue(duplicateError);
+
+    await expect(service.saveFromEvent(eventData)).rejects.toThrow('duplicate');
+  });
+
+  it('calculates checksum from receipt content', async () => {
+    const eventData = {
+      jobId: 'job-123',
+      userId: 'user-456',
+      rawText: 'Starbucks Receipt\nTotal: $12.50',
+      receipt: {
+        merchant: 'Starbucks',
+        purchasedAt: '2026-05-05T10:30:00Z',
+        total: 12.5,
+        currency: 'USD',
+      },
+      lineItems: [],
+    };
+
+    const mockReceipt = { id: 'receipt-123' };
+    (repository.create as jest.Mock).mockResolvedValue(mockReceipt);
+
+    await service.saveFromEvent(eventData);
+
+    const createCall = (repository.create as jest.Mock).mock.calls[0][0];
+    expect(createCall.checksumSha256).toBeDefined();
+    expect(createCall.checksumSha256).not.toBe('job-123');
+    expect(createCall.checksumSha256.length).toBe(64); // SHA256 hex length
+  });
 });

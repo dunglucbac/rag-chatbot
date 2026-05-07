@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class MessageQueueRoutingService {
-  route(eventType: string): 'image' | 'pdf' | 'status' | 'unknown' {
+  route(eventType: string): 'image' | 'pdf' | 'status' | 'results' | 'unknown' {
     if (eventType === 'image.classify.requested') {
       return 'image';
     }
@@ -18,6 +18,15 @@ export class MessageQueueRoutingService {
       eventType === 'job.failed'
     ) {
       return 'status';
+    }
+
+    if (
+      eventType === 'receipt.parsed' ||
+      eventType === 'payment.detected' ||
+      eventType === 'doc.chunks.embed.requested' ||
+      eventType === 'receipt.needs_review'
+    ) {
+      return 'results';
     }
 
     return 'unknown';

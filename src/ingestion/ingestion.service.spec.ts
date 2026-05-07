@@ -53,9 +53,6 @@ describe('IngestionService', () => {
     );
     expect(publish).toHaveBeenCalledWith(
       'doc.pdf.parse.requested',
-      'corr-123',
-      1,
-      1,
       expect.objectContaining({
         classification: 'unknown',
         correlationId: 'corr-123',
@@ -67,6 +64,9 @@ describe('IngestionService', () => {
         originalFilename: 'statement.pdf',
         userId: 'user-123',
       }),
+      'corr-123',
+      1,
+      1,
     );
     expect(result.job.id).toBe('job-123');
   });
@@ -117,9 +117,6 @@ describe('IngestionService', () => {
     );
     expect(publish).toHaveBeenCalledWith(
       'image.classify.requested',
-      'corr-456',
-      1,
-      1,
       expect.objectContaining({
         jobId: 'job-456',
         userId: 'user-456',
@@ -127,6 +124,9 @@ describe('IngestionService', () => {
         classification: 'unknown',
         correlationId: 'corr-456',
       }),
+      'corr-456',
+      1,
+      1,
     );
     expect(result.job.id).toBe('job-456');
   });

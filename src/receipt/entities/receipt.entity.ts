@@ -48,6 +48,6 @@ export class Receipt {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @OneToMany(() => ReceiptItem, (item) => item.receipt)
+  @OneToMany(() => ReceiptItem, (item) => item.receipt, { cascade: true })
   items: ReceiptItem[];
 }
