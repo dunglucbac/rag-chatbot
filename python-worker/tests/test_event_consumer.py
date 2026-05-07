@@ -79,3 +79,74 @@ def test_classifies_and_parses_receipt():
     call_args = publisher.publish.call_args[0]
     assert call_args[0] == "receipt.parsed"
     assert "Starbucks" in str(call_args[1])
+
+
+def test_handles_image_classification_with_ocr():
+    """Can process image.classify.requested event using OCR"""
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 3
+    properties = Mock()
+    body = b'{"jobId": "job-789", "storagePath": "/path/to/image.jpg", "fileType": "image"}'
+
+    # Mock OCR extractor
+    ocr_extractor = Mock()
+    ocr_extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
+
+    # Mock classifier
+    classifier = Mock()
+    classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
+
+    # Mock parser
+    parser = Mock()
+    parser.parse.return_value = {
+        "merchant": "Starbucks",
+        "total": 12.50,
+        "lineItems": [{"name": "Latte", "totalPrice": 4.50}]
+    }
+
+    # Mock publisher
+    publisher = Mock()
+
+    consumer = EventConsumer(None, publisher, classifier, parser, ocr_extractor)
+    consumer.on_message(channel, method, properties, body)
+
+    # Verify OCR extractor was called
+    ocr_extractor.extract.assert_called_once_with("/path/to/image.jpg")
+
+    # Verify classification and parsing happened
+    classifier.classify.assert_called_once()
+    parser.parse.assert_called_once()
+
+    # Verify receipt.parsed event was published
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == "receipt.parsed"
+
+def test_publishes_payment_detected_event():
+    """Can classify as payment and publish payment.detected event"""
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 4
+    properties = Mock()
+    body = b'{"jobId": "job-999", "storagePath": "/path/to/payment.jpg", "fileType": "image"}'
+
+    # Mock OCR extractor
+    ocr_extractor = Mock()
+    ocr_extractor.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
+
+    # Mock classifier
+    classifier = Mock()
+    classifier.classify.return_value = {"classification": "payment", "confidence": 0.90}
+
+    # Mock publisher
+    publisher = Mock()
+
+    consumer = EventConsumer(None, publisher, classifier, None, ocr_extractor)
+    consumer.on_message(channel, method, properties, body)
+
+    # Verify payment.detected event was published
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == "payment.detected"
+    assert "job-999" in str(call_args[1])
