@@ -1,24 +1,30 @@
 import { Injectable } from '@nestjs/common';
+import { EventEnvelope } from '@modules/common/common.types';
+import {
+  ParseCompletedPayload,
+  ClassifyCompletedPayload,
+  JobFailedPayload,
+} from '../common/event-payloads.types';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 
 @Injectable()
 export class IngestionEventConsumer {
   constructor(private readonly jobRepository: IngestionJobRepository) {}
 
-  async handleParseCompleted(event: any) {
-    await this.completeJob(event.jobId, event.extractedText);
+  async handleParseCompleted(envelope: EventEnvelope<ParseCompletedPayload>) {
+    await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
   }
 
-  async handleClassifyCompleted(event: any) {
-    await this.completeJob(event.jobId, event.extractedText);
+  async handleClassifyCompleted(envelope: EventEnvelope<ClassifyCompletedPayload>) {
+    await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
   }
 
-  async handleJobFailed(event: any) {
-    const job = await this.jobRepository.findById(event.jobId);
+  async handleJobFailed(envelope: EventEnvelope<JobFailedPayload>) {
+    const job = await this.jobRepository.findById(envelope.payload.jobId);
     if (!job) return;
 
     job.status = 'failed';
-    job.errorMessage = event.error ?? null;
+    job.errorMessage = envelope.payload.error ?? null;
     await this.jobRepository.save(job);
   }
 

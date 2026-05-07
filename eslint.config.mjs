@@ -26,7 +26,11 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+      // Source - https://stackoverflow.com/a/68652060
+      // Posted by Michael, modified by community. See post 'Timeline' for change history
+      // Retrieved 2026-05-07, License - CC BY-SA 4.0
+      '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],

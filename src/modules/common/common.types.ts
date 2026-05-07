@@ -1,4 +1,4 @@
-export type DispatchEnvelope<
+export type EventEnvelope<
   TPayload extends Record<string, unknown> = Record<string, unknown>,
 > = {
   schemaVersion: 1;

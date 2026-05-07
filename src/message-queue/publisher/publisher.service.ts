@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { DispatchEnvelope } from '@modules/common/common.types';
+import { EventEnvelope } from '@modules/common/common.types';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 
 @Injectable()
@@ -13,8 +13,8 @@ export class MessageQueueService {
     correlationId: string,
     schemaVersion: number,
     attempt: number,
-  ): Promise<DispatchEnvelope<TPayload>> {
-    const envelope: DispatchEnvelope<TPayload> = {
+  ): Promise<EventEnvelope<TPayload>> {
+    const envelope: EventEnvelope<TPayload> = {
       schemaVersion: schemaVersion,
       eventId: randomUUID(),
       eventType,

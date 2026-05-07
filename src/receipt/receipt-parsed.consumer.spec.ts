@@ -26,7 +26,7 @@ describe('ReceiptParsedConsumer', () => {
   });
 
   it('saves receipt when receipt.parsed event is received', async () => {
-    const event = {
+    const payload = {
       jobId: 'job-123',
       userId: 'user-456',
       receipt: {
@@ -38,8 +38,18 @@ describe('ReceiptParsedConsumer', () => {
       lineItems: [{ name: 'Latte', totalPrice: 4.5 }],
     };
 
-    await consumer.handleReceiptParsed(event);
+    const envelope = {
+      eventId: 'evt-1',
+      eventType: 'receipt.parsed',
+      correlationId: 'corr-123',
+      schemaVersion: 1,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      payload,
+    };
 
-    expect(service.saveFromEvent).toHaveBeenCalledWith(event);
+    await consumer.handleReceiptParsed(envelope);
+
+    expect(service.saveFromEvent).toHaveBeenCalledWith(payload);
   });
 });

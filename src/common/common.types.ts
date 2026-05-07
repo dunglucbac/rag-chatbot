@@ -23,7 +23,7 @@ export type PaginateParams = {
   limit: number;
 };
 
-export type DispatchEnvelope<
+export type EventEnvelope<
   TPayload extends Record<string, unknown> = Record<string, unknown>,
 > = {
   schemaVersion: number;

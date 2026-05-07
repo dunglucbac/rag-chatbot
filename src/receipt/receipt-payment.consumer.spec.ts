@@ -36,14 +36,26 @@ describe('ReceiptPaymentConsumer', () => {
     messageQueueService = module.get<MessageQueueService>(MessageQueueService);
   });
 
-  it('prompts user with payment amount extracted from event', async () => {
-    const paymentEvent = {
-      jobId: 'job-123',
-      userId: '12345',
-      extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
+  function envelope(payload: Record<string, unknown>) {
+    return {
+      eventId: 'evt-1',
+      eventType: 'payment.detected',
+      correlationId: 'corr-123',
+      schemaVersion: 1,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      payload,
     };
+  }
 
-    await consumer.handlePaymentDetected(paymentEvent);
+  it('prompts user with payment amount extracted from event', async () => {
+    await consumer.handlePaymentDetected(
+      envelope({
+        jobId: 'job-123',
+        userId: '12345',
+        extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
+      }),
+    );
 
     expect(telegramService.bot.telegram.sendMessage).toHaveBeenCalledWith(
       '12345',
@@ -55,13 +67,11 @@ describe('ReceiptPaymentConsumer', () => {
     const paymentContext = {
       jobId: 'job-123',
       userId: '12345',
-      paymentAmount: 50.00,
-      paymentDate: new Date('2026-05-05T14:20:00Z'),
+      paymentAmount: 50.0,
+      paymentDate: '2026-05-05T14:20:00Z',
     };
 
-    const userMessage = 'Bought groceries and detergent at Walmart';
-
-    await consumer.handleUserResponse(paymentContext, userMessage);
+    await consumer.handleUserResponse(paymentContext, 'Bought groceries and detergent at Walmart');
 
     expect(messageQueueService.publish).toHaveBeenCalledWith(
       'receipt.parsed',
@@ -70,9 +80,12 @@ describe('ReceiptPaymentConsumer', () => {
         userId: '12345',
         receipt: expect.objectContaining({
           merchant: 'Walmart',
-          total: 50.00,
+          total: 50.0,
         }),
       }),
+      'job-123',
+      1,
+      1,
     );
   });
 });
