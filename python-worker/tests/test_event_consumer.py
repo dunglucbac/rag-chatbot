@@ -4,14 +4,20 @@ from src.consumer.event_consumer import EventConsumer
 from src.constants.event_types import EventType
 
 
+def _body(payload):
+    """Wrap a payload dict in the EventEnvelope format NestJS uses."""
+    import json
+    return json.dumps({"payload": payload}).encode()
+
+
 def test_can_process_pdf_parse_requested_event():
     """Can process a doc.pdf.parse.requested event and extract text"""
     channel = Mock()
     method = Mock()
     method.delivery_tag = 1
-
     properties = Mock()
-    body = b'{"jobId": "job-123", "storagePath": "/path/to/file.pdf", "fileType": "pdf"}'
+
+    body = _body({"jobId": "job-123", "storagePath": "/path/to/file.pdf", "fileType": "pdf"})
 
     extractor = Mock()
     extractor.extract.return_value = "Extracted PDF text content"
@@ -38,7 +44,8 @@ def test_classifies_and_parses_receipt():
     method = Mock()
     method.delivery_tag = 2
     properties = Mock()
-    body = b'{"jobId": "job-456", "storagePath": "/path/to/receipt.pdf", "fileType": "pdf"}'
+
+    body = _body({"jobId": "job-456", "storagePath": "/path/to/receipt.pdf", "fileType": "pdf"})
 
     extractor = Mock()
     extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
@@ -74,7 +81,8 @@ def test_handles_image_classification_with_ocr():
     method = Mock()
     method.delivery_tag = 3
     properties = Mock()
-    body = b'{"jobId": "job-789", "storagePath": "/path/to/image.jpg", "fileType": "image"}'
+
+    body = _body({"jobId": "job-789", "storagePath": "/path/to/image.jpg", "fileType": "image"})
 
     ocr_extractor = Mock()
     ocr_extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
@@ -109,7 +117,8 @@ def test_publishes_payment_detected_event():
     method = Mock()
     method.delivery_tag = 4
     properties = Mock()
-    body = b'{"jobId": "job-999", "storagePath": "/path/to/payment.jpg", "fileType": "image"}'
+
+    body = _body({"jobId": "job-999", "storagePath": "/path/to/payment.jpg", "fileType": "image"})
 
     ocr_extractor = Mock()
     ocr_extractor.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
@@ -134,7 +143,8 @@ def test_chunks_document_and_publishes_embed_request():
     method = Mock()
     method.delivery_tag = 5
     properties = Mock()
-    body = b'{"jobId": "job-doc-1", "userId": "user-123", "storagePath": "/path/to/doc.pdf", "fileType": "pdf"}'
+
+    body = _body({"jobId": "job-doc-1", "userId": "user-123", "storagePath": "/path/to/doc.pdf", "fileType": "pdf"})
 
     extractor = Mock()
     extractor.extract.return_value = "A" * 2000
@@ -171,7 +181,8 @@ def test_publishes_job_failed_on_processing_error():
     method = Mock()
     method.delivery_tag = 6
     properties = Mock()
-    body = b'{"jobId": "job-err-1", "storagePath": "/path/to/bad.pdf", "fileType": "pdf"}'
+
+    body = _body({"jobId": "job-err-1", "storagePath": "/path/to/bad.pdf", "fileType": "pdf"})
 
     extractor = Mock()
     extractor.extract.side_effect = Exception("Corrupted PDF")
@@ -197,7 +208,8 @@ def test_publishes_needs_review_for_low_confidence():
     method = Mock()
     method.delivery_tag = 7
     properties = Mock()
-    body = b'{"jobId": "job-low-1", "userId": "user-123", "storagePath": "/path/to/receipt.pdf", "fileType": "pdf"}'
+
+    body = _body({"jobId": "job-low-1", "userId": "user-123", "storagePath": "/path/to/receipt.pdf", "fileType": "pdf"})
 
     extractor = Mock()
     extractor.extract.return_value = "Store Receipt\nTotal: $12.50"

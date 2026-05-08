@@ -20,8 +20,6 @@ poetry install
 
 ## Run
 
-Set the required environment variables and start the worker:
-
 ```bash
 poetry run python main.py
 ```

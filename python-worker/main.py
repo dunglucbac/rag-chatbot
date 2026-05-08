@@ -1,6 +1,9 @@
 import os
 import signal
 import sys
+
+from dotenv import load_dotenv
+
 import pika
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.ocr_extractor import OCRExtractor
@@ -10,6 +13,8 @@ from src.services.receipt_parser import ReceiptParser
 from src.services.chunking_service import ChunkingService
 from src.consumer.event_consumer import EventConsumer
 from src.publisher.event_publisher import EventPublisher
+
+load_dotenv()
 
 
 class Worker:

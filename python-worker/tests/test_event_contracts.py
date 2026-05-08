@@ -4,11 +4,14 @@ from src.consumer.event_consumer import EventConsumer
 from src.constants.event_types import EventType
 
 
+def _body(payload):
+    return json.dumps({"payload": payload}).encode()
+
+
 class TestEventPayloadContracts:
     """Integration tests validating event payloads match PRD schemas"""
 
     def test_receipt_parsed_event_matches_schema(self):
-        """receipt.parsed event payload matches PRD contract"""
         channel = Mock()
         method = Mock()
         method.delivery_tag = 1
@@ -35,15 +38,12 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, parser)
-
-        body = json.dumps({
+        consumer.on_message(channel, method, properties, _body({
             "jobId": "job-123",
             "userId": "user-456",
             "storagePath": "/path/to/receipt.pdf",
             "fileType": "pdf",
-        })
-
-        consumer.on_message(channel, method, properties, body.encode())
+        }))
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -59,7 +59,6 @@ class TestEventPayloadContracts:
         assert isinstance(receipt["currency"], str)
 
     def test_payment_detected_event_matches_schema(self):
-        """payment.detected event payload matches PRD contract"""
         channel = Mock()
         method = Mock()
         method.delivery_tag = 2
@@ -73,15 +72,12 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(None, publisher, classifier, ocr_extractor=ocr_extractor)
-
-        body = json.dumps({
+        consumer.on_message(channel, method, properties, _body({
             "jobId": "job-999",
             "userId": "user-456",
             "storagePath": "/path/to/payment.jpg",
             "fileType": "image",
-        })
-
-        consumer.on_message(channel, method, properties, body.encode())
+        }))
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -93,7 +89,6 @@ class TestEventPayloadContracts:
         assert isinstance(payload["extractedText"], str)
 
     def test_doc_chunks_embed_requested_matches_schema(self):
-        """doc.chunks.embed.requested event payload matches PRD contract"""
         channel = Mock()
         method = Mock()
         method.delivery_tag = 3
@@ -114,15 +109,12 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, chunker=chunker)
-
-        body = json.dumps({
+        consumer.on_message(channel, method, properties, _body({
             "jobId": "job-doc-1",
             "userId": "user-123",
             "storagePath": "/path/to/doc.pdf",
             "fileType": "pdf",
-        })
-
-        consumer.on_message(channel, method, properties, body.encode())
+        }))
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -140,7 +132,6 @@ class TestEventPayloadContracts:
             assert isinstance(chunk["metadata"], dict)
 
     def test_job_failed_event_matches_schema(self):
-        """job.failed event payload includes jobId and error message"""
         channel = Mock()
         method = Mock()
         method.delivery_tag = 4
@@ -151,14 +142,11 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher)
-
-        body = json.dumps({
+        consumer.on_message(channel, method, properties, _body({
             "jobId": "job-err-1",
             "storagePath": "/path/to/bad.pdf",
             "fileType": "pdf",
-        })
-
-        consumer.on_message(channel, method, properties, body.encode())
+        }))
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -169,7 +157,6 @@ class TestEventPayloadContracts:
         assert len(payload["error"]) > 0
 
     def test_receipt_needs_review_includes_confidence(self):
-        """receipt.needs_review event includes confidence score"""
         channel = Mock()
         method = Mock()
         method.delivery_tag = 5
@@ -187,15 +174,12 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, parser)
-
-        body = json.dumps({
+        consumer.on_message(channel, method, properties, _body({
             "jobId": "job-low-1",
             "userId": "user-123",
             "storagePath": "/path/to/receipt.pdf",
             "fileType": "pdf",
-        })
-
-        consumer.on_message(channel, method, properties, body.encode())
+        }))
 
         event_type, payload = publisher.publish.call_args[0]
         assert event_type == EventType.RECEIPT_NEEDS_REVIEW

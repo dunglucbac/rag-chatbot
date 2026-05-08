@@ -13,20 +13,20 @@ class EventConsumer:
 
     def on_message(self, channel, method, properties, body):
         """Process incoming RabbitMQ message"""
-        message = json.loads(body)
-        job_id = message["jobId"]
+        envelope = json.loads(body)
+        payload = envelope.get("payload", {})
+        job_id = payload.get("jobId", "unknown")
 
         try:
-            user_id = message.get("userId")
-            storage_path = message["storagePath"]
-            file_type = message.get("fileType", "pdf")
+            user_id = payload.get("userId")
+            storage_path = payload["storagePath"]
+            file_type = payload.get("fileType", "pdf")
 
             # Extract text based on file type
             if file_type == "image" and self.ocr_extractor:
                 text = self.ocr_extractor.extract(storage_path)
             elif self.extractor:
                 text = self.extractor.extract(storage_path)
-                # Fallback to OCR if text is too short
                 if self.ocr_extractor and self.extractor.needs_ocr(text):
                     text = self.ocr_extractor.extract(storage_path)
             else:
@@ -55,37 +55,32 @@ class EventConsumer:
                             "receipt": receipt_data,
                         })
                 elif classification == "payment":
-                    payment_event = {
+                    self.publisher.publish(EventType.PAYMENT_DETECTED, {
                         "jobId": job_id,
                         "extractedText": text,
-                    }
-                    self.publisher.publish(EventType.PAYMENT_DETECTED, payment_event)
+                    })
                 elif classification == "document" and self.chunker:
                     metadata = {"source": storage_path, "type": file_type}
                     chunks = self.chunker.chunk_with_metadata(text, metadata)
-                    embed_event = {
+                    self.publisher.publish(EventType.DOC_CHUNKS_EMBED_REQUESTED, {
                         "jobId": job_id,
                         "userId": user_id,
                         "chunks": chunks,
-                    }
-                    self.publisher.publish(EventType.DOC_CHUNKS_EMBED_REQUESTED, embed_event)
+                    })
                 else:
-                    completion_event = {
+                    self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, {
                         "jobId": job_id,
                         "extractedText": text,
-                    }
-                    self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, completion_event)
+                    })
             else:
-                completion_event = {
+                self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, {
                     "jobId": job_id,
                     "extractedText": text,
-                }
-                self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, completion_event)
+                })
         except Exception as e:
             self.publisher.publish(EventType.JOB_FAILED, {
                 "jobId": job_id,
                 "error": str(e),
             })
 
-        # Acknowledge message
         channel.basic_ack(delivery_tag=method.delivery_tag)
