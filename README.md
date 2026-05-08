@@ -19,7 +19,7 @@ Ingestion Pipeline:
     POST /ingest/file
     → save upload to local storage
     → create ingestion_jobs row in Postgres
-    → push job to Redis Stream
+    → push job to RabbitMQ
     → Python worker extracts text/OCR
     → store chunks + metadata in PGVector
 
@@ -44,8 +44,8 @@ Background Scraper (every 6h):
 | Web Search | Tavily API |
 | Chat Interface | Telegram (Telegraf) |
 | Scraping | Cheerio + axios |
-| Queue | Redis Stream |
-| Parsing Worker | Python + Docling |
+| Queue | RabbitMQ |
+| Parsing Worker | Python (PyPDF2, Tesseract, Anthropic) |
 
 ---
 
@@ -191,15 +191,27 @@ src/
 │   └── tools/
 │       ├── knowledge-base.tool.ts
 │       └── web-search.tool.ts
+├── common/             # Shared types, event envelope helpers
 ├── config/             # Environment configuration
 ├── conversation/       # Message entity
 ├── database/           # TypeORM / PostgreSQL setup + migrations
 ├── ingestion/          # Upload, job tracking, and queue handoff
 ├── llm/                # LLM provider abstraction (Claude / GPT-4o)
+├── message-queue/      # RabbitMQ broker and publisher
+├── receipt/            # Receipt analytics and summaries
 ├── scraper/            # Background web scraper (cron, every 6h)
 ├── telegram/           # Telegram bot handler + webhook
 ├── vector-store/       # PGVector service
 └── web-search/         # Tavily service + search log entity
+
+python-worker/          # Python file processing worker
+├── main.py             # RabbitMQ consumer entry point
+├── src/
+│   ├── consumer/       # Message handler (extract → classify → parse → publish)
+│   ├── extractors/     # PDF and OCR text extraction
+│   ├── publisher/      # RabbitMQ event publisher
+│   └── services/       # Classification, receipt parsing, chunking
+└── tests/
 ```
 
 ---
