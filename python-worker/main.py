@@ -1,10 +1,10 @@
 import os
-import json
 import signal
 import sys
 import pika
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.ocr_extractor import OCRExtractor
+from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
 from src.services.chunking_service import ChunkingService
@@ -37,8 +37,8 @@ class Worker:
         )
 
         # Declare and bind queues
-        self._setup_queue(self.pdf_queue, "doc.pdf.parse.requested")
-        self._setup_queue(self.image_queue, "image.classify.requested")
+        self._setup_queue(self.pdf_queue, EventType.DOC_PDF_PARSE_REQUESTED)
+        self._setup_queue(self.image_queue, EventType.IMAGE_CLASSIFY_REQUESTED)
 
         # Build the processing pipeline
         pdf_extractor = PDFExtractor()

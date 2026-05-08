@@ -1,6 +1,7 @@
 import json
 from unittest.mock import Mock
 from src.consumer.event_consumer import EventConsumer
+from src.constants.event_types import EventType
 
 
 class TestEventPayloadContracts:
@@ -46,9 +47,8 @@ class TestEventPayloadContracts:
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
-        assert event_type == "receipt.parsed"
+        assert event_type == EventType.RECEIPT_PARSED
 
-        # Validate PRD contract fields
         assert "jobId" in payload
         assert "userId" in payload
         assert "receipt" in payload
@@ -85,9 +85,8 @@ class TestEventPayloadContracts:
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
-        assert event_type == "payment.detected"
+        assert event_type == EventType.PAYMENT_DETECTED
 
-        # Validate PRD contract fields
         assert "jobId" in payload
         assert payload["jobId"] == "job-999"
         assert "extractedText" in payload
@@ -127,9 +126,8 @@ class TestEventPayloadContracts:
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
-        assert event_type == "doc.chunks.embed.requested"
+        assert event_type == EventType.DOC_CHUNKS_EMBED_REQUESTED
 
-        # Validate PRD contract fields
         assert payload["jobId"] == "job-doc-1"
         assert payload["userId"] == "user-123"
         assert "chunks" in payload
@@ -164,7 +162,7 @@ class TestEventPayloadContracts:
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
-        assert event_type == "job.failed"
+        assert event_type == EventType.JOB_FAILED
         assert payload["jobId"] == "job-err-1"
         assert "error" in payload
         assert isinstance(payload["error"], str)
@@ -200,7 +198,7 @@ class TestEventPayloadContracts:
         consumer.on_message(channel, method, properties, body.encode())
 
         event_type, payload = publisher.publish.call_args[0]
-        assert event_type == "receipt.needs_review"
+        assert event_type == EventType.RECEIPT_NEEDS_REVIEW
         assert payload["confidence"] == 0.55
         assert payload["userId"] == "user-123"
         assert "receipt" in payload

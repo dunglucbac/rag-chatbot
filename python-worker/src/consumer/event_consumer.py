@@ -1,4 +1,5 @@
 import json
+from src.constants.event_types import EventType
 
 
 class EventConsumer:
@@ -41,14 +42,14 @@ class EventConsumer:
                     confidence = classification_result.get("confidence", 1.0)
 
                     if confidence < 0.7:
-                        self.publisher.publish("receipt.needs_review", {
+                        self.publisher.publish(EventType.RECEIPT_NEEDS_REVIEW, {
                             "jobId": job_id,
                             "userId": user_id,
                             "confidence": confidence,
                             "receipt": receipt_data,
                         })
                     else:
-                        self.publisher.publish("receipt.parsed", {
+                        self.publisher.publish(EventType.RECEIPT_PARSED, {
                             "jobId": job_id,
                             "userId": user_id,
                             "receipt": receipt_data,
@@ -58,7 +59,7 @@ class EventConsumer:
                         "jobId": job_id,
                         "extractedText": text,
                     }
-                    self.publisher.publish("payment.detected", payment_event)
+                    self.publisher.publish(EventType.PAYMENT_DETECTED, payment_event)
                 elif classification == "document" and self.chunker:
                     metadata = {"source": storage_path, "type": file_type}
                     chunks = self.chunker.chunk_with_metadata(text, metadata)
@@ -67,21 +68,21 @@ class EventConsumer:
                         "userId": user_id,
                         "chunks": chunks,
                     }
-                    self.publisher.publish("doc.chunks.embed.requested", embed_event)
+                    self.publisher.publish(EventType.DOC_CHUNKS_EMBED_REQUESTED, embed_event)
                 else:
                     completion_event = {
                         "jobId": job_id,
                         "extractedText": text,
                     }
-                    self.publisher.publish("doc.pdf.parse.completed", completion_event)
+                    self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, completion_event)
             else:
                 completion_event = {
                     "jobId": job_id,
                     "extractedText": text,
                 }
-                self.publisher.publish("doc.pdf.parse.completed", completion_event)
+                self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, completion_event)
         except Exception as e:
-            self.publisher.publish("job.failed", {
+            self.publisher.publish(EventType.JOB_FAILED, {
                 "jobId": job_id,
                 "error": str(e),
             })
