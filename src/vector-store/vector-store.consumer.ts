@@ -9,6 +9,7 @@ export class VectorStoreConsumer {
   constructor(private readonly vectorStore: VectorStoreService) {}
 
   async handleEmbedRequest(envelope: EventEnvelope<EmbedRequestPayload>) {
+    if (!envelope.payload) return;
     const { chunks, userId } = envelope.payload;
 
     if (!chunks?.length) return;

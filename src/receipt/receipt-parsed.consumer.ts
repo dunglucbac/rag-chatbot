@@ -8,6 +8,7 @@ export class ReceiptParsedConsumer {
   constructor(private readonly receiptService: ReceiptService) {}
 
   async handleReceiptParsed(envelope: EventEnvelope<ReceiptParsedPayload>) {
+    if (!envelope.payload) return;
     await this.receiptService.saveFromEvent(envelope.payload);
   }
 }

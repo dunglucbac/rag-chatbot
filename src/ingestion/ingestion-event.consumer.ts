@@ -12,14 +12,17 @@ export class IngestionEventConsumer {
   constructor(private readonly jobRepository: IngestionJobRepository) {}
 
   async handleParseCompleted(envelope: EventEnvelope<ParseCompletedPayload>) {
+    if (!envelope.payload) return;
     await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
   }
 
   async handleClassifyCompleted(envelope: EventEnvelope<ClassifyCompletedPayload>) {
+    if (!envelope.payload) return;
     await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
   }
 
   async handleJobFailed(envelope: EventEnvelope<JobFailedPayload>) {
+    if (!envelope.payload) return;
     const job = await this.jobRepository.findById(envelope.payload.jobId);
     if (!job) return;
 

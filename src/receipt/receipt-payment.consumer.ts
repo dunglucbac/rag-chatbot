@@ -15,15 +15,18 @@ export class ReceiptPaymentConsumer {
   ) {}
 
   async handlePaymentDetected(envelope: EventEnvelope<PaymentDetectedPayload>) {
+    if (!envelope.payload) return;
     const { userId, extractedText } = envelope.payload;
 
     const amountMatch = extractedText.match(/\$[\d,.]+/);
     const amount = amountMatch ? amountMatch[0] : 'this';
 
-    await this.telegramService.bot.telegram.sendMessage(
-      userId,
-      `I detected a payment of ${amount}. What did you buy? Please describe the items and merchant.`,
-    );
+    if (userId) {
+      await this.telegramService.bot.telegram.sendMessage(
+        userId,
+        `I detected a payment of ${amount}. What did you buy? Please describe the items and merchant.`,
+      );
+    }
   }
 
   async handleUserResponse(

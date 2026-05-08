@@ -8,7 +8,7 @@ export type ReceiptParsedPayload = {
     tax?: number;
     currency: string;
   };
-  lineItems: Array<{
+  lineItems?: Array<{
     name: string;
     quantity?: number;
     unitPrice?: number;
@@ -20,7 +20,7 @@ export type ReceiptParsedPayload = {
 
 export type PaymentDetectedPayload = {
   jobId: string;
-  userId: string;
+  userId?: string;
   extractedText: string;
 };
 
@@ -34,7 +34,7 @@ export type NeedsReviewPayload = {
     total: number;
     currency: string;
   };
-  lineItems: Array<{
+  lineItems?: Array<{
     name: string;
     quantity?: number;
     unitPrice?: number;

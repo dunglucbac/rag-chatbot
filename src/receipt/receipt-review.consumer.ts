@@ -8,6 +8,7 @@ export class ReceiptReviewConsumer {
   constructor(private readonly telegramService: TelegramService) {}
 
   async handleNeedsReview(envelope: EventEnvelope<NeedsReviewPayload>) {
+    if (!envelope.payload) return;
     const { userId, receipt, lineItems, jobId } = envelope.payload;
 
     const lines = [

@@ -10,8 +10,6 @@ import { ReceiptParsedConsumer } from './receipt-parsed.consumer';
 import { TelegramModule } from '../telegram/telegram.module';
 import { MessageQueueModule } from '../message-queue/message-queue.module';
 
-import { ReceiptReviewConsumer } from './receipt-review.consumer';
-
 @Module({
   imports: [TypeOrmModule.forFeature([Receipt, ReceiptItem]), TelegramModule, MessageQueueModule],
   providers: [ReceiptRepository, ReceiptService, ReceiptPaymentConsumer, ReceiptParsedConsumer, ReceiptReviewConsumer],
