@@ -1,3 +1,4 @@
+import logging
 import os
 import signal
 import sys
@@ -15,6 +16,12 @@ from src.consumer.event_consumer import EventConsumer
 from src.publisher.event_publisher import EventPublisher
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
 
 
 class Worker:

@@ -1,6 +1,9 @@
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 
 class EventPublisher:
@@ -19,6 +22,7 @@ class EventPublisher:
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
         }
+        logger.info("Publishing %s [correlationId=%s eventId=%s]", event_type, envelope["correlationId"], envelope["eventId"])
         message = json.dumps(envelope)
         self.channel.basic_publish(
             exchange=self.exchange,

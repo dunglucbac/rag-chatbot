@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import {
   PaymentDetectedPayload,
@@ -9,6 +9,8 @@ import { MessageQueueService } from '../message-queue/publisher/publisher.servic
 
 @Injectable()
 export class ReceiptPaymentConsumer {
+  private readonly logger = new Logger(ReceiptPaymentConsumer.name);
+
   constructor(
     private readonly telegramService: TelegramService,
     private readonly messageQueueService: MessageQueueService,
@@ -17,6 +19,7 @@ export class ReceiptPaymentConsumer {
   async handlePaymentDetected(envelope: EventEnvelope<PaymentDetectedPayload>) {
     if (!envelope.payload) return;
     const { userId, extractedText } = envelope.payload;
+    this.logger.log(`handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`);
 
     const amountMatch = extractedText.match(/\$[\d,.]+/);
     const amount = amountMatch ? amountMatch[0] : 'this';

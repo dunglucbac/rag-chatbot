@@ -13,15 +13,30 @@ Agent (LangGraph ReAct)
     ├── search_knowledge_base  →  PGVector (uploaded PDFs + scraped web content)
     └── search_web             →  Tavily API
          ↓
-    LLM (Claude Sonnet 4.5 / GPT-4o)
+    LLM (Claude Sonnet 4.6 / GPT-4o)
 
 Ingestion Pipeline:
-    POST /ingest/file
-    → save upload to local storage
-    → create ingestion_jobs row in Postgres
-    → push job to RabbitMQ
-    → Python worker extracts text/OCR
-    → store chunks + metadata in PGVector
+  NestJS                                    Python Worker
+  ──────────────────────────────────        ──────────────────────────────
+  POST /ingest/file
+    → save upload to disk
+    → create ingestion_jobs row
+    → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
+                                               → extract text (PDF/OCR)
+                                               → classify (receipt/payment/doc)
+                                               → parse receipts / chunk docs
+                                               → publish result events
+
+  ← handle receipt.parsed                   receipt.parsed ──→
+       → save receipt + line items to DB
+  ← handle receipt.needs_review              receipt.needs_review ──→
+       → send Telegram confirmation prompt
+  ← handle payment.detected                  payment.detected ──→
+       → send Telegram "what did you buy?"
+  ← handle doc.chunks.embed.requested        doc.chunks.embed.requested ──→
+       → embed chunks into PGVector
+  ← handle job.failed / parse.completed      job.failed / parse.completed ──→
+       → update ingestion_jobs status
 
 Background Scraper (every 6h):
     → Fetch unscraped Tavily URLs from web_search_logs
@@ -36,7 +51,7 @@ Background Scraper (every 6h):
 | Layer | Technology |
 |---|---|
 | Framework | NestJS 11 (TypeScript) |
-| LLM | Anthropic Claude Sonnet 4.5 or OpenAI GPT-4o |
+| LLM | Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o |
 | Embeddings | OpenAI text-embedding-3-small |
 | Vector Store | PostgreSQL + pgvector |
 | ORM | TypeORM |
