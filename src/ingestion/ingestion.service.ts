@@ -14,7 +14,7 @@ import {
   IngestionFileType,
 } from '@modules/ingestion/ingestion.types';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
-import { DispatchEnvelope } from '@modules/common/common.types';
+import { EventEnvelope } from '@modules/common/common.types';
 
 @Injectable()
 export class IngestionService {
@@ -44,7 +44,7 @@ export class IngestionService {
     userId: string,
     correlationId?: string | null,
     sourceContext?: Record<string, unknown> | null,
-  ): Promise<{ job: IngestionJob; event: DispatchEnvelope }> {
+  ): Promise<{ job: IngestionJob; event: EventEnvelope }> {
     const normalizedCorrelationId = this.normalizeCorrelationId(correlationId);
     const fileType = this.detectFileType(file.mimetype, file.originalname);
     const fileId = this.deriveFileId(file.path);

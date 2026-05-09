@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { DispatchEnvelope } from '@modules/common/common.types';
+import { EventEnvelope } from '@modules/common/common.types';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 
 @Injectable()
 export class MessageQueueService {
+  private readonly logger = new Logger(MessageQueueService.name);
+
   constructor(private readonly broker: MessageQueueBrokerService) {}
 
   async publish<TPayload extends Record<string, unknown>>(
@@ -13,8 +15,8 @@ export class MessageQueueService {
     correlationId: string,
     schemaVersion: number,
     attempt: number,
-  ): Promise<DispatchEnvelope<TPayload>> {
-    const envelope: DispatchEnvelope<TPayload> = {
+  ): Promise<EventEnvelope<TPayload>> {
+    const envelope: EventEnvelope<TPayload> = {
       schemaVersion: schemaVersion,
       eventId: randomUUID(),
       eventType,
@@ -23,6 +25,8 @@ export class MessageQueueService {
       createdAt: new Date().toISOString(),
       payload,
     };
+
+    this.logger.log(`Publishing ${eventType} [correlationId=${correlationId} eventId=${envelope.eventId}]`);
 
     const { channel, exchange } = await this.broker.connect();
     const published = channel.publish(
@@ -38,6 +42,7 @@ export class MessageQueueService {
     );
 
     if (!published) {
+      this.logger.error(`Failed to publish ${eventType} [correlationId=${correlationId}]`);
       throw new Error(`Failed to publish event ${eventType}`);
     }
 

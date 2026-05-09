@@ -11,6 +11,7 @@ import { WebSearchModule } from '@modules/web-search/web-search.module';
 import { AgentModule } from './agent/agent.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { ScraperModule } from './scraper/scraper.module';
+import { ReceiptModule } from './receipt/receipt.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -27,6 +28,7 @@ import { AppService } from './app.service';
     AgentModule,
     TelegramModule,
     ScraperModule,
+    ReceiptModule,
   ],
   controllers: [AppController],
   providers: [AppService],

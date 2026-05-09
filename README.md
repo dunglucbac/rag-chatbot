@@ -13,15 +13,30 @@ Agent (LangGraph ReAct)
     ├── search_knowledge_base  →  PGVector (uploaded PDFs + scraped web content)
     └── search_web             →  Tavily API
          ↓
-    LLM (Claude Sonnet 4.5 / GPT-4o)
+    LLM (Claude Sonnet 4.6 / GPT-4o)
 
 Ingestion Pipeline:
-    POST /ingest/file
-    → save upload to local storage
-    → create ingestion_jobs row in Postgres
-    → push job to Redis Stream
-    → Python worker extracts text/OCR
-    → store chunks + metadata in PGVector
+  NestJS                                    Python Worker
+  ──────────────────────────────────        ──────────────────────────────
+  POST /ingest/file
+    → save upload to disk
+    → create ingestion_jobs row
+    → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
+                                               → extract text (PDF/OCR)
+                                               → classify (receipt/payment/doc)
+                                               → parse receipts / chunk docs
+                                               → publish result events
+
+  ← handle receipt.parsed                   receipt.parsed ──→
+       → save receipt + line items to DB
+  ← handle receipt.needs_review              receipt.needs_review ──→
+       → send Telegram confirmation prompt
+  ← handle payment.detected                  payment.detected ──→
+       → send Telegram "what did you buy?"
+  ← handle doc.chunks.embed.requested        doc.chunks.embed.requested ──→
+       → embed chunks into PGVector
+  ← handle job.failed / parse.completed      job.failed / parse.completed ──→
+       → update ingestion_jobs status
 
 Background Scraper (every 6h):
     → Fetch unscraped Tavily URLs from web_search_logs
@@ -36,7 +51,7 @@ Background Scraper (every 6h):
 | Layer | Technology |
 |---|---|
 | Framework | NestJS 11 (TypeScript) |
-| LLM | Anthropic Claude Sonnet 4.5 or OpenAI GPT-4o |
+| LLM | Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o |
 | Embeddings | OpenAI text-embedding-3-small |
 | Vector Store | PostgreSQL + pgvector |
 | ORM | TypeORM |
@@ -44,8 +59,8 @@ Background Scraper (every 6h):
 | Web Search | Tavily API |
 | Chat Interface | Telegram (Telegraf) |
 | Scraping | Cheerio + axios |
-| Queue | Redis Stream |
-| Parsing Worker | Python + Docling |
+| Queue | RabbitMQ |
+| Parsing Worker | Python (PyPDF2, Tesseract, Anthropic) |
 
 ---
 
@@ -191,15 +206,27 @@ src/
 │   └── tools/
 │       ├── knowledge-base.tool.ts
 │       └── web-search.tool.ts
+├── common/             # Shared types, event envelope helpers
 ├── config/             # Environment configuration
 ├── conversation/       # Message entity
 ├── database/           # TypeORM / PostgreSQL setup + migrations
 ├── ingestion/          # Upload, job tracking, and queue handoff
 ├── llm/                # LLM provider abstraction (Claude / GPT-4o)
+├── message-queue/      # RabbitMQ broker and publisher
+├── receipt/            # Receipt analytics and summaries
 ├── scraper/            # Background web scraper (cron, every 6h)
 ├── telegram/           # Telegram bot handler + webhook
 ├── vector-store/       # PGVector service
 └── web-search/         # Tavily service + search log entity
+
+python-worker/          # Python file processing worker
+├── main.py             # RabbitMQ consumer entry point
+├── src/
+│   ├── consumer/       # Message handler (extract → classify → parse → publish)
+│   ├── extractors/     # PDF and OCR text extraction
+│   ├── publisher/      # RabbitMQ event publisher
+│   └── services/       # Classification, receipt parsing, chunking
+└── tests/
 ```
 
 ---

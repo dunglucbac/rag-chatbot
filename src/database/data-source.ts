@@ -3,6 +3,8 @@ import { config } from 'dotenv';
 import { IngestionJob } from '../ingestion/entities/ingestion-job.entity';
 import { WebSearchLog } from '../web-search/entities/web-search-log.entity';
 import { Message } from '../conversation/entities/message.entity';
+import { Receipt } from '../receipt/entities/receipt.entity';
+import { ReceiptItem } from '../receipt/entities/receipt-item.entity';
 
 config();
 
@@ -13,7 +15,7 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
-  entities: [IngestionJob, WebSearchLog, Message],
+  entities: [IngestionJob, WebSearchLog, Message, Receipt, ReceiptItem],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,
   logging: false,

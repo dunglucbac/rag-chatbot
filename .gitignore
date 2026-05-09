@@ -1,3 +1,10 @@
+# Python specific
+*venv/
+*__pycache__/
+*.pytest_cache/
+*.pyc
+.vscode/
+
 # NestJS specific
 /dist
 /node_modules

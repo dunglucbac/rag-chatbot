@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IngestionController } from '@modules/ingestion/ingestion.controller';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
+import { IngestionEventConsumer } from '@modules/ingestion/ingestion-event.consumer';
 import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
@@ -14,7 +15,7 @@ import { MessageQueueModule } from '@modules/message-queue/message-queue.module'
     MessageQueueModule,
   ],
   controllers: [IngestionController],
-  providers: [IngestionService, IngestionJobRepository],
+  providers: [IngestionService, IngestionJobRepository, IngestionEventConsumer],
   exports: [IngestionJobRepository],
 })
 export class IngestionModule {}

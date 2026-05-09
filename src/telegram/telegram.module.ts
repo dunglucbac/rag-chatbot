@@ -7,5 +7,6 @@ import { AgentModule } from '../agent/agent.module';
   imports: [AgentModule],
   providers: [TelegramService],
   controllers: [TelegramUpdate],
+  exports: [TelegramService],
 })
 export class TelegramModule {}
