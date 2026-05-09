@@ -1,6 +1,6 @@
 import json
 import logging
-from src.constants.event_types import EventType
+from src.constants.event_types import EventType, ClassificationType
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class EventConsumer:
                 logger.info("Classified as %s [correlationId=%s jobId=%s]",
                           classification, correlation_id, job_id)
 
-                if classification == "receipt" and self.parser:
+                if classification == ClassificationType.RECEIPT and self.parser:
                     receipt_data = self.parser.parse(text)
                     confidence = classification_result.get("confidence", 1.0)
 
@@ -63,12 +63,12 @@ class EventConsumer:
                             "userId": user_id,
                             "receipt": receipt_data,
                         }, correlation_id=correlation_id)
-                elif classification == "payment":
+                elif classification == ClassificationType.PAYMENT:
                     self.publisher.publish(EventType.PAYMENT_DETECTED, {
                         "jobId": job_id,
                         "extractedText": text,
                     }, correlation_id=correlation_id)
-                elif classification == "document" and self.chunker:
+                elif classification == ClassificationType.DOCUMENT and self.chunker:
                     metadata = {"source": storage_path, "type": file_type}
                     chunks = self.chunker.chunk_with_metadata(text, metadata)
                     self.publisher.publish(EventType.DOC_CHUNKS_EMBED_REQUESTED, {

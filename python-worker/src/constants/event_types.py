@@ -16,3 +16,10 @@ class EventType(StrEnum):
     RECEIPT_NEEDS_REVIEW = "receipt.needs_review"
     PAYMENT_DETECTED = "payment.detected"
     DOC_CHUNKS_EMBED_REQUESTED = "doc.chunks.embed.requested"
+
+
+class ClassificationType(StrEnum):
+    RECEIPT = "receipt"
+    PAYMENT = "payment"
+    DOCUMENT = "document"
+    UNKNOWN = "unknown"
