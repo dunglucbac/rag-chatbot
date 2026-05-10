@@ -15,19 +15,33 @@ export class IngestionEventConsumer {
 
   async handleParseCompleted(envelope: EventEnvelope<ParseCompletedPayload>) {
     if (!envelope.payload) return;
-    this.logger.log(`handleParseCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`);
-    await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
+    this.logger.log(
+      `handleParseCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
+    );
+    await this.completeJob(
+      envelope.payload.jobId,
+      envelope.payload.extractedText,
+    );
   }
 
-  async handleClassifyCompleted(envelope: EventEnvelope<ClassifyCompletedPayload>) {
+  async handleClassifyCompleted(
+    envelope: EventEnvelope<ClassifyCompletedPayload>,
+  ) {
     if (!envelope.payload) return;
-    this.logger.log(`handleClassifyCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`);
-    await this.completeJob(envelope.payload.jobId, envelope.payload.extractedText);
+    this.logger.log(
+      `handleClassifyCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
+    );
+    await this.completeJob(
+      envelope.payload.jobId,
+      envelope.payload.extractedText,
+    );
   }
 
   async handleJobFailed(envelope: EventEnvelope<JobFailedPayload>) {
     if (!envelope.payload) return;
-    this.logger.warn(`handleJobFailed [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}] ${envelope.payload.error}`);
+    this.logger.warn(
+      `handleJobFailed [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}] ${envelope.payload.error}`,
+    );
     const job = await this.jobRepository.findById(envelope.payload.jobId);
     if (!job) return;
 
