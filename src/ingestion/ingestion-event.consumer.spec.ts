@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IngestionEventConsumer } from './ingestion-event.consumer';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
+import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
 import {
   JobFailedPayload,
   ParseCompletedPayload,
@@ -17,14 +18,15 @@ describe('IngestionEventConsumer', () => {
       findById: jest.fn(),
       save: jest.fn(),
     };
+    const mockRouter = {
+      register: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IngestionEventConsumer,
-        {
-          provide: IngestionJobRepository,
-          useValue: mockRepository,
-        },
+        { provide: IngestionJobRepository, useValue: mockRepository },
+        { provide: MessageRouter, useValue: mockRouter },
       ],
     }).compile();
 

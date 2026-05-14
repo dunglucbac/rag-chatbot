@@ -9,8 +9,9 @@ def test_can_extract_text_from_image_using_ocr(tmp_path):
     image_path.write_text("dummy")
 
     # Mock both PIL.Image and pytesseract
-    with patch('src.extractors.ocr_extractor.Image') as mock_image, \
-         patch('src.extractors.ocr_extractor.pytesseract') as mock_pytesseract:
+    with patch("src.extractors.ocr_extractor.Image") as mock_image, patch(
+        "src.extractors.ocr_extractor.pytesseract"
+    ) as mock_pytesseract:
 
         mock_img = MagicMock()
         mock_image.open.return_value = mock_img

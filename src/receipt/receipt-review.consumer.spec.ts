@@ -1,12 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReceiptReviewConsumer } from './receipt-review.consumer';
 import { TelegramService } from '../telegram/telegram.service';
+import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 
 describe('ReceiptReviewConsumer', () => {
   let consumer: ReceiptReviewConsumer;
   let telegramService: TelegramService;
+  let jobRepo: IngestionJobRepository;
 
   beforeEach(async () => {
+    const mockRouter = { register: jest.fn() };
+    const mockJobRepo = { findById: jest.fn(), save: jest.fn() };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReceiptReviewConsumer,
@@ -20,11 +26,14 @@ describe('ReceiptReviewConsumer', () => {
             },
           },
         },
+        { provide: MessageRouter, useValue: mockRouter },
+        { provide: IngestionJobRepository, useValue: mockJobRepo },
       ],
     }).compile();
 
     consumer = module.get<ReceiptReviewConsumer>(ReceiptReviewConsumer);
     telegramService = module.get<TelegramService>(TelegramService);
+    jobRepo = module.get<IngestionJobRepository>(IngestionJobRepository);
   });
 
   function envelope(payload: Record<string, unknown>) {
@@ -40,6 +49,8 @@ describe('ReceiptReviewConsumer', () => {
   }
 
   it('sends confirmation prompt with receipt details and inline keyboard', async () => {
+    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+
     await consumer.handleNeedsReview(
       envelope({
         jobId: 'job-123',
@@ -71,6 +82,8 @@ describe('ReceiptReviewConsumer', () => {
   });
 
   it('formats receipt line items in the confirmation message', async () => {
+    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+
     await consumer.handleNeedsReview(
       envelope({
         jobId: 'job-123',

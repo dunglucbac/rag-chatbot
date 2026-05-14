@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import {
   ParseCompletedPayload,
@@ -6,12 +6,22 @@ import {
   JobFailedPayload,
 } from '../common/event-payloads.types';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
+import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
 
 @Injectable()
-export class IngestionEventConsumer {
+export class IngestionEventConsumer implements OnModuleInit {
   private readonly logger = new Logger(IngestionEventConsumer.name);
 
-  constructor(private readonly jobRepository: IngestionJobRepository) {}
+  constructor(
+    private readonly jobRepository: IngestionJobRepository,
+    private readonly router: MessageRouter,
+  ) {}
+
+  onModuleInit() {
+    this.router.register('doc.pdf.parse.completed', this.handleParseCompleted.bind(this));
+    this.router.register('image.classify.completed', this.handleClassifyCompleted.bind(this));
+    this.router.register('job.failed', this.handleJobFailed.bind(this));
+  }
 
   async handleParseCompleted(envelope: EventEnvelope<ParseCompletedPayload>) {
     if (!envelope.payload) return;

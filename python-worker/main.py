@@ -16,7 +16,8 @@ from src.services.chunking_service import ChunkingService
 from src.consumer.event_consumer import EventConsumer
 from src.publisher.event_publisher import EventPublisher
 
-load_dotenv()
+# override=True so .env values take precedence over existing system env vars
+load_dotenv(override=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,9 +37,7 @@ class Worker:
         self.channel = None
 
     def start(self):
-        self.connection = pika.BlockingConnection(
-            pika.URLParameters(self.rabbitmq_url)
-        )
+        self.connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
         self.channel = self.connection.channel()
 
         # Fair dispatch: each worker gets at most prefetch_count unacked messages
@@ -103,7 +102,7 @@ class Worker:
         if not api_key:
             print("Warning: ANTHROPIC_API_KEY not set, LLM services disabled")
             return None
-        
+
         base_url = os.getenv("ANTHROPIC_BASE_URL")
         return anthropic.Anthropic(api_key=api_key, base_url=base_url)
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import {
   PaymentDetectedPayload,
@@ -6,20 +6,35 @@ import {
 } from '../common/event-payloads.types';
 import { TelegramService } from '../telegram/telegram.service';
 import { MessageQueueService } from '../message-queue/publisher/publisher.service';
+import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 
 @Injectable()
-export class ReceiptPaymentConsumer {
+export class ReceiptPaymentConsumer implements OnModuleInit {
   private readonly logger = new Logger(ReceiptPaymentConsumer.name);
 
   constructor(
     private readonly telegramService: TelegramService,
     private readonly messageQueueService: MessageQueueService,
+    private readonly router: MessageRouter,
+    private readonly jobRepository: IngestionJobRepository,
   ) {}
+
+  onModuleInit() {
+    this.router.register('payment.detected', this.handlePaymentDetected.bind(this));
+  }
 
   async handlePaymentDetected(envelope: EventEnvelope<PaymentDetectedPayload>) {
     if (!envelope.payload) return;
-    const { userId, extractedText } = envelope.payload;
-    this.logger.log(`handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`);
+    const { userId, extractedText, jobId } = envelope.payload;
+    this.logger.log(`handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${jobId}]`);
+
+    const job = await this.jobRepository.findById(jobId);
+    if (job) {
+      job.status = 'needs_review';
+      job.classification = 'payment';
+      await this.jobRepository.save(job);
+    }
 
     const amountMatch = extractedText.match(/\$[\d,.]+/);
     const amount = amountMatch ? amountMatch[0] : 'this';

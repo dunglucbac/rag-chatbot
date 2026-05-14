@@ -1,5 +1,7 @@
 import json
 
+from .utils import extract_json
+
 
 class ClassificationService:
     def __init__(self, llm_client):
@@ -8,19 +10,20 @@ class ClassificationService:
     def classify(self, text: str) -> dict:
         """Classify text as receipt, payment, or document using LLM"""
         prompt = f"""Classify the following text as either "receipt", "payment", or "document".
-            Return JSON with classification and confidence (0-1).
+Return JSON with classification and confidence (0-1).
 
-            Text:
-            {text}
+Text:
+{text}
 
-            Response format: {{"classification": "receipt|payment|document", "confidence": 0.95}}"""
+Response format: {{"classification": "receipt|payment|document", "confidence": 0.95}}
+
+Reply with ONLY the JSON object, no explanation."""
 
         response = self.llm_client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=100,
-            messages=[{"role": "user", "content": prompt}]
+            max_tokens=50,
+            messages=[{"role": "user", "content": prompt}],
         )
 
         raw = response.content[0].text
-        raw = raw.strip().removeprefix("```json").removesuffix("```").strip()
-        return json.loads(raw)
+        return json.loads(extract_json(raw))

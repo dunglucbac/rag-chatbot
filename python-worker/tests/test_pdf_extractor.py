@@ -11,6 +11,7 @@ def test_can_extract_text_from_pdf(tmp_path):
     # For now, we'll use a real PDF library to create a test file
     # In a real scenario, you'd have a fixture PDF file
     from reportlab.pdfgen import canvas
+
     c = canvas.Canvas(str(pdf_path))
     c.drawString(100, 750, "Hello World")
     c.drawString(100, 730, "This is a test PDF")
@@ -29,6 +30,7 @@ def test_detects_when_pdf_needs_ocr(tmp_path):
     pdf_path = tmp_path / "scanned.pdf"
 
     from reportlab.pdfgen import canvas
+
     c = canvas.Canvas(str(pdf_path))
     c.drawString(100, 750, "X")  # Only 1 character
     c.save()

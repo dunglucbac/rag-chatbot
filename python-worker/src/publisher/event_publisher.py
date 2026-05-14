@@ -11,7 +11,14 @@ class EventPublisher:
         self.channel = channel
         self.exchange = exchange
 
-    def publish(self, event_type: str, payload: dict, correlation_id: str = None, schema_version: int = 1, attempt: int = 1):
+    def publish(
+        self,
+        event_type: str,
+        payload: dict,
+        correlation_id: str = None,
+        schema_version: int = 1,
+        attempt: int = 1,
+    ):
         """Publish an event to RabbitMQ topic exchange wrapped in EventEnvelope"""
         envelope = {
             "schemaVersion": schema_version,
@@ -22,7 +29,12 @@ class EventPublisher:
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
         }
-        logger.info("Publishing %s [correlationId=%s eventId=%s]", event_type, envelope["correlationId"], envelope["eventId"])
+        logger.info(
+            "Publishing %s [correlationId=%s eventId=%s]",
+            event_type,
+            envelope["correlationId"],
+            envelope["eventId"],
+        )
         message = json.dumps(envelope)
         self.channel.basic_publish(
             exchange=self.exchange,
