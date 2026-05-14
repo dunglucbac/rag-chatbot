@@ -8,7 +8,7 @@ def test_can_parse_receipt_into_structured_data():
     # Mock LLM client
     llm_client = Mock()
     llm_response = Mock()
-    llm_response.content = '''{
+    llm_response.content = [Mock(text='''{
         "merchant": "Starbucks",
         "purchasedAt": "2026-05-05T10:30:00Z",
         "total": 12.50,
@@ -18,7 +18,7 @@ def test_can_parse_receipt_into_structured_data():
             {"name": "Latte", "quantity": 1, "unitPrice": 4.50, "totalPrice": 4.50},
             {"name": "Croissant", "quantity": 2, "unitPrice": 3.00, "totalPrice": 6.00}
         ]
-    }'''
+    }''')]
     llm_client.messages.create.return_value = llm_response
 
     parser = ReceiptParser(llm_client)

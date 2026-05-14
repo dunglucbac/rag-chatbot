@@ -28,4 +28,6 @@ class ReceiptParser:
             messages=[{"role": "user", "content": prompt}]
         )
 
-        return json.loads(response.content)
+        raw = response.content[0].text
+        raw = raw.strip().removeprefix("```json").removesuffix("```").strip()
+        return json.loads(raw)

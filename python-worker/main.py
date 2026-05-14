@@ -2,10 +2,11 @@ import logging
 import os
 import signal
 import sys
-
 from dotenv import load_dotenv
 
 import pika
+import anthropic
+
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.ocr_extractor import OCRExtractor
 from src.constants.event_types import EventType
@@ -102,8 +103,9 @@ class Worker:
         if not api_key:
             print("Warning: ANTHROPIC_API_KEY not set, LLM services disabled")
             return None
-        import anthropic
-        return anthropic.Anthropic(api_key=api_key)
+        
+        base_url = os.getenv("ANTHROPIC_BASE_URL")
+        return anthropic.Anthropic(api_key=api_key, base_url=base_url)
 
 
 def main():
