@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import { ReceiptParsedPayload } from '../common/event-payloads.types';
 import { ReceiptService } from './receipt.service';
-import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 import { MESSAGE_QUEUE_BINDINGS } from '@modules/message-queue/message-queue.constants';
-import { MessageRouter } from '@modules/message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '@modules/message-queue/router/message-router.service';
 import { MessageQueueConsumer } from './consumer.service';
 
 describe('MessageQueueConsumer', () => {

@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReceiptParsedConsumer } from './receipt-parsed.consumer';
 import { ReceiptService } from './receipt.service';
-import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 
 describe('ReceiptParsedConsumer', () => {

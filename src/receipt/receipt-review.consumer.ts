@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import { NeedsReviewPayload } from '../common/event-payloads.types';
 import { TelegramService } from '../telegram/telegram.service';
-import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 
 @Injectable()

@@ -6,7 +6,7 @@ import {
   JobFailedPayload,
 } from '../common/event-payloads.types';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
-import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '../message-queue/router/message-router.service';
 
 @Injectable()
 export class IngestionEventConsumer implements OnModuleInit {

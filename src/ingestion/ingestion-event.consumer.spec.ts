@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IngestionEventConsumer } from './ingestion-event.consumer';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
-import { MessageRouter } from '../message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '../message-queue/router/message-router.service';
 import {
   JobFailedPayload,
   ParseCompletedPayload,

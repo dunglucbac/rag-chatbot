@@ -5,7 +5,7 @@ import {
   MESSAGE_QUEUE_EXCHANGE,
 } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
-import { MessageRouter } from '@modules/message-queue/dispatcher/message-router.service';
+import { MessageRouter } from '@modules/message-queue/router/message-router.service';
 import { EventEnvelope } from '@modules/common/common.types';
 
 @Injectable()
