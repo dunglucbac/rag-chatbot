@@ -67,6 +67,7 @@ Background Scraper (every 6h):
 ## Prerequisites
 
 - Node.js 20+
+- Python 3.12+ (for the Python worker)
 - Docker & Docker Compose
 - Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - Anthropic or OpenAI API key
@@ -86,7 +87,37 @@ cd rag-chatbot
 npm install
 ```
 
-### 2. Configure environment
+### 2. Install Python worker dependencies
+
+```bash
+cd python-worker
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Install Tesseract OCR
+
+The Python worker uses Tesseract for OCR text extraction from images and scanned PDFs.
+
+**macOS:**
+```bash
+brew install tesseract
+brew install tesseract-lang   # optional: additional language support
+```
+
+**Ubuntu / Debian:**
+```bash
+sudo apt install tesseract-ocr
+sudo apt install tesseract-ocr-all   # optional: additional language support
+```
+
+**Verify installation:**
+```bash
+tesseract --version
+```
+
+### 4. Configure environment
 
 ```bash
 cp .env.example .env
@@ -94,13 +125,13 @@ cp .env.example .env
 
 Fill in your values — see `.env.example` for all required keys.
 
-### 3. Start the database stack
+### 5. Start the database stack
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. Run database migrations
+### 6. Run database migrations
 
 ```bash
 npm run migration:run
@@ -108,7 +139,7 @@ npm run migration:run
 
 This will create the app schema using TypeORM migrations.
 
-### 5. Run the app
+### 7. Run the app
 
 Get a public HTTPS URL for the Telegram webhook using one of these options:
 
