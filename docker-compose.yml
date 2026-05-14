@@ -27,6 +27,8 @@ services:
       - ./:/app
       - uploads:/app/storage/uploads
     command: npm run start:dev
+    networks:
+      - ip6net
 
   python-worker:
     build:
@@ -44,6 +46,15 @@ services:
       - uploads:/app/storage/uploads
     deploy:
       replicas: 2
+    networks:
+      - ip6net
+
+networks:
+  ip6net:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 2001:db8::/64
 
 volumes:
   uploads:
