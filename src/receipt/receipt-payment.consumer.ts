@@ -8,6 +8,7 @@ import { TelegramService } from '../telegram/telegram.service';
 import { MessageQueueService } from '../message-queue/publisher/publisher.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
+import { EventHandler } from '../message-queue/message-queue.types';
 
 @Injectable()
 export class ReceiptPaymentConsumer implements OnModuleInit {
@@ -23,7 +24,7 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
   onModuleInit() {
     this.router.register(
       'payment.detected',
-      this.handlePaymentDetected.bind(this),
+      this.handlePaymentDetected.bind(this) as EventHandler,
     );
   }
 

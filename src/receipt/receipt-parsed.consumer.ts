@@ -4,6 +4,7 @@ import { ReceiptParsedPayload } from '../common/event-payloads.types';
 import { ReceiptService } from './receipt.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
+import { EventHandler } from '../message-queue/message-queue.types';
 
 @Injectable()
 export class ReceiptParsedConsumer implements OnModuleInit {
@@ -16,7 +17,10 @@ export class ReceiptParsedConsumer implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.router.register('receipt.parsed', this.handleReceiptParsed.bind(this));
+    this.router.register(
+      'receipt.parsed',
+      this.handleReceiptParsed.bind(this) as EventHandler,
+    );
   }
 
   async handleReceiptParsed(envelope: EventEnvelope<ReceiptParsedPayload>) {

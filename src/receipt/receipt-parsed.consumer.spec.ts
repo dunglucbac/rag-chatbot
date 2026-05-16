@@ -38,7 +38,7 @@ describe('ReceiptParsedConsumer', () => {
   it('registers for receipt.parsed events on init', () => {
     // onModuleInit is called automatically by NestJS, test registration
     consumer.onModuleInit();
-    const router = (consumer as any).router;
+    const router = (consumer as unknown as { router: MessageRouter }).router;
     expect(router.register).toHaveBeenCalledWith(
       'receipt.parsed',
       expect.any(Function),
@@ -81,7 +81,7 @@ describe('ReceiptParsedConsumer', () => {
       expect.objectContaining({
         status: 'completed',
         classification: 'receipt',
-        completedAt: expect.any(Date),
+        completedAt: expect.any(Date) as Date,
       }),
     );
   });

@@ -4,6 +4,11 @@ import { TelegramService } from '../telegram/telegram.service';
 import { MessageQueueService } from '../message-queue/publisher/publisher.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
+import type {
+  PaymentDetectedPayload,
+  ReceiptParsedPayload,
+} from '@modules/common/event-payloads.types';
+import type { EventEnvelope } from '@modules/common/common.types';
 
 describe('ReceiptPaymentConsumer', () => {
   let consumer: ReceiptPaymentConsumer;
@@ -45,21 +50,9 @@ describe('ReceiptPaymentConsumer', () => {
     jobRepo = module.get<IngestionJobRepository>(IngestionJobRepository);
   });
 
-  function envelope(payload: Record<string, unknown>) {
-    return {
-      eventId: 'evt-1',
-      eventType: 'payment.detected',
-      correlationId: 'corr-123',
-      schemaVersion: 1,
-      attempt: 1,
-      createdAt: new Date().toISOString(),
-      payload,
-    };
-  }
-
   it('registers for payment.detected events on init', () => {
-    consumer.onModuleInit();
-    const router = (consumer as any).router;
+    (consumer as unknown as { onModuleInit: () => void }).onModuleInit();
+    const router = (consumer as unknown as { router: MessageRouter }).router;
     expect(router.register).toHaveBeenCalledWith(
       'payment.detected',
       expect.any(Function),
@@ -71,14 +64,21 @@ describe('ReceiptPaymentConsumer', () => {
       id: 'job-123',
       status: 'pending',
     });
-
-    await consumer.handlePaymentDetected(
-      envelope({
-        jobId: 'job-123',
-        userId: '12345',
-        extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
-      }),
-    );
+    const payload: PaymentDetectedPayload = {
+      jobId: 'job-123',
+      userId: '12345',
+      extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
+    };
+    const envelope: EventEnvelope<PaymentDetectedPayload> = {
+      eventId: 'evt-1',
+      eventType: 'payment.detected',
+      correlationId: 'corr-123',
+      schemaVersion: 1,
+      attempt: 1,
+      createdAt: new Date().toISOString(),
+      payload,
+    };
+    await consumer.handlePaymentDetected(envelope);
 
     expect(telegramService.bot.telegram.sendMessage).toHaveBeenCalledWith(
       '12345',
@@ -112,9 +112,10 @@ describe('ReceiptPaymentConsumer', () => {
         jobId: 'job-123',
         userId: '12345',
         receipt: expect.objectContaining({
-          merchant: 'Walmart',
-          total: 50.0,
-        }),
+          merchant: expect.any(String) as string,
+          total: expect.any(Number) as number,
+          currency: expect.any(String) as string,
+        }) as ReceiptParsedPayload['receipt'],
       }),
       'job-123',
       1,

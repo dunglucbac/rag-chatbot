@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
-
-type EventHandler = (envelope: EventEnvelope) => Promise<void>;
+import { EventHandler } from '../message-queue.types';
 
 @Injectable()
 export class MessageRouter {

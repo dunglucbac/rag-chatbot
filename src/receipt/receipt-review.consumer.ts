@@ -4,6 +4,7 @@ import { NeedsReviewPayload } from '../common/event-payloads.types';
 import { TelegramService } from '../telegram/telegram.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
+import { EventHandler } from '../message-queue/message-queue.types';
 
 @Injectable()
 export class ReceiptReviewConsumer implements OnModuleInit {
@@ -18,7 +19,7 @@ export class ReceiptReviewConsumer implements OnModuleInit {
   onModuleInit() {
     this.router.register(
       'receipt.needs_review',
-      this.handleNeedsReview.bind(this),
+      this.handleNeedsReview.bind(this) as EventHandler,
     );
   }
 
