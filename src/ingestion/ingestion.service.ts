@@ -25,6 +25,9 @@ export class IngestionService {
     '.webp',
     '.tif',
     '.tiff',
+    '.heic',
+    '.heif',
+    '.heifs',
   ];
 
   private static readonly imageMimeTypes: ReadonlyArray<string> = [
@@ -32,6 +35,9 @@ export class IngestionService {
     'image/jpeg',
     'image/webp',
     'image/tiff',
+    'image/heic',
+    'image/heif',
+    'image/heif-sequence',
   ];
 
   constructor(

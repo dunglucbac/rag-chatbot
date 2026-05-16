@@ -1,8 +1,15 @@
 import json
 import logging
+import os
 from src.constants.event_types import EventType, ClassificationType
+from PIL import Image
+import pillow_heif
+
+pillow_heif.register_heif_opener()
 
 logger = logging.getLogger(__name__)
+
+HEIC_EXTENSIONS = {'.heic', '.heif', '.heifs'}
 
 
 class EventConsumer:
@@ -22,6 +29,19 @@ class EventConsumer:
         self.ocr_extractor = ocr_extractor
         self.chunker = chunker
 
+    def _convert_heic_if_needed(self, storage_path: str) -> str:
+        """Convert HEIC to JPEG and return the new path. Returns original path if not HEIC."""
+        ext = os.path.splitext(storage_path)[1].lower()
+        if ext not in HEIC_EXTENSIONS:
+            return storage_path
+
+        logger.info("Converting HEIC to JPEG: %s", storage_path)
+        jpeg_path = storage_path[:-len(ext)] + '.jpg'
+        img = Image.open(storage_path)
+        img.convert('RGB').save(jpeg_path, 'JPEG')
+        os.remove(storage_path)
+        return jpeg_path
+
     def on_message(self, channel, method, properties, body):
         """Process incoming RabbitMQ message"""
         envelope = json.loads(body)
@@ -39,7 +59,7 @@ class EventConsumer:
 
         try:
             user_id = payload.get("userId")
-            storage_path = payload["storagePath"]
+            storage_path = self._convert_heic_if_needed(payload["storagePath"])
             file_type = payload.get("fileType", "pdf")
 
             # Extract text based on file type
