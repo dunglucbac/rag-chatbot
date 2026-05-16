@@ -1,0 +1,48 @@
+export const MESSAGE_QUEUE_EXCHANGE = 'ingest.topic';
+export const MESSAGE_QUEUE_IMAGE_QUEUE = 'ingest.image.queue';
+export const MESSAGE_QUEUE_PDF_QUEUE = 'ingest.pdf.queue';
+export const MESSAGE_QUEUE_STATUS_QUEUE = 'ingest.status.queue';
+export const MESSAGE_QUEUE_RESULTS_QUEUE = 'ingest.results.queue';
+
+export const MESSAGE_QUEUE_BINDINGS = [
+  {
+    queue: MESSAGE_QUEUE_PDF_QUEUE,
+    routingKey: 'doc.pdf.parse.requested',
+  },
+  {
+    queue: MESSAGE_QUEUE_IMAGE_QUEUE,
+    routingKey: 'image.classify.requested',
+  },
+  {
+    queue: MESSAGE_QUEUE_STATUS_QUEUE,
+    routingKey: 'job.processing.started',
+  },
+  {
+    queue: MESSAGE_QUEUE_STATUS_QUEUE,
+    routingKey: 'doc.pdf.parse.completed',
+  },
+  {
+    queue: MESSAGE_QUEUE_STATUS_QUEUE,
+    routingKey: 'image.classify.completed',
+  },
+  {
+    queue: MESSAGE_QUEUE_STATUS_QUEUE,
+    routingKey: 'job.failed',
+  },
+  {
+    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
+    routingKey: 'receipt.parsed',
+  },
+  {
+    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
+    routingKey: 'payment.detected',
+  },
+  {
+    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
+    routingKey: 'doc.chunks.embed.requested',
+  },
+  {
+    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
+    routingKey: 'receipt.needs_review',
+  },
+] as const;

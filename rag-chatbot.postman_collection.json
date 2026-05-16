@@ -19,11 +19,11 @@
       }
     },
     {
-      "name": "Ingest PDF",
+      "name": "Ingest File",
       "request": {
         "method": "POST",
-        "url": "{{baseUrl}}/ingest/pdf",
-        "description": "Upload a PDF file to ingest into the vector store.",
+        "url": "{{baseUrl}}/ingest/file",
+        "description": "Upload an image, PDF, or other supported file to create an ingestion job and publish the corresponding message queue event.",
         "body": {
           "mode": "formdata",
           "formdata": [
@@ -31,10 +31,18 @@
               "key": "file",
               "type": "file",
               "src": "",
-              "description": "PDF file to ingest (application/pdf only)"
+              "description": "File to ingest (image/pdf/etc.)"
             }
           ]
         }
+      }
+    },
+    {
+      "name": "Get Ingestion Job",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/ingest/jobs/:id",
+        "description": "Fetch an ingestion job by id. Replace :id with the job identifier."
       }
     },
     {

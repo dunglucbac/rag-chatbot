@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug: NestJS Dev",
+      "name": "NestJS Dev",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
@@ -22,6 +22,16 @@
       "sourceMaps": true,
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Python Worker",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/python-worker/main.py",
+      "cwd": "${workspaceFolder}/python-worker",
+      "python": "${workspaceFolder}/python-worker/.venv/bin/python",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/python-worker/.env"
     }
   ]
 }

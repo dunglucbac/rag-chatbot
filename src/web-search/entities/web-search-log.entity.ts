@@ -1,27 +1,28 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
+  BaseEntity,
   Column,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 
 @Entity('web_search_logs')
-export class WebSearchLog {
+export class WebSearchLog extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  declare id: string;
 
   @Column()
-  userId: string;
+  declare userId: string;
 
   @Column({ type: 'text' })
-  query: string;
+  declare query: string;
 
   @Column({ type: 'text' })
-  url: string;
+  declare url: string;
 
   @Column({ default: false })
-  scraped: boolean;
+  declare scraped: boolean;
 
   @CreateDateColumn()
-  timestamp: Date;
+  declare timestamp: Date;
 }

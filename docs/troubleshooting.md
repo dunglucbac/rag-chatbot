@@ -27,6 +27,12 @@
 
 The PGVector table is created lazily by `VectorStoreService.onModuleInit`. If the app crashes before that runs, the table may not exist. Restart the app — it will recreate it.
 
+If the ingestion job table is missing instead, run the TypeORM migrations:
+
+```bash
+npm run migration:run
+```
+
 ### `extension "vector" does not exist`
 
 The pgvector extension was not installed. This is handled by `init.sql` on first container start. If you connected an existing PostgreSQL instance, run manually:

@@ -24,7 +24,7 @@ Copy the `https://` URL and set it as `TELEGRAM_WEBHOOK_URL` in `.env`.
 npm run start:dev
 ```
 
-On startup, `TelegramService.onModuleInit` calls `bot.telegram.setWebhook(TELEGRAM_WEBHOOK_URL/telegram/webhook)` automatically.
+On startup, `TelegramService.onModuleInit` calls `bot.telegram.setWebhook(`${TELEGRAM_WEBHOOK_URL}/telegram/webhook`)` automatically.
 
 ---
 

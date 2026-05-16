@@ -15,6 +15,11 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
+    "paths": {
+      "@modules/*": ["src/*"],
+      "@configs/*": ["src/config/*"],
+      "@repositories/*": ["src/repositories/*"]
+    },
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,

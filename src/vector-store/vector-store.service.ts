@@ -16,6 +16,8 @@ export class VectorStoreService implements OnModuleInit {
       apiKey: this.config.get<string>('llm.openaiApiKey'),
     });
 
+    const sslEnabled = this.config.get<string>('db.ssl') === 'true';
+
     this.store = await PGVectorStore.initialize(embeddings, {
       postgresConnectionOptions: {
         type: 'postgres',
@@ -24,6 +26,7 @@ export class VectorStoreService implements OnModuleInit {
         user: this.config.get<string>('db.user'),
         password: this.config.get<string>('db.pass'),
         database: this.config.get<string>('db.name'),
+        ssl: sslEnabled ? { rejectUnauthorized: false } : false,
       },
       tableName: 'document_embeddings',
       columns: {

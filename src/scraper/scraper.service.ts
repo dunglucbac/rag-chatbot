@@ -24,7 +24,7 @@ export class ScraperService {
 
     for (const log of unscraped) {
       try {
-        const { data } = await axios.get(log.url, { timeout: 10000 });
+        const { data } = await axios.get<string>(log.url, { timeout: 10000 });
         const $ = cheerio.load(data);
         $('script, style, nav, footer').remove();
         const content = $('body').text().replace(/\s+/g, ' ').trim();
