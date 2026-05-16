@@ -22,7 +22,10 @@ class TestEventPayloadContracts:
         extractor.needs_ocr.return_value = False
 
         classifier = Mock()
-        classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
+        classifier.classify.return_value = {
+            "classification": "receipt",
+            "confidence": 0.95,
+        }
 
         parser = Mock()
         parser.parse.return_value = {
@@ -38,12 +41,19 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, parser)
-        consumer.on_message(channel, method, properties, _body({
-            "jobId": "job-123",
-            "userId": "user-456",
-            "storagePath": "/path/to/receipt.pdf",
-            "fileType": "pdf",
-        }))
+        consumer.on_message(
+            channel,
+            method,
+            properties,
+            _body(
+                {
+                    "jobId": "job-123",
+                    "userId": "user-456",
+                    "storagePath": "/path/to/receipt.pdf",
+                    "fileType": "pdf",
+                }
+            ),
+        )
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -65,19 +75,33 @@ class TestEventPayloadContracts:
         properties = Mock()
 
         ocr_extractor = Mock()
-        ocr_extractor.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
+        ocr_extractor.extract.return_value = (
+            "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
+        )
 
         classifier = Mock()
-        classifier.classify.return_value = {"classification": "payment", "confidence": 0.90}
+        classifier.classify.return_value = {
+            "classification": "payment",
+            "confidence": 0.90,
+        }
 
         publisher = Mock()
-        consumer = EventConsumer(None, publisher, classifier, ocr_extractor=ocr_extractor)
-        consumer.on_message(channel, method, properties, _body({
-            "jobId": "job-999",
-            "userId": "user-456",
-            "storagePath": "/path/to/payment.jpg",
-            "fileType": "image",
-        }))
+        consumer = EventConsumer(
+            None, publisher, classifier, ocr_extractor=ocr_extractor
+        )
+        consumer.on_message(
+            channel,
+            method,
+            properties,
+            _body(
+                {
+                    "jobId": "job-999",
+                    "userId": "user-456",
+                    "storagePath": "/path/to/payment.jpg",
+                    "fileType": "image",
+                }
+            ),
+        )
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -99,22 +123,38 @@ class TestEventPayloadContracts:
         extractor.needs_ocr.return_value = False
 
         classifier = Mock()
-        classifier.classify.return_value = {"classification": "document", "confidence": 0.95}
+        classifier.classify.return_value = {
+            "classification": "document",
+            "confidence": 0.95,
+        }
 
         chunker = Mock()
         chunker.chunk_with_metadata.return_value = [
-            {"content": "A" * 1000, "metadata": {"source": "/path/to/doc.pdf", "type": "pdf"}},
-            {"content": "A" * 1000, "metadata": {"source": "/path/to/doc.pdf", "type": "pdf"}},
+            {
+                "content": "A" * 1000,
+                "metadata": {"source": "/path/to/doc.pdf", "type": "pdf"},
+            },
+            {
+                "content": "A" * 1000,
+                "metadata": {"source": "/path/to/doc.pdf", "type": "pdf"},
+            },
         ]
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, chunker=chunker)
-        consumer.on_message(channel, method, properties, _body({
-            "jobId": "job-doc-1",
-            "userId": "user-123",
-            "storagePath": "/path/to/doc.pdf",
-            "fileType": "pdf",
-        }))
+        consumer.on_message(
+            channel,
+            method,
+            properties,
+            _body(
+                {
+                    "jobId": "job-doc-1",
+                    "userId": "user-123",
+                    "storagePath": "/path/to/doc.pdf",
+                    "fileType": "pdf",
+                }
+            ),
+        )
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -142,11 +182,18 @@ class TestEventPayloadContracts:
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher)
-        consumer.on_message(channel, method, properties, _body({
-            "jobId": "job-err-1",
-            "storagePath": "/path/to/bad.pdf",
-            "fileType": "pdf",
-        }))
+        consumer.on_message(
+            channel,
+            method,
+            properties,
+            _body(
+                {
+                    "jobId": "job-err-1",
+                    "storagePath": "/path/to/bad.pdf",
+                    "fileType": "pdf",
+                }
+            ),
+        )
 
         publisher.publish.assert_called_once()
         event_type, payload = publisher.publish.call_args[0]
@@ -167,19 +214,33 @@ class TestEventPayloadContracts:
         extractor.needs_ocr.return_value = False
 
         classifier = Mock()
-        classifier.classify.return_value = {"classification": "receipt", "confidence": 0.55}
+        classifier.classify.return_value = {
+            "classification": "receipt",
+            "confidence": 0.55,
+        }
 
         parser = Mock()
-        parser.parse.return_value = {"merchant": "Unknown", "total": 10.00, "currency": "USD"}
+        parser.parse.return_value = {
+            "merchant": "Unknown",
+            "total": 10.00,
+            "currency": "USD",
+        }
 
         publisher = Mock()
         consumer = EventConsumer(extractor, publisher, classifier, parser)
-        consumer.on_message(channel, method, properties, _body({
-            "jobId": "job-low-1",
-            "userId": "user-123",
-            "storagePath": "/path/to/receipt.pdf",
-            "fileType": "pdf",
-        }))
+        consumer.on_message(
+            channel,
+            method,
+            properties,
+            _body(
+                {
+                    "jobId": "job-low-1",
+                    "userId": "user-123",
+                    "storagePath": "/path/to/receipt.pdf",
+                    "fileType": "pdf",
+                }
+            ),
+        )
 
         event_type, payload = publisher.publish.call_args[0]
         assert event_type == EventType.RECEIPT_NEEDS_REVIEW

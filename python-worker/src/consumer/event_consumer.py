@@ -6,7 +6,15 @@ logger = logging.getLogger(__name__)
 
 
 class EventConsumer:
-    def __init__(self, extractor, publisher, classifier=None, parser=None, ocr_extractor=None, chunker=None):
+    def __init__(
+        self,
+        extractor,
+        publisher,
+        classifier=None,
+        parser=None,
+        ocr_extractor=None,
+        chunker=None,
+    ):
         self.extractor = extractor
         self.publisher = publisher
         self.classifier = classifier
@@ -22,7 +30,12 @@ class EventConsumer:
         correlation_id = envelope.get("correlationId", "unknown")
         event_type = envelope.get("eventType", "unknown")
 
-        logger.info("Received %s [correlationId=%s jobId=%s]", event_type, correlation_id, job_id)
+        logger.info(
+            "Received %s [correlationId=%s jobId=%s]",
+            event_type,
+            correlation_id,
+            job_id,
+        )
 
         try:
             user_id = payload.get("userId")
@@ -43,54 +56,88 @@ class EventConsumer:
             if self.classifier:
                 classification_result = self.classifier.classify(text)
                 classification = classification_result["classification"]
-                logger.info("Classified as %s [correlationId=%s jobId=%s]",
-                          classification, correlation_id, job_id)
+                logger.info(
+                    "Classified as %s [correlationId=%s jobId=%s]",
+                    classification,
+                    correlation_id,
+                    job_id,
+                )
 
                 if classification == ClassificationType.RECEIPT and self.parser:
                     receipt_data = self.parser.parse(text)
                     confidence = classification_result.get("confidence", 1.0)
 
                     if confidence < 0.7:
-                        self.publisher.publish(EventType.RECEIPT_NEEDS_REVIEW, {
-                            "jobId": job_id,
-                            "userId": user_id,
-                            "confidence": confidence,
-                            "receipt": receipt_data,
-                        }, correlation_id=correlation_id)
+                        self.publisher.publish(
+                            EventType.RECEIPT_NEEDS_REVIEW,
+                            {
+                                "jobId": job_id,
+                                "userId": user_id,
+                                "confidence": confidence,
+                                "receipt": receipt_data,
+                            },
+                            correlation_id=correlation_id,
+                        )
                     else:
-                        self.publisher.publish(EventType.RECEIPT_PARSED, {
-                            "jobId": job_id,
-                            "userId": user_id,
-                            "receipt": receipt_data,
-                        }, correlation_id=correlation_id)
+                        self.publisher.publish(
+                            EventType.RECEIPT_PARSED,
+                            {
+                                "jobId": job_id,
+                                "userId": user_id,
+                                "receipt": receipt_data,
+                            },
+                            correlation_id=correlation_id,
+                        )
                 elif classification == ClassificationType.PAYMENT:
-                    self.publisher.publish(EventType.PAYMENT_DETECTED, {
-                        "jobId": job_id,
-                        "extractedText": text,
-                    }, correlation_id=correlation_id)
+                    self.publisher.publish(
+                        EventType.PAYMENT_DETECTED,
+                        {
+                            "jobId": job_id,
+                            "extractedText": text,
+                        },
+                        correlation_id=correlation_id,
+                    )
                 elif classification == ClassificationType.DOCUMENT and self.chunker:
                     metadata = {"source": storage_path, "type": file_type}
                     chunks = self.chunker.chunk_with_metadata(text, metadata)
-                    self.publisher.publish(EventType.DOC_CHUNKS_EMBED_REQUESTED, {
-                        "jobId": job_id,
-                        "userId": user_id,
-                        "chunks": chunks,
-                    }, correlation_id=correlation_id)
+                    self.publisher.publish(
+                        EventType.DOC_CHUNKS_EMBED_REQUESTED,
+                        {
+                            "jobId": job_id,
+                            "userId": user_id,
+                            "chunks": chunks,
+                        },
+                        correlation_id=correlation_id,
+                    )
                 else:
-                    self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, {
+                    self.publisher.publish(
+                        EventType.DOC_PDF_PARSE_COMPLETED,
+                        {
+                            "jobId": job_id,
+                            "extractedText": text,
+                        },
+                        correlation_id=correlation_id,
+                    )
+            else:
+                self.publisher.publish(
+                    EventType.DOC_PDF_PARSE_COMPLETED,
+                    {
                         "jobId": job_id,
                         "extractedText": text,
-                    }, correlation_id=correlation_id)
-            else:
-                self.publisher.publish(EventType.DOC_PDF_PARSE_COMPLETED, {
-                    "jobId": job_id,
-                    "extractedText": text,
-                }, correlation_id=correlation_id)
+                    },
+                    correlation_id=correlation_id,
+                )
         except Exception as e:
-            logger.exception("Processing failed [correlationId=%s jobId=%s]", correlation_id, job_id)
-            self.publisher.publish(EventType.JOB_FAILED, {
-                "jobId": job_id,
-                "error": str(e),
-            }, correlation_id=correlation_id)
+            logger.exception(
+                "Processing failed [correlationId=%s jobId=%s]", correlation_id, job_id
+            )
+            self.publisher.publish(
+                EventType.JOB_FAILED,
+                {
+                    "jobId": job_id,
+                    "error": str(e),
+                },
+                correlation_id=correlation_id,
+            )
 
         channel.basic_ack(delivery_tag=method.delivery_tag)

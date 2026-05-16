@@ -8,7 +8,9 @@ def test_can_classify_text_as_receipt():
     # Mock LLM client
     llm_client = Mock()
     llm_response = Mock()
-    llm_response.content = [Mock(text='{"classification": "receipt", "confidence": 0.95}')]
+    llm_response.content = [
+        Mock(text='{"classification": "receipt", "confidence": 0.95}')
+    ]
     llm_client.messages.create.return_value = llm_response
 
     service = ClassificationService(llm_client)

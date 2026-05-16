@@ -1,3 +1,11 @@
+export type ReceiptLineItem = {
+  name: string;
+  quantity?: number;
+  unitPrice?: number;
+  totalPrice: number;
+  category?: string;
+};
+
 export type ReceiptParsedPayload = {
   jobId: string;
   userId: string;
@@ -8,13 +16,7 @@ export type ReceiptParsedPayload = {
     tax?: number;
     currency: string;
   };
-  lineItems?: Array<{
-    name: string;
-    quantity?: number;
-    unitPrice?: number;
-    totalPrice: number;
-    category?: string;
-  }>;
+  lineItems?: Array<ReceiptLineItem>;
   rawText?: string;
 };
 

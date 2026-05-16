@@ -98,7 +98,9 @@ describe('ReceiptService', () => {
       lineItems: [],
     };
 
-    const duplicateError = new Error('duplicate key value violates unique constraint');
+    const duplicateError = new Error(
+      'duplicate key value violates unique constraint',
+    );
     (duplicateError as any).code = '23505';
     (repository.create as jest.Mock).mockRejectedValue(duplicateError);
 

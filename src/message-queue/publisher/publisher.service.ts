@@ -26,7 +26,9 @@ export class MessageQueueService {
       payload,
     };
 
-    this.logger.log(`Publishing ${eventType} [correlationId=${correlationId} eventId=${envelope.eventId}]`);
+    this.logger.log(
+      `Publishing ${eventType} [correlationId=${correlationId} eventId=${envelope.eventId}]`,
+    );
 
     const { channel, exchange } = await this.broker.connect();
     const published = channel.publish(
@@ -42,7 +44,9 @@ export class MessageQueueService {
     );
 
     if (!published) {
-      this.logger.error(`Failed to publish ${eventType} [correlationId=${correlationId}]`);
+      this.logger.error(
+        `Failed to publish ${eventType} [correlationId=${correlationId}]`,
+      );
       throw new Error(`Failed to publish event ${eventType}`);
     }
 

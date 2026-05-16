@@ -13,7 +13,9 @@ export class VectorStoreConsumer {
   async handleEmbedRequest(envelope: EventEnvelope<EmbedRequestPayload>) {
     if (!envelope.payload) return;
     const { chunks, userId } = envelope.payload;
-    this.logger.log(`handleEmbedRequest [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}] chunks=${chunks.length}`);
+    this.logger.log(
+      `handleEmbedRequest [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}] chunks=${chunks.length}`,
+    );
 
     if (!chunks?.length) return;
 

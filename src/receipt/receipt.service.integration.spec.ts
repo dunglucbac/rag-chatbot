@@ -39,12 +39,12 @@ describe('ReceiptService Integration', () => {
       receipt: {
         merchant: 'Starbucks',
         purchasedAt: '2026-05-05T10:30:00Z',
-        total: 12.50,
+        total: 12.5,
         tax: 1.15,
         currency: 'USD',
       },
       lineItems: [
-        { name: 'Latte', quantity: 1, unitPrice: 4.50, totalPrice: 4.50 },
+        { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
       ],
     };
 
@@ -52,7 +52,7 @@ describe('ReceiptService Integration', () => {
 
     expect(result.id).toBeDefined();
     expect(result.merchant).toBe('Starbucks');
-    expect(result.total).toBe(12.50);
+    expect(result.total).toBe(12.5);
 
     const found = await dataSource.getRepository(Receipt).findOne({
       where: { id: result.id },
@@ -60,7 +60,7 @@ describe('ReceiptService Integration', () => {
     });
     expect(found?.items).toHaveLength(1);
     expect(found?.items[0].name).toBe('Latte');
-    expect(found?.items[0].totalPrice).toBe(4.50);
+    expect(found?.items[0].totalPrice).toBe(4.5);
   });
 
   it('detects duplicate receipts via composite unique constraint', async () => {
@@ -71,7 +71,7 @@ describe('ReceiptService Integration', () => {
       receipt: {
         merchant: 'Target',
         purchasedAt: '2026-05-06T14:00:00Z',
-        total: 50.00,
+        total: 50.0,
         currency: 'USD',
       },
       lineItems: [],
@@ -92,7 +92,7 @@ describe('ReceiptService Integration', () => {
       receipt: {
         merchant: 'Walmart',
         purchasedAt: '2026-05-06T14:00:00Z',
-        total: 50.00,
+        total: 50.0,
         currency: 'USD',
       },
       lineItems: [],
@@ -117,7 +117,7 @@ describe('ReceiptService Integration', () => {
       receipt: {
         merchant: 'Costco',
         purchasedAt: '2026-05-06T14:00:00Z',
-        total: 100.00,
+        total: 100.0,
         currency: 'USD',
       },
       lineItems: [],
