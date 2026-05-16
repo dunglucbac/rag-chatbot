@@ -21,7 +21,9 @@ export class ReceiptParsedConsumer implements OnModuleInit {
 
   async handleReceiptParsed(envelope: EventEnvelope<ReceiptParsedPayload>) {
     if (!envelope.payload) return;
-    this.logger.log(`handleReceiptParsed [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`);
+    this.logger.log(
+      `handleReceiptParsed [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
+    );
     await this.receiptService.saveFromEvent(envelope.payload);
 
     const job = await this.jobRepository.findById(envelope.payload.jobId);

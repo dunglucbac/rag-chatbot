@@ -16,13 +16,18 @@ export class ReceiptReviewConsumer implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.router.register('receipt.needs_review', this.handleNeedsReview.bind(this));
+    this.router.register(
+      'receipt.needs_review',
+      this.handleNeedsReview.bind(this),
+    );
   }
 
   async handleNeedsReview(envelope: EventEnvelope<NeedsReviewPayload>) {
     if (!envelope.payload) return;
     const { userId, receipt, lineItems, jobId } = envelope.payload;
-    this.logger.warn(`handleNeedsReview [correlationId=${envelope.correlationId} jobId=${jobId}] confidence=${envelope.payload.confidence}`);
+    this.logger.warn(
+      `handleNeedsReview [correlationId=${envelope.correlationId} jobId=${jobId}] confidence=${envelope.payload.confidence}`,
+    );
 
     const job = await this.jobRepository.findById(jobId);
     if (job) {
@@ -42,16 +47,20 @@ export class ReceiptReviewConsumer implements OnModuleInit {
       ),
     ].filter(Boolean);
 
-    await this.telegramService.bot.telegram.sendMessage(userId, lines.join('\n'), {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Looks good', callback_data: `review:approve:${jobId}` },
-            { text: 'Edit', callback_data: `review:edit:${jobId}` },
-            { text: 'Reject', callback_data: `review:reject:${jobId}` },
+    await this.telegramService.bot.telegram.sendMessage(
+      userId,
+      lines.join('\n'),
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Looks good', callback_data: `review:approve:${jobId}` },
+              { text: 'Edit', callback_data: `review:edit:${jobId}` },
+              { text: 'Reject', callback_data: `review:reject:${jobId}` },
+            ],
           ],
-        ],
+        },
       },
-    });
+    );
   }
 }

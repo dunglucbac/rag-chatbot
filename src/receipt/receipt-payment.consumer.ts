@@ -21,13 +21,18 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.router.register('payment.detected', this.handlePaymentDetected.bind(this));
+    this.router.register(
+      'payment.detected',
+      this.handlePaymentDetected.bind(this),
+    );
   }
 
   async handlePaymentDetected(envelope: EventEnvelope<PaymentDetectedPayload>) {
     if (!envelope.payload) return;
     const { userId, extractedText, jobId } = envelope.payload;
-    this.logger.log(`handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${jobId}]`);
+    this.logger.log(
+      `handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${jobId}]`,
+    );
 
     const job = await this.jobRepository.findById(jobId);
     if (job) {
@@ -48,7 +53,12 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
   }
 
   async handleUserResponse(
-    paymentContext: { jobId: string; userId: string; paymentAmount: number; paymentDate: string },
+    paymentContext: {
+      jobId: string;
+      userId: string;
+      paymentAmount: number;
+      paymentDate: string;
+    },
     userMessage: string,
   ) {
     const merchantMatch = userMessage.match(/at\s+(.+)$/i);

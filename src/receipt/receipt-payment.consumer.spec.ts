@@ -67,7 +67,10 @@ describe('ReceiptPaymentConsumer', () => {
   });
 
   it('prompts user with payment amount and marks job needs_review', async () => {
-    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+    (jobRepo.findById as jest.Mock).mockResolvedValue({
+      id: 'job-123',
+      status: 'pending',
+    });
 
     await consumer.handlePaymentDetected(
       envelope({
@@ -98,7 +101,10 @@ describe('ReceiptPaymentConsumer', () => {
       paymentDate: '2026-05-05T14:20:00Z',
     };
 
-    await consumer.handleUserResponse(paymentContext, 'Bought groceries and detergent at Walmart');
+    await consumer.handleUserResponse(
+      paymentContext,
+      'Bought groceries and detergent at Walmart',
+    );
 
     expect(messageQueueService.publish).toHaveBeenCalledWith(
       'receipt.parsed',

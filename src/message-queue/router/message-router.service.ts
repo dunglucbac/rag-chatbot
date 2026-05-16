@@ -10,7 +10,9 @@ export class MessageRouter {
 
   register(eventType: string, handler: EventHandler): void {
     if (this.handlers.has(eventType)) {
-      this.logger.warn(`Handler already registered for ${eventType}, overwriting`);
+      this.logger.warn(
+        `Handler already registered for ${eventType}, overwriting`,
+      );
     }
     this.handlers.set(eventType, handler);
   }
@@ -18,7 +20,9 @@ export class MessageRouter {
   async dispatch(envelope: EventEnvelope): Promise<void> {
     const handler = this.handlers.get(envelope.eventType);
     if (!handler) {
-      this.logger.warn(`No handler registered for eventType=${envelope.eventType}`);
+      this.logger.warn(
+        `No handler registered for eventType=${envelope.eventType}`,
+      );
       return;
     }
     await handler(envelope);

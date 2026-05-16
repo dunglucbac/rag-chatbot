@@ -9,8 +9,11 @@ export class ReceiptService {
   async saveFromEvent(eventData: any) {
     const { userId, receipt, lineItems, rawText } = eventData;
 
-    const checksumContent = rawText || JSON.stringify({ userId, receipt, lineItems });
-    const checksumSha256 = createHash('sha256').update(checksumContent).digest('hex');
+    const checksumContent =
+      rawText || JSON.stringify({ userId, receipt, lineItems });
+    const checksumSha256 = createHash('sha256')
+      .update(checksumContent)
+      .digest('hex');
 
     const receiptData = {
       userId,

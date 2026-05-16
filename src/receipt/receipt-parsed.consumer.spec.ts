@@ -68,7 +68,10 @@ describe('ReceiptParsedConsumer', () => {
       payload,
     };
 
-    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+    (jobRepo.findById as jest.Mock).mockResolvedValue({
+      id: 'job-123',
+      status: 'pending',
+    });
 
     await consumer.handleReceiptParsed(envelope);
 

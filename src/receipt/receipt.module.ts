@@ -12,8 +12,19 @@ import { MessageQueueModule } from '../message-queue/message-queue.module';
 import { IngestionModule } from '../ingestion/ingestion.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Receipt, ReceiptItem]), TelegramModule, MessageQueueModule, IngestionModule],
-  providers: [ReceiptRepository, ReceiptService, ReceiptPaymentConsumer, ReceiptParsedConsumer, ReceiptReviewConsumer],
+  imports: [
+    TypeOrmModule.forFeature([Receipt, ReceiptItem]),
+    TelegramModule,
+    MessageQueueModule,
+    IngestionModule,
+  ],
+  providers: [
+    ReceiptRepository,
+    ReceiptService,
+    ReceiptPaymentConsumer,
+    ReceiptParsedConsumer,
+    ReceiptReviewConsumer,
+  ],
   exports: [ReceiptService],
 })
 export class ReceiptModule {}

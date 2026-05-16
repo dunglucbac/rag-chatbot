@@ -43,14 +43,21 @@ describe('VectorStoreConsumer', () => {
         jobId: 'job-doc-1',
         userId: 'user-123',
         chunks: [
-          { content: 'Chapter 1 text...', metadata: { source: 'book.pdf', page: 1 } },
-          { content: 'Chapter 2 text...', metadata: { source: 'book.pdf', page: 2 } },
+          {
+            content: 'Chapter 1 text...',
+            metadata: { source: 'book.pdf', page: 1 },
+          },
+          {
+            content: 'Chapter 2 text...',
+            metadata: { source: 'book.pdf', page: 2 },
+          },
         ],
       }),
     );
 
     expect(vectorStoreService.addDocuments).toHaveBeenCalledTimes(1);
-    const docs = (vectorStoreService.addDocuments as jest.Mock).mock.calls[0][0];
+    const docs = (vectorStoreService.addDocuments as jest.Mock).mock
+      .calls[0][0];
     expect(docs).toHaveLength(2);
     expect(docs[0].pageContent).toBe('Chapter 1 text...');
     expect(docs[0].metadata.source).toBe('book.pdf');

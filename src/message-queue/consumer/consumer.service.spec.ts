@@ -14,7 +14,10 @@ describe('MessageQueueConsumer', () => {
     const broker = {
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
-    const router = { register: jest.fn(), dispatch: jest.fn() } as unknown as MessageRouter;
+    const router = {
+      register: jest.fn(),
+      dispatch: jest.fn(),
+    } as unknown as MessageRouter;
 
     const consumer = new MessageQueueConsumer(broker, router);
     await consumer.onModuleInit();

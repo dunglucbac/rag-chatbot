@@ -18,8 +18,14 @@ export class IngestionEventConsumer implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.router.register('doc.pdf.parse.completed', this.handleParseCompleted.bind(this));
-    this.router.register('image.classify.completed', this.handleClassifyCompleted.bind(this));
+    this.router.register(
+      'doc.pdf.parse.completed',
+      this.handleParseCompleted.bind(this),
+    );
+    this.router.register(
+      'image.classify.completed',
+      this.handleClassifyCompleted.bind(this),
+    );
     this.router.register('job.failed', this.handleJobFailed.bind(this));
   }
 

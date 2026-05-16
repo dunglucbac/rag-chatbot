@@ -49,7 +49,10 @@ describe('ReceiptReviewConsumer', () => {
   }
 
   it('sends confirmation prompt with receipt details and inline keyboard', async () => {
-    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+    (jobRepo.findById as jest.Mock).mockResolvedValue({
+      id: 'job-123',
+      status: 'pending',
+    });
 
     await consumer.handleNeedsReview(
       envelope({
@@ -73,7 +76,9 @@ describe('ReceiptReviewConsumer', () => {
         reply_markup: expect.objectContaining({
           inline_keyboard: expect.arrayContaining([
             expect.arrayContaining([
-              expect.objectContaining({ text: expect.stringContaining('Looks good') }),
+              expect.objectContaining({
+                text: expect.stringContaining('Looks good'),
+              }),
             ]),
           ]),
         }),
@@ -82,7 +87,10 @@ describe('ReceiptReviewConsumer', () => {
   });
 
   it('formats receipt line items in the confirmation message', async () => {
-    (jobRepo.findById as jest.Mock).mockResolvedValue({ id: 'job-123', status: 'pending' });
+    (jobRepo.findById as jest.Mock).mockResolvedValue({
+      id: 'job-123',
+      status: 'pending',
+    });
 
     await consumer.handleNeedsReview(
       envelope({
@@ -102,7 +110,8 @@ describe('ReceiptReviewConsumer', () => {
       }),
     );
 
-    const callArgs = (telegramService.bot.telegram.sendMessage as jest.Mock).mock.calls[0];
+    const callArgs = (telegramService.bot.telegram.sendMessage as jest.Mock)
+      .mock.calls[0];
     expect(callArgs[1]).toContain('Groceries');
     expect(callArgs[1]).toContain('Detergent');
     expect(callArgs[1]).toContain('$50.00');
