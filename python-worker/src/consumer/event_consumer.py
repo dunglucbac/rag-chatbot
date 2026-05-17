@@ -42,6 +42,14 @@ class EventConsumer:
         os.remove(storage_path)
         return jpeg_path
 
+    @staticmethod
+    def _should_try_vision(receipt_data: dict) -> bool:
+        """Determine whether vision fallback should be attempted."""
+        if receipt_data.get("discrepancy") is not None:
+            return True
+        confidence = receipt_data.get("confidence")
+        return confidence is not None and confidence < 0.9
+
     def on_message(self, channel, method, properties, body):
         """Process incoming RabbitMQ message"""
         envelope = json.loads(body)
@@ -85,15 +93,34 @@ class EventConsumer:
 
                 if classification == ClassificationType.RECEIPT and self.parser:
                     receipt_data = self.parser.parse(text)
-                    confidence = classification_result.get("confidence", 1.0)
+                    classification_confidence = classification_result.get("confidence", 1.0)
 
-                    if confidence < 0.7:
+                    # Fall back to vision if OCR-based parse has discrepancy or low confidence
+                    if file_type == "image" and self._should_try_vision(receipt_data):
+                        try:
+                            vision_data = self.parser.parse_with_vision(storage_path)
+                            if vision_data.get("confidence", 0) > receipt_data.get("confidence", 0):
+                                logger.info(
+                                    "Vision fallback improved confidence %.2f -> %.2f [correlationId=%s]",
+                                    receipt_data.get("confidence", 0),
+                                    vision_data.get("confidence", 0),
+                                    correlation_id,
+                                )
+                                receipt_data = vision_data
+                        except Exception as e:
+                            logger.warning(
+                                "Vision fallback failed, using OCR result: %s [correlationId=%s]",
+                                e,
+                                correlation_id,
+                            )
+
+                    if classification_confidence < 0.7:
                         self.publisher.publish(
                             EventType.RECEIPT_NEEDS_REVIEW,
                             {
                                 "jobId": job_id,
                                 "userId": user_id,
-                                "confidence": confidence,
+                                "confidence": classification_confidence,
                                 "receipt": receipt_data,
                             },
                             correlation_id=correlation_id,

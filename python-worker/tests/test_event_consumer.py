@@ -272,3 +272,63 @@ def test_publishes_needs_review_for_low_confidence():
     assert event_data["userId"] == "user-123"
     assert event_data["confidence"] == 0.55
     assert event_data["receipt"]["merchant"] == "Unknown Store"
+
+
+def test_falls_back_to_vision_when_ocr_parse_has_discrepancy():
+    """Can fall back to vision-based parsing when OCR text parse has a discrepancy"""
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 8
+    properties = Mock()
+
+    body = _body(
+        {
+            "jobId": "job-vision-1",
+            "userId": "user-123",
+            "storagePath": "/path/to/receipt.jpg",
+            "fileType": "image",
+        }
+    )
+
+    ocr_extractor = Mock()
+    ocr_extractor.extract.return_value = "Store\nItem $20.00\nTotal: $50.00"
+
+    classifier = Mock()
+    classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
+
+    parser = Mock()
+    # OCR parse has low confidence + discrepancy
+    parser.parse.return_value = {
+        "merchant": "Store",
+        "total": 50.00,
+        "lineItems": [{"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00}],
+        "confidence": 0.5,
+        "discrepancy": {"lineItemsSum": 20.00, "statedTotal": 50.00, "difference": 30.00},
+    }
+    # Vision parse has higher confidence
+    parser.parse_with_vision.return_value = {
+        "merchant": "Store",
+        "total": 50.00,
+        "lineItems": [
+            {"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00},
+            {"name": "Item 2", "quantity": 1, "unitPrice": 30.00, "totalPrice": 30.00},
+        ],
+        "confidence": 0.95,
+        "discrepancy": None,
+    }
+
+    publisher = Mock()
+
+    consumer = EventConsumer(None, publisher, classifier, parser, ocr_extractor)
+    consumer.on_message(channel, method, properties, body)
+
+    # Vision fallback should have been called
+    parser.parse_with_vision.assert_called_once_with("/path/to/receipt.jpg")
+
+    # Should use the vision result (higher confidence)
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == EventType.RECEIPT_PARSED
+    event_data = call_args[1]
+    assert event_data["receipt"]["confidence"] == 0.95
+    assert len(event_data["receipt"]["lineItems"]) == 2
