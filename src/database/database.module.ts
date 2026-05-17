@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { WebSearchLog } from '@modules/web-search/entities/web-search-log.entity';
 import { Message } from '@modules/conversation/entities/message.entity';
+import { Receipt } from '@modules/receipt/entities/receipt.entity';
+import { ReceiptItem } from '@modules/receipt/entities/receipt-item.entity';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { Message } from '@modules/conversation/entities/message.entity';
           username: configService.get('db.user'),
           password: configService.get('db.pass'),
           database: configService.get('db.name'),
-          entities: [IngestionJob, WebSearchLog, Message],
+          entities: [IngestionJob, WebSearchLog, Message, Receipt, ReceiptItem],
           synchronize: false,
           logging: false,
           ssl: sslEnabled ? { rejectUnauthorized: false } : false,

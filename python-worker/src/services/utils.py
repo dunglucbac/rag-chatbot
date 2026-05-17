@@ -5,3 +5,13 @@ def extract_json(raw: str) -> str:
     if start != -1 and end != -1:
         return raw[start : end + 1]
     return raw
+
+
+def get_text_from_response(response) -> str:
+    """Extract text from an LLM response, skipping any ThinkingBlock content."""
+    from anthropic.types import TextBlock
+
+    for block in response.content:
+        if isinstance(block, TextBlock):
+            return block.text
+    return ""

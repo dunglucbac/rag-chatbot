@@ -57,7 +57,7 @@ export class MessageQueueConsumer implements OnModuleInit {
       console.log(
         `Received ${envelope.eventType} from ${queue} [correlationId=${envelope.correlationId}]`,
       );
-      this.router.dispatch(envelope).finally(() => {
+      void this.router.dispatch(envelope).finally(() => {
         this.channel!.ack(msg);
       });
     } catch (error) {

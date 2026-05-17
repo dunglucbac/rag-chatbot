@@ -11,7 +11,8 @@ export class ReceiptService {
   constructor(private readonly receiptRepository: ReceiptRepository) {}
 
   async saveFromEvent(eventData: ReceiptParsedPayload) {
-    const { userId, receipt, lineItems, rawText } = eventData;
+    const { userId, receipt, rawText } = eventData;
+    const lineItems = receipt.lineItems;
 
     const checksumContent =
       rawText || JSON.stringify({ userId, receipt, lineItems });
