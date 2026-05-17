@@ -37,7 +37,9 @@ class Worker:
         self.channel = None
 
     def start(self):
-        self.connection = pika.BlockingConnection(pika.URLParameters(self.rabbitmq_url))
+        params = pika.URLParameters(self.rabbitmq_url)
+        params.heartbeat = 30
+        self.connection = pika.BlockingConnection(params)
         self.channel = self.connection.channel()
 
         # Fair dispatch: each worker gets at most prefetch_count unacked messages
