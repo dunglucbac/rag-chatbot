@@ -1,5 +1,17 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "RAG - Nestjs, Python Worker",
+      "configurations": ["NestJS Dev", "Python Worker"],
+      "presentation": {
+        "hidden": false,
+        "group": "full-stack",
+        "order": 1
+      },
+      "stopAll": true
+    }
+  ],
   "configurations": [
     {
       "name": "NestJS Dev",
@@ -32,18 +44,6 @@
       "python": "${workspaceFolder}/python-worker/.venv/bin/python",
       "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/python-worker/.env"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "RAG - Nestjs, Python Worker",
-      "configurations": ["NestJS Dev", "Python Worker"],
-      "presentation": {
-        "hidden": false,
-        "group": "full-stack",
-        "order": 1
-      },
-      "stopAll": true
     }
   ]
 }
