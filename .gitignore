@@ -32,3 +32,6 @@ lerna-debug.log*
 .tmp
 .DS_Store
 storage/uploads/
+
+# Jupyter
+.ipynb_checkpoints/
