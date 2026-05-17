@@ -33,5 +33,17 @@
       "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/python-worker/.env"
     }
+  ],
+  "compounds": [
+    {
+      "name": "RAG - Nestjs, Python Worker",
+      "configurations": ["NestJS Dev", "Python Worker"],
+      "presentation": {
+        "hidden": false,
+        "group": "full-stack",
+        "order": 1
+      },
+      "stopAll": true
+    }
   ]
 }
