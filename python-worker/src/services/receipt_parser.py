@@ -48,14 +48,15 @@ Reply with ONLY the JSON object, no explanation."""
 
         response = self.llm_client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=1000,
+            max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
+            thinking={"type": "disabled"},
         )
 
         raw = get_text_from_response(response)
         return json.loads(extract_json(raw))
 
-    def parse_with_vision(self, image_path: str, max_size: int = 1080) -> dict:
+    def parse_with_vision(self, image_path: str, max_size: int = 2048) -> dict:
         """Parse a receipt by sending the image directly to a vision-capable LLM.
 
         Use this as a fallback when OCR-based parsing produces low confidence
@@ -96,7 +97,7 @@ Reply with ONLY the JSON object, no explanation."""
 
         response = self.llm_client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=1000,
+            max_tokens=2000,
             messages=[{
                 "role": "user",
                 "content": [
@@ -111,6 +112,7 @@ Reply with ONLY the JSON object, no explanation."""
                     },
                 ],
             }],
+            thinking={"type": "disabled"},
         )
 
         raw = get_text_from_response(response)

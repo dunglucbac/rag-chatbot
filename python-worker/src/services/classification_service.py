@@ -23,6 +23,7 @@ Reply with ONLY the JSON object, no explanation."""
             model="claude-haiku-4-5-20251001",
             max_tokens=50,
             messages=[{"role": "user", "content": prompt}],
+            thinking={"type": "disabled"},
         )
 
         raw = get_text_from_response(response)
