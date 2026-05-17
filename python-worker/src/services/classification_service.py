@@ -1,6 +1,6 @@
 import json
 
-from .utils import extract_json
+from .utils import extract_json, get_text_from_response
 
 
 class ClassificationService:
@@ -25,5 +25,5 @@ Reply with ONLY the JSON object, no explanation."""
             messages=[{"role": "user", "content": prompt}],
         )
 
-        raw = response.content[0].text
+        raw = get_text_from_response(response)
         return json.loads(extract_json(raw))
