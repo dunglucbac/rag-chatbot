@@ -9,6 +9,7 @@ import anthropic
 
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.ocr_extractor import OCRExtractor
+from src.extractors.extractor_adapter import ExtractorAdapter
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
@@ -55,8 +56,16 @@ class Worker:
         self._setup_queue(self.image_queue, EventType.IMAGE_CLASSIFY_REQUESTED)
 
         # Build the processing pipeline
-        pdf_extractor = PDFExtractor()
-        ocr_extractor = OCRExtractor()
+        extractors = {
+            "pdf": PDFExtractor(),
+            "tesseract": OCRExtractor(),
+        }
+        routing = {
+            "pdf": os.getenv("PDF_EXTRACTOR", "pdf"),
+            "image": os.getenv("IMAGE_EXTRACTOR", "tesseract"),
+        }
+        extractor_adapter = ExtractorAdapter(extractors, routing)
+
         chunker = ChunkingService(chunk_size=1000, overlap=200)
 
         # LLM clients are lazily initialized; pass None if credentials not set
@@ -66,7 +75,7 @@ class Worker:
 
         publisher = EventPublisher(self.channel, self.exchange)
         consumer = EventConsumer(
-            pdf_extractor, publisher, classifier, parser, ocr_extractor, chunker
+            extractor_adapter, publisher, classifier, parser, chunker
         )
 
         # Start consuming

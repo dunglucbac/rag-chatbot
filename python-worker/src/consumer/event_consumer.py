@@ -15,18 +15,16 @@ HEIC_EXTENSIONS = {'.heic', '.heif', '.heifs'}
 class EventConsumer:
     def __init__(
         self,
-        extractor,
+        extractor_adapter,
         publisher,
         classifier=None,
         parser=None,
-        ocr_extractor=None,
         chunker=None,
     ):
-        self.extractor = extractor
+        self.extractor_adapter = extractor_adapter
         self.publisher = publisher
         self.classifier = classifier
         self.parser = parser
-        self.ocr_extractor = ocr_extractor
         self.chunker = chunker
 
     def _convert_heic_if_needed(self, storage_path: str) -> str:
@@ -70,15 +68,8 @@ class EventConsumer:
             storage_path = self._convert_heic_if_needed(payload["storagePath"])
             file_type = payload.get("fileType", "pdf")
 
-            # Extract text based on file type
-            if file_type == "image" and self.ocr_extractor:
-                text = self.ocr_extractor.extract(storage_path)
-            elif self.extractor:
-                text = self.extractor.extract(storage_path)
-                if self.ocr_extractor and self.extractor.needs_ocr(text):
-                    text = self.ocr_extractor.extract(storage_path)
-            else:
-                text = ""
+            # Extract text via adapter (routes to correct extractor based on file_type + config)
+            text = self.extractor_adapter.extract(storage_path, file_type)
 
             # Classify if classifier is available
             if self.classifier:
