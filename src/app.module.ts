@@ -12,6 +12,7 @@ import { AgentModule } from './agent/agent.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { ReceiptModule } from './receipt/receipt.module';
+import { ChatModule } from './chat/chat.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -29,6 +30,7 @@ import { AppService } from './app.service';
     TelegramModule,
     ScraperModule,
     ReceiptModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
