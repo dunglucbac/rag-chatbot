@@ -98,20 +98,22 @@ Reply with ONLY the JSON object, no explanation."""
         response = self.llm_client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=2000,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": encoded,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": encoded,
+                            },
                         },
-                    },
-                ],
-            }],
+                    ],
+                }
+            ],
             thinking={"type": "disabled"},
         )
 

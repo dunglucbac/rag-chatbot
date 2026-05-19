@@ -28,7 +28,9 @@ def test_can_parse_receipt_into_structured_data():
         "discrepancy": null
     }"""
 
-    with patch("src.services.receipt_parser.get_text_from_response", return_value=mock_json):
+    with patch(
+        "src.services.receipt_parser.get_text_from_response", return_value=mock_json
+    ):
         parser = ReceiptParser(Mock())
         result = parser.parse(
             "Starbucks Receipt\nLatte $4.50\nCroissant x2 $6.00\nTotal: $12.50"
@@ -67,7 +69,9 @@ def test_prompt_includes_cross_validation_instructions():
     llm_response.content = [Mock()]
     llm_client.messages.create.return_value = llm_response
 
-    with patch("src.services.receipt_parser.get_text_from_response", return_value=mock_json):
+    with patch(
+        "src.services.receipt_parser.get_text_from_response", return_value=mock_json
+    ):
         parser = ReceiptParser(llm_client)
         result = parser.parse("Test Store\nItem A $20.00\nTotal: $50.00")
 

@@ -37,7 +37,11 @@ class OCRExtractor(BaseExtractor):
             # Fall back to the grayscale version
             result = cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY)
 
-        return cv2.cvtColor(result, cv2.COLOR_BGR2RGB) if len(result.shape) == 3 else result
+        return (
+            cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+            if len(result.shape) == 3
+            else result
+        )
 
     @staticmethod
     def _resize_to_width(image: np.ndarray, width: int) -> np.ndarray:
@@ -51,7 +55,9 @@ class OCRExtractor(BaseExtractor):
     @staticmethod
     def _find_receipt_contour(edged: np.ndarray):
         """Find the largest 4-point contour (assumed to be the receipt)"""
-        cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cv2.findContours(
+            edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
         cnts = cnts[0] if len(cnts) == 2 else cnts[1]
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 
@@ -78,7 +84,7 @@ class OCRExtractor(BaseExtractor):
             return rect
 
         rect = _order_points(pts)
-        (tl, tr, br, bl) = rect
+        tl, tr, br, bl = rect
 
         width_a = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
         width_b = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
@@ -89,7 +95,12 @@ class OCRExtractor(BaseExtractor):
         max_height = max(int(height_a), int(height_b))
 
         dst = np.array(
-            [[0, 0], [max_width - 1, 0], [max_width - 1, max_height - 1], [0, max_height - 1]],
+            [
+                [0, 0],
+                [max_width - 1, 0],
+                [max_width - 1, max_height - 1],
+                [0, max_height - 1],
+            ],
             dtype="float32",
         )
 

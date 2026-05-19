@@ -297,9 +297,15 @@ def test_falls_back_to_vision_when_ocr_parse_has_discrepancy():
     parser.parse.return_value = {
         "merchant": "Store",
         "total": 50.00,
-        "lineItems": [{"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00}],
+        "lineItems": [
+            {"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00}
+        ],
         "confidence": 0.5,
-        "discrepancy": {"lineItemsSum": 20.00, "statedTotal": 50.00, "difference": 30.00},
+        "discrepancy": {
+            "lineItemsSum": 20.00,
+            "statedTotal": 50.00,
+            "difference": 30.00,
+        },
     }
     # Vision parse has higher confidence
     parser.parse_with_vision.return_value = {
@@ -328,3 +334,35 @@ def test_falls_back_to_vision_when_ocr_parse_has_discrepancy():
     event_data = call_args[1]
     assert event_data["receipt"]["confidence"] == 0.95
     assert len(event_data["receipt"]["lineItems"]) == 2
+
+
+def test_does_not_ack_when_job_failed_publish_fails():
+    """Does not ack the message when JOB_FAILED publish fails on a dead connection"""
+    from pika.exceptions import StreamLostError
+
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 10
+    properties = Mock()
+
+    body = _body(
+        {"jobId": "job-dead-1", "storagePath": "/path/to/file.pdf", "fileType": "pdf"}
+    )
+
+    adapter = Mock()
+    adapter.extract.side_effect = Exception("Processing error")
+
+    publisher = Mock()
+    # Publishing JOB_FAILED also fails because connection is dead
+    publisher.publish.side_effect = StreamLostError("Broken pipe")
+
+    consumer = EventConsumer(adapter, publisher)
+    consumer.on_message(channel, method, properties, body)
+
+    # Should attempt to publish JOB_FAILED
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == EventType.JOB_FAILED
+
+    # Should NOT ack — message stays unacked for redelivery
+    channel.basic_ack.assert_not_called()

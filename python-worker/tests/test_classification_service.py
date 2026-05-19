@@ -17,9 +17,7 @@ def test_can_classify_text_as_receipt():
         return_value=mock_json,
     ):
         service = ClassificationService(llm_client)
-        result = service.classify(
-            "Starbucks Receipt\nTotal: $12.50\nDate: 2026-05-05"
-        )
+        result = service.classify("Starbucks Receipt\nTotal: $12.50\nDate: 2026-05-05")
 
     assert result["classification"] == "receipt"
     assert result["confidence"] == 0.95

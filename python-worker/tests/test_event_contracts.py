@@ -74,9 +74,7 @@ class TestEventPayloadContracts:
         properties = Mock()
 
         adapter = Mock()
-        adapter.extract.return_value = (
-            "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
-        )
+        adapter.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
 
         classifier = Mock()
         classifier.classify.return_value = {
