@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
@@ -12,6 +13,9 @@ import { AgentModule } from './agent/agent.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { ReceiptModule } from './receipt/receipt.module';
+import { ChatModule } from './chat/chat.module';
+import { ResponseInterceptor } from './common/response.interceptor';
+import { GlobalExceptionFilter } from './common/exception.filter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -29,8 +33,13 @@ import { AppService } from './app.service';
     TelegramModule,
     ScraperModule,
     ReceiptModule,
+    ChatModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+  ],
 })
 export class AppModule {}
