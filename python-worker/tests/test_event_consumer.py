@@ -22,16 +22,15 @@ def test_can_process_pdf_parse_requested_event():
         {"jobId": "job-123", "storagePath": "/path/to/file.pdf", "fileType": "pdf"}
     )
 
-    extractor = Mock()
-    extractor.extract.return_value = "Extracted PDF text content"
-    extractor.needs_ocr.return_value = False
+    adapter = Mock()
+    adapter.extract.return_value = "Extracted PDF text content"
 
     publisher = Mock()
 
-    consumer = EventConsumer(extractor, publisher)
+    consumer = EventConsumer(adapter, publisher)
     consumer.on_message(channel, method, properties, body)
 
-    extractor.extract.assert_called_once_with("/path/to/file.pdf")
+    adapter.extract.assert_called_once_with("/path/to/file.pdf", "pdf")
 
     publisher.publish.assert_called_once()
     call_args = publisher.publish.call_args[0]
@@ -52,9 +51,8 @@ def test_classifies_and_parses_receipt():
         {"jobId": "job-456", "storagePath": "/path/to/receipt.pdf", "fileType": "pdf"}
     )
 
-    extractor = Mock()
-    extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
-    extractor.needs_ocr.return_value = False
+    adapter = Mock()
+    adapter.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
 
     classifier = Mock()
     classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
@@ -68,7 +66,7 @@ def test_classifies_and_parses_receipt():
 
     publisher = Mock()
 
-    consumer = EventConsumer(extractor, publisher, classifier, parser)
+    consumer = EventConsumer(adapter, publisher, classifier, parser)
     consumer.on_message(channel, method, properties, body)
 
     classifier.classify.assert_called_once()
@@ -91,8 +89,8 @@ def test_handles_image_classification_with_ocr():
         {"jobId": "job-789", "storagePath": "/path/to/image.jpg", "fileType": "image"}
     )
 
-    ocr_extractor = Mock()
-    ocr_extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
+    adapter = Mock()
+    adapter.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
 
     classifier = Mock()
     classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
@@ -106,10 +104,10 @@ def test_handles_image_classification_with_ocr():
 
     publisher = Mock()
 
-    consumer = EventConsumer(None, publisher, classifier, parser, ocr_extractor)
+    consumer = EventConsumer(adapter, publisher, classifier, parser)
     consumer.on_message(channel, method, properties, body)
 
-    ocr_extractor.extract.assert_called_once_with("/path/to/image.jpg")
+    adapter.extract.assert_called_once_with("/path/to/image.jpg", "image")
     classifier.classify.assert_called_once()
     parser.parse.assert_called_once()
 
@@ -129,15 +127,15 @@ def test_publishes_payment_detected_event():
         {"jobId": "job-999", "storagePath": "/path/to/payment.jpg", "fileType": "image"}
     )
 
-    ocr_extractor = Mock()
-    ocr_extractor.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
+    adapter = Mock()
+    adapter.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
 
     classifier = Mock()
     classifier.classify.return_value = {"classification": "payment", "confidence": 0.90}
 
     publisher = Mock()
 
-    consumer = EventConsumer(None, publisher, classifier, None, ocr_extractor)
+    consumer = EventConsumer(adapter, publisher, classifier)
     consumer.on_message(channel, method, properties, body)
 
     publisher.publish.assert_called_once()
@@ -162,9 +160,8 @@ def test_chunks_document_and_publishes_embed_request():
         }
     )
 
-    extractor = Mock()
-    extractor.extract.return_value = "A" * 2000
-    extractor.needs_ocr.return_value = False
+    adapter = Mock()
+    adapter.extract.return_value = "A" * 2000
 
     classifier = Mock()
     classifier.classify.return_value = {
@@ -186,7 +183,7 @@ def test_chunks_document_and_publishes_embed_request():
 
     publisher = Mock()
 
-    consumer = EventConsumer(extractor, publisher, classifier, None, None, chunker)
+    consumer = EventConsumer(adapter, publisher, classifier, None, chunker)
     consumer.on_message(channel, method, properties, body)
 
     chunker.chunk_with_metadata.assert_called_once()
@@ -211,12 +208,12 @@ def test_publishes_job_failed_on_processing_error():
         {"jobId": "job-err-1", "storagePath": "/path/to/bad.pdf", "fileType": "pdf"}
     )
 
-    extractor = Mock()
-    extractor.extract.side_effect = Exception("Corrupted PDF")
+    adapter = Mock()
+    adapter.extract.side_effect = Exception("Corrupted PDF")
 
     publisher = Mock()
 
-    consumer = EventConsumer(extractor, publisher)
+    consumer = EventConsumer(adapter, publisher)
     consumer.on_message(channel, method, properties, body)
 
     publisher.publish.assert_called_once()
@@ -245,9 +242,8 @@ def test_publishes_needs_review_for_low_confidence():
         }
     )
 
-    extractor = Mock()
-    extractor.extract.return_value = "Store Receipt\nTotal: $12.50"
-    extractor.needs_ocr.return_value = False
+    adapter = Mock()
+    adapter.extract.return_value = "Store Receipt\nTotal: $12.50"
 
     classifier = Mock()
     classifier.classify.return_value = {"classification": "receipt", "confidence": 0.55}
@@ -261,7 +257,7 @@ def test_publishes_needs_review_for_low_confidence():
 
     publisher = Mock()
 
-    consumer = EventConsumer(extractor, publisher, classifier, parser)
+    consumer = EventConsumer(adapter, publisher, classifier, parser)
     consumer.on_message(channel, method, properties, body)
 
     publisher.publish.assert_called_once()
@@ -272,3 +268,101 @@ def test_publishes_needs_review_for_low_confidence():
     assert event_data["userId"] == "user-123"
     assert event_data["confidence"] == 0.55
     assert event_data["receipt"]["merchant"] == "Unknown Store"
+
+
+def test_falls_back_to_vision_when_ocr_parse_has_discrepancy():
+    """Can fall back to vision-based parsing when OCR text parse has a discrepancy"""
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 8
+    properties = Mock()
+
+    body = _body(
+        {
+            "jobId": "job-vision-1",
+            "userId": "user-123",
+            "storagePath": "/path/to/receipt.jpg",
+            "fileType": "image",
+        }
+    )
+
+    adapter = Mock()
+    adapter.extract.return_value = "Store\nItem $20.00\nTotal: $50.00"
+
+    classifier = Mock()
+    classifier.classify.return_value = {"classification": "receipt", "confidence": 0.95}
+
+    parser = Mock()
+    # OCR parse has low confidence + discrepancy
+    parser.parse.return_value = {
+        "merchant": "Store",
+        "total": 50.00,
+        "lineItems": [
+            {"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00}
+        ],
+        "confidence": 0.5,
+        "discrepancy": {
+            "lineItemsSum": 20.00,
+            "statedTotal": 50.00,
+            "difference": 30.00,
+        },
+    }
+    # Vision parse has higher confidence
+    parser.parse_with_vision.return_value = {
+        "merchant": "Store",
+        "total": 50.00,
+        "lineItems": [
+            {"name": "Item", "quantity": 1, "unitPrice": 20.00, "totalPrice": 20.00},
+            {"name": "Item 2", "quantity": 1, "unitPrice": 30.00, "totalPrice": 30.00},
+        ],
+        "confidence": 0.95,
+        "discrepancy": None,
+    }
+
+    publisher = Mock()
+
+    consumer = EventConsumer(adapter, publisher, classifier, parser)
+    consumer.on_message(channel, method, properties, body)
+
+    # Vision fallback should have been called
+    parser.parse_with_vision.assert_called_once_with("/path/to/receipt.jpg")
+
+    # Should use the vision result (higher confidence)
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == EventType.RECEIPT_PARSED
+    event_data = call_args[1]
+    assert event_data["receipt"]["confidence"] == 0.95
+    assert len(event_data["receipt"]["lineItems"]) == 2
+
+
+def test_does_not_ack_when_job_failed_publish_fails():
+    """Does not ack the message when JOB_FAILED publish fails on a dead connection"""
+    from pika.exceptions import StreamLostError
+
+    channel = Mock()
+    method = Mock()
+    method.delivery_tag = 10
+    properties = Mock()
+
+    body = _body(
+        {"jobId": "job-dead-1", "storagePath": "/path/to/file.pdf", "fileType": "pdf"}
+    )
+
+    adapter = Mock()
+    adapter.extract.side_effect = Exception("Processing error")
+
+    publisher = Mock()
+    # Publishing JOB_FAILED also fails because connection is dead
+    publisher.publish.side_effect = StreamLostError("Broken pipe")
+
+    consumer = EventConsumer(adapter, publisher)
+    consumer.on_message(channel, method, properties, body)
+
+    # Should attempt to publish JOB_FAILED
+    publisher.publish.assert_called_once()
+    call_args = publisher.publish.call_args[0]
+    assert call_args[0] == EventType.JOB_FAILED
+
+    # Should NOT ack — message stays unacked for redelivery
+    channel.basic_ack.assert_not_called()

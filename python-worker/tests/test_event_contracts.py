@@ -17,9 +17,8 @@ class TestEventPayloadContracts:
         method.delivery_tag = 1
         properties = Mock()
 
-        extractor = Mock()
-        extractor.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
-        extractor.needs_ocr.return_value = False
+        adapter = Mock()
+        adapter.extract.return_value = "Starbucks Receipt\nTotal: $12.50"
 
         classifier = Mock()
         classifier.classify.return_value = {
@@ -40,7 +39,7 @@ class TestEventPayloadContracts:
         }
 
         publisher = Mock()
-        consumer = EventConsumer(extractor, publisher, classifier, parser)
+        consumer = EventConsumer(adapter, publisher, classifier, parser)
         consumer.on_message(
             channel,
             method,
@@ -74,10 +73,8 @@ class TestEventPayloadContracts:
         method.delivery_tag = 2
         properties = Mock()
 
-        ocr_extractor = Mock()
-        ocr_extractor.extract.return_value = (
-            "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
-        )
+        adapter = Mock()
+        adapter.extract.return_value = "Bank Transfer\nAmount: $50.00\nTo: ABC Store"
 
         classifier = Mock()
         classifier.classify.return_value = {
@@ -86,9 +83,7 @@ class TestEventPayloadContracts:
         }
 
         publisher = Mock()
-        consumer = EventConsumer(
-            None, publisher, classifier, ocr_extractor=ocr_extractor
-        )
+        consumer = EventConsumer(adapter, publisher, classifier)
         consumer.on_message(
             channel,
             method,
@@ -118,9 +113,8 @@ class TestEventPayloadContracts:
         method.delivery_tag = 3
         properties = Mock()
 
-        extractor = Mock()
-        extractor.extract.return_value = "A" * 2000
-        extractor.needs_ocr.return_value = False
+        adapter = Mock()
+        adapter.extract.return_value = "A" * 2000
 
         classifier = Mock()
         classifier.classify.return_value = {
@@ -141,7 +135,7 @@ class TestEventPayloadContracts:
         ]
 
         publisher = Mock()
-        consumer = EventConsumer(extractor, publisher, classifier, chunker=chunker)
+        consumer = EventConsumer(adapter, publisher, classifier, chunker=chunker)
         consumer.on_message(
             channel,
             method,
@@ -177,11 +171,11 @@ class TestEventPayloadContracts:
         method.delivery_tag = 4
         properties = Mock()
 
-        extractor = Mock()
-        extractor.extract.side_effect = Exception("PDF is corrupted beyond recovery")
+        adapter = Mock()
+        adapter.extract.side_effect = Exception("PDF is corrupted beyond recovery")
 
         publisher = Mock()
-        consumer = EventConsumer(extractor, publisher)
+        consumer = EventConsumer(adapter, publisher)
         consumer.on_message(
             channel,
             method,
@@ -209,9 +203,8 @@ class TestEventPayloadContracts:
         method.delivery_tag = 5
         properties = Mock()
 
-        extractor = Mock()
-        extractor.extract.return_value = "Fuzzy receipt text"
-        extractor.needs_ocr.return_value = False
+        adapter = Mock()
+        adapter.extract.return_value = "Fuzzy receipt text"
 
         classifier = Mock()
         classifier.classify.return_value = {
@@ -227,7 +220,7 @@ class TestEventPayloadContracts:
         }
 
         publisher = Mock()
-        consumer = EventConsumer(extractor, publisher, classifier, parser)
+        consumer = EventConsumer(adapter, publisher, classifier, parser)
         consumer.on_message(
             channel,
             method,

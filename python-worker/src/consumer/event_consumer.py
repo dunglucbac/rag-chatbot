@@ -9,25 +9,30 @@ pillow_heif.register_heif_opener()
 
 logger = logging.getLogger(__name__)
 
-HEIC_EXTENSIONS = {'.heic', '.heif', '.heifs'}
+HEIC_EXTENSIONS = {".heic", ".heif", ".heifs"}
 
 
 class EventConsumer:
     def __init__(
         self,
-        extractor,
+        extractor_adapter,
         publisher,
         classifier=None,
         parser=None,
-        ocr_extractor=None,
         chunker=None,
+        connection=None,
     ):
-        self.extractor = extractor
+        self.extractor_adapter = extractor_adapter
         self.publisher = publisher
         self.classifier = classifier
         self.parser = parser
-        self.ocr_extractor = ocr_extractor
         self.chunker = chunker
+        self._connection = connection
+
+    def _keepalive(self):
+        """Process pending I/O events to keep RabbitMQ heartbeats alive during long operations."""
+        if self._connection:
+            self._connection.process_data_events(time_limit=0)
 
     def _convert_heic_if_needed(self, storage_path: str) -> str:
         """Convert HEIC to JPEG and return the new path. Returns original path if not HEIC."""
@@ -36,11 +41,19 @@ class EventConsumer:
             return storage_path
 
         logger.info("Converting HEIC to JPEG: %s", storage_path)
-        jpeg_path = storage_path[:-len(ext)] + '.jpg'
+        jpeg_path = storage_path[: -len(ext)] + ".jpg"
         img = Image.open(storage_path)
-        img.convert('RGB').save(jpeg_path, 'JPEG')
+        img.convert("RGB").save(jpeg_path, "JPEG")
         os.remove(storage_path)
         return jpeg_path
+
+    @staticmethod
+    def _should_try_vision(receipt_data: dict) -> bool:
+        """Determine whether vision fallback should be attempted."""
+        if receipt_data.get("discrepancy") is not None:
+            return True
+        confidence = receipt_data.get("confidence")
+        return confidence is not None and confidence < 0.9
 
     def on_message(self, channel, method, properties, body):
         """Process incoming RabbitMQ message"""
@@ -62,18 +75,12 @@ class EventConsumer:
             storage_path = self._convert_heic_if_needed(payload["storagePath"])
             file_type = payload.get("fileType", "pdf")
 
-            # Extract text based on file type
-            if file_type == "image" and self.ocr_extractor:
-                text = self.ocr_extractor.extract(storage_path)
-            elif self.extractor:
-                text = self.extractor.extract(storage_path)
-                if self.ocr_extractor and self.extractor.needs_ocr(text):
-                    text = self.ocr_extractor.extract(storage_path)
-            else:
-                text = ""
+            # Extract text via adapter (routes to correct extractor based on file_type + config)
+            text = self.extractor_adapter.extract(storage_path, file_type)
 
             # Classify if classifier is available
             if self.classifier:
+                self._keepalive()
                 classification_result = self.classifier.classify(text)
                 classification = classification_result["classification"]
                 logger.info(
@@ -84,16 +91,41 @@ class EventConsumer:
                 )
 
                 if classification == ClassificationType.RECEIPT and self.parser:
+                    self._keepalive()
                     receipt_data = self.parser.parse(text)
-                    confidence = classification_result.get("confidence", 1.0)
+                    classification_confidence = classification_result.get(
+                        "confidence", 1.0
+                    )
 
-                    if confidence < 0.7:
+                    # Fall back to vision if OCR-based parse has discrepancy or low confidence
+                    if file_type == "image" and self._should_try_vision(receipt_data):
+                        try:
+                            self._keepalive()
+                            vision_data = self.parser.parse_with_vision(storage_path)
+                            if vision_data.get("confidence", 0) > receipt_data.get(
+                                "confidence", 0
+                            ):
+                                logger.info(
+                                    "Vision fallback improved confidence %.2f -> %.2f [correlationId=%s]",
+                                    receipt_data.get("confidence", 0),
+                                    vision_data.get("confidence", 0),
+                                    correlation_id,
+                                )
+                                receipt_data = vision_data
+                        except Exception as e:
+                            logger.warning(
+                                "Vision fallback failed, using OCR result: %s [correlationId=%s]",
+                                e,
+                                correlation_id,
+                            )
+
+                    if classification_confidence < 0.7:
                         self.publisher.publish(
                             EventType.RECEIPT_NEEDS_REVIEW,
                             {
                                 "jobId": job_id,
                                 "userId": user_id,
-                                "confidence": confidence,
+                                "confidence": classification_confidence,
                                 "receipt": receipt_data,
                             },
                             correlation_id=correlation_id,
@@ -151,13 +183,23 @@ class EventConsumer:
             logger.exception(
                 "Processing failed [correlationId=%s jobId=%s]", correlation_id, job_id
             )
-            self.publisher.publish(
-                EventType.JOB_FAILED,
-                {
-                    "jobId": job_id,
-                    "error": str(e),
-                },
-                correlation_id=correlation_id,
-            )
+            try:
+                self.publisher.publish(
+                    EventType.JOB_FAILED,
+                    {
+                        "jobId": job_id,
+                        "error": str(e),
+                    },
+                    correlation_id=correlation_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to publish JOB_FAILED (connection dead), message will be redelivered "
+                    "[correlationId=%s jobId=%s]",
+                    correlation_id,
+                    job_id,
+                )
+                # Don't ack — let RabbitMQ redeliver when we reconnect
+                return
 
         channel.basic_ack(delivery_tag=method.delivery_tag)

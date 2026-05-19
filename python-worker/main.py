@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import sys
+import time
 from dotenv import load_dotenv
 
 import pika
@@ -9,6 +10,7 @@ import anthropic
 
 from src.extractors.pdf_extractor import PDFExtractor
 from src.extractors.ocr_extractor import OCRExtractor
+from src.extractors.extractor_adapter import ExtractorAdapter
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
@@ -25,6 +27,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
+logger = logging.getLogger(__name__)
+
 
 class Worker:
     def __init__(self):
@@ -35,10 +39,28 @@ class Worker:
         self.prefetch_count = int(os.getenv("RABBITMQ_PREFETCH_COUNT", "10"))
         self.connection = None
         self.channel = None
+        self._running = False
 
     def start(self):
+        self._running = True
+        self._connect()
+
+        while self._running:
+            try:
+                self.channel.start_consuming()
+            except (
+                pika.exceptions.StreamLostError,
+                pika.exceptions.AMQPConnectionError,
+            ) as e:
+                logger.warning("Connection lost: %s. Reconnecting in 5s...", e)
+                self._reconnect()
+            except KeyboardInterrupt:
+                self.stop()
+                break
+
+    def _connect(self):
         params = pika.URLParameters(self.rabbitmq_url)
-        params.heartbeat = 30
+        params.heartbeat = 120
         self.connection = pika.BlockingConnection(params)
         self.channel = self.connection.channel()
 
@@ -55,8 +77,16 @@ class Worker:
         self._setup_queue(self.image_queue, EventType.IMAGE_CLASSIFY_REQUESTED)
 
         # Build the processing pipeline
-        pdf_extractor = PDFExtractor()
-        ocr_extractor = OCRExtractor()
+        extractors = {
+            "pdf": PDFExtractor(),
+            "tesseract": OCRExtractor(),
+        }
+        routing = {
+            "pdf": os.getenv("PDF_EXTRACTOR", "pdf"),
+            "image": os.getenv("IMAGE_EXTRACTOR", "tesseract"),
+        }
+        extractor_adapter = ExtractorAdapter(extractors, routing)
+
         chunker = ChunkingService(chunk_size=1000, overlap=200)
 
         # LLM clients are lazily initialized; pass None if credentials not set
@@ -66,7 +96,12 @@ class Worker:
 
         publisher = EventPublisher(self.channel, self.exchange)
         consumer = EventConsumer(
-            pdf_extractor, publisher, classifier, parser, ocr_extractor, chunker
+            extractor_adapter,
+            publisher,
+            classifier,
+            parser,
+            chunker,
+            connection=self.connection,
         )
 
         # Start consuming
@@ -77,20 +112,45 @@ class Worker:
             queue=self.image_queue, on_message_callback=consumer.on_message
         )
 
-        print(f"Worker started. Listening on {self.pdf_queue}, {self.image_queue}")
-        print(f"Exchange: {self.exchange}, Prefetch: {self.prefetch_count}")
+        logger.info(
+            "Worker started. Listening on %s, %s [exchange=%s prefetch=%d]",
+            self.pdf_queue,
+            self.image_queue,
+            self.exchange,
+            self.prefetch_count,
+        )
 
+    def _reconnect(self):
+        """Clean up dead connection and reconnect."""
         try:
-            self.channel.start_consuming()
-        except KeyboardInterrupt:
-            self.stop()
+            if self.channel:
+                self.channel.close()
+        except Exception:
+            pass
+        try:
+            if self.connection:
+                self.connection.close()
+        except Exception:
+            pass
+        self.channel = None
+        self.connection = None
+
+        time.sleep(5)
+        self._connect()
 
     def stop(self):
-        print("Shutting down worker...")
-        if self.channel:
-            self.channel.stop_consuming()
-        if self.connection:
-            self.connection.close()
+        logger.info("Shutting down worker...")
+        self._running = False
+        try:
+            if self.channel:
+                self.channel.stop_consuming()
+        except Exception:
+            pass
+        try:
+            if self.connection:
+                self.connection.close()
+        except Exception:
+            pass
         sys.exit(0)
 
     def _setup_queue(self, queue_name: str, routing_key: str):
@@ -102,7 +162,7 @@ class Worker:
     def _build_llm_client(self):
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            print("Warning: ANTHROPIC_API_KEY not set, LLM services disabled")
+            logger.warning("ANTHROPIC_API_KEY not set, LLM services disabled")
             return None
 
         base_url = os.getenv("ANTHROPIC_BASE_URL")
