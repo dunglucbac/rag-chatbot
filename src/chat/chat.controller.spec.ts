@@ -3,8 +3,8 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
-import { ChatResponseInterceptor } from './chat-response.interceptor';
-import { ChatExceptionFilter } from './chat-exception.filter';
+import { ResponseInterceptor } from '../common/response.interceptor';
+import { GlobalExceptionFilter } from '../common/exception.filter';
 
 describe('ChatController', () => {
   let app: INestApplication;
@@ -21,8 +21,8 @@ describe('ChatController', () => {
     app = module.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
-    app.useGlobalInterceptors(new ChatResponseInterceptor());
-    app.useGlobalFilters(new ChatExceptionFilter());
+    app.useGlobalInterceptors(new ResponseInterceptor());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
   });
 
@@ -44,7 +44,7 @@ describe('ChatController', () => {
 
       expect(response.body).toEqual({
         status: 'success',
-        message: 'Message sent successfully',
+        message: 'Success',
         data: {
           sessionId: 'new-session-123',
           reply: 'Hello, how can I help?',
@@ -87,7 +87,7 @@ describe('ChatController', () => {
 
       expect(response.body).toEqual({
         status: 'success',
-        message: 'Message sent successfully',
+        message: 'Success',
         data: {
           sessionId: 'session-abc',
           reply: 'Continuing conversation...',
