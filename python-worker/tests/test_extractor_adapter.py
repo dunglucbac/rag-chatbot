@@ -14,8 +14,8 @@ def test_routes_to_configured_extractor_based_on_file_type():
     image_extractor.extract.return_value = "Image text"
 
     adapter = ExtractorAdapter(
-        extractors={"pdf": pdf_extractor, "tesseract": image_extractor},
-        routing={"pdf": "pdf", "image": "tesseract"},
+        extractors={"pdf": pdf_extractor, "image": image_extractor},
+        routing={"pdf": "pdf", "image": "image"},
     )
 
     assert adapter.extract("/path/to/doc.pdf", "pdf") == "PDF text"
@@ -59,8 +59,8 @@ def test_falls_back_to_image_extractor_when_pdf_text_is_sparse():
     ocr_extractor.extract.return_value = "OCR extracted text"
 
     adapter = ExtractorAdapter(
-        extractors={"pdf": pdf_extractor, "tesseract": ocr_extractor},
-        routing={"pdf": "pdf", "image": "tesseract"},
+        extractors={"pdf": pdf_extractor, "image": ocr_extractor},
+        routing={"pdf": "pdf", "image": "image"},
     )
 
     result = adapter.extract("/path/to/scanned.pdf", "pdf")
@@ -81,8 +81,8 @@ def test_uses_pdf_result_directly_when_text_is_sufficient():
     ocr_extractor = Mock(spec=BaseExtractor)
 
     adapter = ExtractorAdapter(
-        extractors={"pdf": pdf_extractor, "tesseract": ocr_extractor},
-        routing={"pdf": "pdf", "image": "tesseract"},
+        extractors={"pdf": pdf_extractor, "image": ocr_extractor},
+        routing={"pdf": "pdf", "image": "image"},
     )
 
     result = adapter.extract("/path/to/text.pdf", "pdf")
@@ -92,14 +92,35 @@ def test_uses_pdf_result_directly_when_text_is_sufficient():
     ocr_extractor.extract.assert_not_called()
 
 
+def test_does_not_run_second_ocr_pass_for_docling_extractor():
+    """Docling handles PDF text and OCR in the same conversion pass"""
+    docling_extractor = Mock(spec=BaseExtractor)
+    docling_extractor.extract.return_value = "Short receipt"
+    docling_extractor.needs_ocr.return_value = True
+    docling_extractor.handles_ocr = True
+
+    fallback_extractor = Mock(spec=BaseExtractor)
+
+    adapter = ExtractorAdapter(
+        extractors={"docling": docling_extractor, "fallback": fallback_extractor},
+        routing={"pdf": "docling", "image": "fallback"},
+    )
+
+    result = adapter.extract("/path/to/scanned.pdf", "pdf")
+
+    assert result == "Short receipt"
+    docling_extractor.extract.assert_called_once_with("/path/to/scanned.pdf")
+    fallback_extractor.extract.assert_not_called()
+
+
 def test_does_not_trigger_fallback_for_image_file_type():
     """Image extraction does not trigger OCR fallback (fallback only applies to PDF)"""
     image_extractor = Mock(spec=BaseExtractor)
     image_extractor.extract.return_value = "Short"  # < 50 chars, but it's an image
 
     adapter = ExtractorAdapter(
-        extractors={"tesseract": image_extractor},
-        routing={"image": "tesseract"},
+        extractors={"image": image_extractor},
+        routing={"image": "image"},
     )
 
     result = adapter.extract("/path/to/receipt.jpg", "image")

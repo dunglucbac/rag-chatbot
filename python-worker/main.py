@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 import pika
 import anthropic
 
-from src.extractors.pdf_extractor import PDFExtractor
-from src.extractors.ocr_extractor import OCRExtractor
+from src.extractors.docling_extractor import DoclingExtractor
 from src.extractors.extractor_adapter import ExtractorAdapter
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
@@ -77,13 +76,13 @@ class Worker:
         self._setup_queue(self.image_queue, EventType.IMAGE_CLASSIFY_REQUESTED)
 
         # Build the processing pipeline
-        extractors = {
-            "pdf": PDFExtractor(),
-            "tesseract": OCRExtractor(),
-        }
+        docling_extractor = DoclingExtractor(
+            artifacts_path=os.getenv("DOCLING_ARTIFACTS_PATH") or None,
+        )
+        extractors = {"docling": docling_extractor}
         routing = {
-            "pdf": os.getenv("PDF_EXTRACTOR", "pdf"),
-            "image": os.getenv("IMAGE_EXTRACTOR", "tesseract"),
+            "pdf": os.getenv("PDF_EXTRACTOR", "docling"),
+            "image": os.getenv("IMAGE_EXTRACTOR", "docling"),
         }
         extractor_adapter = ExtractorAdapter(extractors, routing)
 

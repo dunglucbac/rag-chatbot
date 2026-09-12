@@ -17,7 +17,15 @@ class ExtractorAdapter:
 
         text = extractor.extract(file_path)
 
-        if file_type == "pdf" and extractor.needs_ocr(text):
+        # Docling handles text extraction and OCR in one layout-aware pass.
+        # Avoid converting the same PDF a second time when its output is
+        # short, while retaining the legacy fallback behavior for extractors
+        # that do not own their OCR path.
+        if (
+            file_type == "pdf"
+            and extractor.needs_ocr(text)
+            and not getattr(extractor, "handles_ocr", False)
+        ):
             ocr_name = self._routing.get("image")
             ocr = self._extractors.get(ocr_name) if ocr_name else None
             if ocr:

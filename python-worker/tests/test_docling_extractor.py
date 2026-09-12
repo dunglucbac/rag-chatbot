@@ -1,0 +1,64 @@
+from unittest.mock import Mock
+
+import pytest
+from docling.datamodel.base_models import ConversionStatus, InputFormat
+from docling.datamodel.pipeline_options import OcrMode
+
+from src.extractors.docling_extractor import DoclingExtractor
+
+
+class FakeDocument:
+    def export_to_markdown(self):
+        return "Store\nCoffee 4.50\nTotal 4.50"
+
+
+class FakeConversionResult:
+    status = ConversionStatus.SUCCESS
+    document = FakeDocument()
+
+
+def test_extracts_markdown_from_pdf_or_image_with_docling():
+    converter = Mock()
+    converter.convert.return_value = FakeConversionResult()
+
+    extractor = DoclingExtractor(converter=converter)
+
+    text = extractor.extract("/path/to/receipt.jpg")
+
+    assert text == "Store\nCoffee 4.50\nTotal 4.50"
+    converter.convert.assert_called_once_with("/path/to/receipt.jpg")
+
+
+def test_docling_extractor_owns_ocr_fallback():
+    extractor = DoclingExtractor(converter=Mock())
+
+    assert extractor.handles_ocr is True
+
+
+def test_preserves_embedded_pdf_text_while_ocring_image_receipts():
+    converter = DoclingExtractor()._build_converter()
+
+    pdf_options = converter.format_to_options[InputFormat.PDF].pipeline_options
+    image_options = converter.format_to_options[InputFormat.IMAGE].pipeline_options
+
+    assert pdf_options.ocr_options.mode == OcrMode.PDF_AWARE_LAYOUT_REGIONS
+    assert image_options.ocr_options.mode == OcrMode.FULL_PAGE
+    assert pdf_options.ocr_options.lang == ["vi"]
+    assert image_options.ocr_options.lang == ["vi"]
+
+
+def test_raises_when_docling_returns_partial_success():
+    converter = Mock()
+    converter.convert.return_value = Mock(
+        status=ConversionStatus.PARTIAL_SUCCESS,
+        document=FakeDocument(),
+        errors=[Mock(error_message="Page 2 failed")],
+    )
+
+    extractor = DoclingExtractor(converter=converter)
+
+    with pytest.raises(
+        RuntimeError,
+        match="status=partial_success; errors=Page 2 failed",
+    ):
+        extractor.extract("/path/to/partial.pdf")
