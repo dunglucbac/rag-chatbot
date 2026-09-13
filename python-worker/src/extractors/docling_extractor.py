@@ -3,7 +3,6 @@ from typing import Protocol
 
 from docling.datamodel.base_models import ConversionStatus
 from docling.datamodel.document import ConversionResult
-from src.extractors.base_extractor import BaseExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -11,20 +10,16 @@ logger = logging.getLogger(__name__)
 class DocumentConverterProtocol(Protocol):
     """The Docling converter contract used by this extractor."""
 
-    def convert(self, file_path: str) -> ConversionResult: ...
+    def convert(self, source: str, /) -> ConversionResult: ...
 
 
-class DoclingExtractor(BaseExtractor):
+class DoclingExtractor:
     """Extract text and layout from PDFs and images with Docling.
 
     Docling owns both the direct-PDF extraction and OCR paths. This means a
     scanned PDF does not need to be rasterized and sent through a separate
     image extractor, while image receipts use the same layout-aware pipeline.
     """
-
-    # The extractor already enables OCR in Docling, so ExtractorAdapter should
-    # not run a second fallback pass when the extracted text is short.
-    handles_ocr = True
 
     def __init__(
         self,
@@ -35,7 +30,7 @@ class DoclingExtractor(BaseExtractor):
         self._converter = converter
 
     @property
-    def converter(self):
+    def converter(self) -> DocumentConverterProtocol:
         if self._converter is None:
             self._converter = self._build_converter()
         return self._converter
@@ -56,7 +51,7 @@ class DoclingExtractor(BaseExtractor):
 
         return result.document.export_to_markdown()
 
-    def _build_converter(self):
+    def _build_converter(self) -> DocumentConverterProtocol:
         # Keep Docling imports lazy so unit tests and commands that do not
         # process documents can still import the worker without initializing
         # OCR models.

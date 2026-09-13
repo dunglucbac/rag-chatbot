@@ -29,12 +29,6 @@ def test_extracts_markdown_from_pdf_or_image_with_docling():
     converter.convert.assert_called_once_with("/path/to/receipt.jpg")
 
 
-def test_docling_extractor_owns_ocr_fallback():
-    extractor = DoclingExtractor(converter=Mock())
-
-    assert extractor.handles_ocr is True
-
-
 def test_preserves_embedded_pdf_text_while_ocring_image_receipts():
     converter = DoclingExtractor()._build_converter()
 

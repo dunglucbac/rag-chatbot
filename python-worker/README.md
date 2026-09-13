@@ -44,10 +44,11 @@ python-worker/
 ├── main.py                        # Worker entry point (RabbitMQ connection, pipeline wiring)
 ├── src/
 │   ├── consumer/
-│   │   └── event_consumer.py      # Message handler: extract → classify → parse → publish
+│   │   └── event_consumer.py      # RabbitMQ decode, publish, failure, and ack handling
 │   ├── extractors/
-│   │   ├── base_extractor.py      # Abstract base class (extract + needs_ocr)
-│   │   ├── docling_extractor.py   # PDF/image extraction via Docling
+│   │   └── docling_extractor.py   # PDF/image extraction via Docling
+│   ├── processing/
+│   │   └── ingestion_job_processor.py # Validate and process one ingestion job
 │   ├── publisher/
 │   │   └── event_publisher.py     # RabbitMQ event publisher
 │   └── services/
@@ -56,9 +57,8 @@ python-worker/
 │       └── chunking_service.py        # Text chunking for embedding
 ├── tests/
 │   ├── test_docling_extractor.py
-│   ├── test_extractor_adapter.py
 │   ├── test_event_consumer.py
-│   ├── test_event_contracts.py
+│   ├── test_ingestion_job_processor.py
 │   ├── test_classification_service.py
 │   ├── test_receipt_parser.py
 │   └── test_chunking_service.py
@@ -70,11 +70,11 @@ python-worker/
 ## Processing flow
 
 1. Worker listens on `ingest.pdf.queue` and `ingest.image.queue`
-2. On message arrival, routes PDFs and images through the Docling extractor
-3. Docling extracts direct PDF text or performs OCR for scanned PDFs/images, while preserving document layout and tables
-4. Text is classified as `receipt` / `payment` / `document`
-5. Receipts are parsed into structured data, documents are chunked for embedding
-6. Results are published to the appropriate topic routing key
+2. Consumer validates the message payload as an ingestion job
+3. Processor converts HEIC/HEIF to a temporary JPEG when needed
+4. Docling extracts native PDF text or performs OCR while preserving layout and tables
+5. Processor classifies the text and parses a Receipt, routes a Payment, or chunks a Document
+6. Consumer publishes the resulting event and acknowledges the RabbitMQ delivery
 
 Docling uses its bundled RapidOCR Torch backend with the Vietnamese `vi` recognizer, so no system OCR package is required. It downloads document-layout, table, and OCR models on first conversion. For an offline deployment, pre-fetch them and set `DOCLING_ARTIFACTS_PATH`:
 
