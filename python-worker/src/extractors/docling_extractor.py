@@ -49,7 +49,29 @@ class DoclingExtractor:
                 message = f"{message}; errors={error_details}"
             raise RuntimeError(message)
 
-        return result.document.export_to_markdown()
+        markdown = result.document.export_to_markdown()
+        if markdown.replace("<!-- image -->", "").strip():
+            return markdown
+
+        # A receipt can be detected as a full-page picture by the layout model.
+        # In that case, Docling still records the RapidOCR TextItems but its
+        # Markdown exporter emits only an image placeholder. Use the existing
+        # OCR text as a fallback rather than classifying an empty document.
+        ocr_text = "\n\n".join(
+            text_item.text.strip()
+            for text_item in result.document.texts
+            if text_item.text.strip()
+        )
+        if ocr_text:
+            logger.warning(
+                "Docling Markdown contained only image placeholders; using %d "
+                "orphaned OCR text items: %s",
+                len(result.document.texts),
+                file_path,
+            )
+            return ocr_text
+
+        return markdown
 
     def _build_converter(self) -> DocumentConverterProtocol:
         # Keep Docling imports lazy so unit tests and commands that do not

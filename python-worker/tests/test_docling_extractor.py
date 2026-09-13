@@ -12,6 +12,22 @@ class FakeDocument:
         return "Store\nCoffee 4.50\nTotal 4.50"
 
 
+class ImageOnlyDocument:
+    def __init__(self):
+        self.texts = [
+            FakeTextItem("Royal Mail"),
+            FakeTextItem("Total 4.69"),
+        ]
+
+    def export_to_markdown(self):
+        return "<!-- image -->"
+
+
+class FakeTextItem:
+    def __init__(self, text):
+        self.text = text
+
+
 class FakeConversionResult:
     status = ConversionStatus.SUCCESS
     document = FakeDocument()
@@ -27,6 +43,18 @@ def test_extracts_markdown_from_pdf_or_image_with_docling():
 
     assert text == "Store\nCoffee 4.50\nTotal 4.50"
     converter.convert.assert_called_once_with("/path/to/receipt.jpg")
+
+
+def test_falls_back_to_orphaned_ocr_text_when_markdown_only_has_an_image():
+    converter = Mock()
+    converter.convert.return_value = Mock(
+        status=ConversionStatus.SUCCESS,
+        document=ImageOnlyDocument(),
+    )
+
+    text = DoclingExtractor(converter=converter).extract("/path/to/receipt.jpg")
+
+    assert text == "Royal Mail\n\nTotal 4.69"
 
 
 def test_preserves_embedded_pdf_text_while_ocring_image_receipts():

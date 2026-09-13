@@ -37,6 +37,20 @@ poetry run python main.py
 poetry run pytest -v
 ```
 
+## Debug receipt classification
+
+Use the receipt debugger to inspect the source image, Docling Markdown, exact
+classifier prompt/response, and OCR-versus-vision receipt parsing:
+
+```bash
+poetry run jupyter lab notebooks/debug_receipt_classification.ipynb
+```
+
+By default it opens `/Users/thomas/Downloads/receipts/P0 (2).jpg`. Set
+`RECEIPT_DEBUG_IMAGE` before starting Jupyter to inspect another local image.
+The classification and parsing cells require `ANTHROPIC_API_KEY` and make LLM
+requests.
+
 ## Project structure
 
 ```
