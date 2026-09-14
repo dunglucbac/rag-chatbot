@@ -8,6 +8,13 @@ from src.extractors.docling_extractor import DoclingExtractor
 
 
 class FakeDocument:
+    def __init__(self):
+        self.texts = [
+            FakeTextItem("Store"),
+            FakeTextItem("Coffee 4.50"),
+            FakeTextItem("Total 4.50"),
+        ]
+
     def export_to_markdown(self):
         return "Store\nCoffee 4.50\nTotal 4.50"
 
@@ -33,7 +40,7 @@ class FakeConversionResult:
     document = FakeDocument()
 
 
-def test_extracts_markdown_from_pdf_or_image_with_docling():
+def test_extracts_joined_text_items_from_pdf_or_image_with_docling():
     converter = Mock()
     converter.convert.return_value = FakeConversionResult()
 
@@ -41,11 +48,11 @@ def test_extracts_markdown_from_pdf_or_image_with_docling():
 
     text = extractor.extract("/path/to/receipt.jpg")
 
-    assert text == "Store\nCoffee 4.50\nTotal 4.50"
+    assert text == "Store\n\nCoffee 4.50\n\nTotal 4.50"
     converter.convert.assert_called_once_with("/path/to/receipt.jpg")
 
 
-def test_falls_back_to_orphaned_ocr_text_when_markdown_only_has_an_image():
+def test_returns_text_items_when_markdown_only_an_image_is_exported():
     converter = Mock()
     converter.convert.return_value = Mock(
         status=ConversionStatus.SUCCESS,
