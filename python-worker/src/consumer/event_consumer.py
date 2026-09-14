@@ -1,9 +1,10 @@
 import json
 import logging
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from src.constants.event_types import EventType
+from src.consumer.event_contracts import IngestionEventEnvelope
 from src.processing.ingestion_job_processor import IngestionJob, IngestionJobProcessor
 
 logger = logging.getLogger(__name__)
@@ -39,11 +40,10 @@ class EventConsumer:
         self,
         channel: AcknowledgingChannel,
         method: Delivery,
-        properties: object,
-        body: bytes | str,
+        _: object,
+        body: bytes,
     ) -> None:
         """Process one RabbitMQ delivery and acknowledge its published outcome."""
-        del properties
         job_id = "unknown"
         correlation_id = "unknown"
 
@@ -118,11 +118,11 @@ class EventConsumer:
             return False
 
     @staticmethod
-    def _decode_envelope(body: bytes | str) -> Mapping[str, object]:
-        envelope = json.loads(body)
-        if not isinstance(envelope, Mapping):
+    def _decode_envelope(body: bytes) -> IngestionEventEnvelope:
+        decoded = json.loads(body)
+        if not isinstance(decoded, Mapping):
             raise ValueError("event envelope must be an object")
-        return envelope
+        return cast(IngestionEventEnvelope, decoded)
 
     @staticmethod
     def _optional_text(value: object, default: str) -> str:

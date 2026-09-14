@@ -12,8 +12,12 @@ from src.processing.ingestion_job_processor import IngestionJob, ProcessingResul
 def _body(payload: object, correlation_id: str = "corr-123") -> bytes:
     return json.dumps(
         {
+            "schemaVersion": 1,
+            "eventId": "event-123",
             "eventType": EventType.DOC_PDF_PARSE_REQUESTED,
             "correlationId": correlation_id,
+            "attempt": 1,
+            "createdAt": "2026-09-14T00:00:00.000Z",
             "payload": payload,
         }
     ).encode()
