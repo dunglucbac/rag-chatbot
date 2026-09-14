@@ -1,16 +1,11 @@
 # Python Worker
 
-File processing worker for receipt intelligence. Consumes ingestion jobs from RabbitMQ, extracts text from PDFs and images (with OCR fallback), classifies documents, parses receipts, chunks documents, and publishes results back to the event bus.
+File processing worker for receipt intelligence. Consumes ingestion jobs from RabbitMQ, extracts layout-aware text from PDFs and images with Docling, classifies documents, parses receipts, chunks documents, and publishes results back to the event bus.
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.11–3.13
 - [Poetry](https://python-poetry.org/) for dependency management
-- Tesseract OCR engine (system binary required by the `pytesseract` Python package)
-
-```bash
-brew install tesseract
-```
 
 ## Setup
 
@@ -33,6 +28,7 @@ poetry run python main.py
 | `RABBITMQ_PDF_QUEUE` | `ingest.pdf.queue` | Queue for PDF parse requests |
 | `RABBITMQ_IMAGE_QUEUE` | `ingest.image.queue` | Queue for image classify requests |
 | `RABBITMQ_PREFETCH_COUNT` | `10` | Max unacked messages per worker |
+| `DOCLING_ARTIFACTS_PATH` | — | Optional path to pre-fetched Docling layout/table/RapidOCR models |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for LLM classification and parsing (optional; skips LLM services if unset) |
 
 ## Tests
@@ -41,6 +37,20 @@ poetry run python main.py
 poetry run pytest -v
 ```
 
+## Debug receipt classification
+
+Use the receipt debugger to inspect the source image, Docling Markdown, exact
+classifier prompt/response, and OCR-versus-vision receipt parsing:
+
+```bash
+poetry run jupyter lab notebooks/debug_receipt_classification.ipynb
+```
+
+By default it opens `/Users/thomas/Downloads/receipts/P0 (2).jpg`. Set
+`RECEIPT_DEBUG_IMAGE` before starting Jupyter to inspect another local image.
+The classification and parsing cells require `ANTHROPIC_API_KEY` and make LLM
+requests.
+
 ## Project structure
 
 ```
@@ -48,11 +58,11 @@ python-worker/
 ├── main.py                        # Worker entry point (RabbitMQ connection, pipeline wiring)
 ├── src/
 │   ├── consumer/
-│   │   └── event_consumer.py      # Message handler: extract → classify → parse → publish
+│   │   └── event_consumer.py      # RabbitMQ decode, publish, failure, and ack handling
 │   ├── extractors/
-│   │   ├── base_extractor.py      # Abstract base class (extract + needs_ocr)
-│   │   ├── pdf_extractor.py       # PDF text extraction via PyPDF2
-│   │   └── ocr_extractor.py       # Image text extraction via Tesseract OCR
+│   │   └── docling_extractor.py   # PDF/image extraction via Docling
+│   ├── processing/
+│   │   └── ingestion_job_processor.py # Validate and process one ingestion job
 │   ├── publisher/
 │   │   └── event_publisher.py     # RabbitMQ event publisher
 │   └── services/
@@ -60,10 +70,9 @@ python-worker/
 │       ├── receipt_parser.py          # LLM-based receipt parsing
 │       └── chunking_service.py        # Text chunking for embedding
 ├── tests/
-│   ├── test_pdf_extractor.py
-│   ├── test_ocr_extractor.py
+│   ├── test_docling_extractor.py
 │   ├── test_event_consumer.py
-│   ├── test_event_contracts.py
+│   ├── test_ingestion_job_processor.py
 │   ├── test_classification_service.py
 │   ├── test_receipt_parser.py
 │   └── test_chunking_service.py
@@ -75,8 +84,16 @@ python-worker/
 ## Processing flow
 
 1. Worker listens on `ingest.pdf.queue` and `ingest.image.queue`
-2. On message arrival, selects the appropriate extractor based on `fileType`
-3. PDFs are checked with `needs_ocr` — if text is too short, falls back to OCR
-4. Text is classified as `receipt` / `payment` / `document`
-5. Receipts are parsed into structured data, documents are chunked for embedding
-6. Results are published to the appropriate topic routing key
+2. Consumer validates the message payload as an ingestion job
+3. Processor converts HEIC/HEIF to a temporary JPEG when needed
+4. Docling extracts native PDF text or performs OCR while preserving layout and tables
+5. Processor classifies the text and parses a Receipt, routes a Payment, or chunks a Document
+6. Consumer publishes the resulting event and acknowledges the RabbitMQ delivery
+
+Docling uses its bundled RapidOCR Torch backend with the Vietnamese `vi` recognizer, so no system OCR package is required. It downloads document-layout, table, and OCR models on first conversion. For an offline deployment, pre-fetch them and set `DOCLING_ARTIFACTS_PATH`:
+
+```bash
+poetry run docling-tools models download --output-dir ./docling-models \
+  layout tableformer rapidocr --rapidocr-backend-lang torch:vi
+DOCLING_ARTIFACTS_PATH="$PWD/docling-models" poetry run python main.py
+```

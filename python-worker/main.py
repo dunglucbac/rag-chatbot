@@ -8,9 +8,8 @@ from dotenv import load_dotenv
 import pika
 import anthropic
 
-from src.extractors.pdf_extractor import PDFExtractor
-from src.extractors.ocr_extractor import OCRExtractor
-from src.extractors.extractor_adapter import ExtractorAdapter
+from src.extractors.docling_extractor import DoclingExtractor
+from src.processing.ingestion_job_processor import IngestionJobProcessor
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
@@ -40,6 +39,7 @@ class Worker:
         self.connection = None
         self.channel = None
         self._running = False
+        self.processor = self._build_processor()
 
     def start(self):
         self._running = True
@@ -76,33 +76,8 @@ class Worker:
         self._setup_queue(self.pdf_queue, EventType.DOC_PDF_PARSE_REQUESTED)
         self._setup_queue(self.image_queue, EventType.IMAGE_CLASSIFY_REQUESTED)
 
-        # Build the processing pipeline
-        extractors = {
-            "pdf": PDFExtractor(),
-            "tesseract": OCRExtractor(),
-        }
-        routing = {
-            "pdf": os.getenv("PDF_EXTRACTOR", "pdf"),
-            "image": os.getenv("IMAGE_EXTRACTOR", "tesseract"),
-        }
-        extractor_adapter = ExtractorAdapter(extractors, routing)
-
-        chunker = ChunkingService(chunk_size=1000, overlap=200)
-
-        # LLM clients are lazily initialized; pass None if credentials not set
-        llm_client = self._build_llm_client()
-        classifier = ClassificationService(llm_client) if llm_client else None
-        parser = ReceiptParser(llm_client) if llm_client else None
-
         publisher = EventPublisher(self.channel, self.exchange)
-        consumer = EventConsumer(
-            extractor_adapter,
-            publisher,
-            classifier,
-            parser,
-            chunker,
-            connection=self.connection,
-        )
+        consumer = EventConsumer(self.processor, publisher)
 
         # Start consuming
         self.channel.basic_consume(
@@ -158,6 +133,26 @@ class Worker:
         self.channel.queue_bind(
             queue=queue_name, exchange=self.exchange, routing_key=routing_key
         )
+
+    def _build_processor(self) -> IngestionJobProcessor:
+        extractor = DoclingExtractor(
+            artifacts_path=os.getenv("DOCLING_ARTIFACTS_PATH") or None,
+        )
+        llm_client = self._build_llm_client()
+        classifier = ClassificationService(llm_client) if llm_client else None
+        parser = ReceiptParser(llm_client) if llm_client else None
+        chunker = ChunkingService(chunk_size=1000, overlap=200)
+        return IngestionJobProcessor(
+            extractor,
+            classifier,
+            parser,
+            chunker,
+            checkpoint=self._keepalive,
+        )
+
+    def _keepalive(self) -> None:
+        if self.connection and self.connection.is_open:
+            self.connection.process_data_events(time_limit=0)
 
     def _build_llm_client(self):
         api_key = os.getenv("ANTHROPIC_API_KEY")
