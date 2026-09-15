@@ -30,6 +30,7 @@ poetry run python main.py
 | `RABBITMQ_PREFETCH_COUNT` | `10` | Max unacked messages per worker |
 | `DOCLING_ARTIFACTS_PATH` | — | Optional path to pre-fetched Docling layout/table/RapidOCR models |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for LLM classification and parsing (optional; skips LLM services if unset) |
+| `VISION_FALLBACK_CONFIDENCE_THRESHOLD` | `0.9` | Sends an image to the vision model only when text-only receipt parsing confidence is below this value; set to `0` to disable vision fallback. |
 
 ## Tests
 

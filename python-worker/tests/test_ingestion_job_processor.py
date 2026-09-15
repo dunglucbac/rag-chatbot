@@ -148,6 +148,32 @@ def test_uses_better_vision_result_for_uncertain_image_receipt():
     assert result.payload["receipt"] == parser.parse_with_vision.return_value
 
 
+def test_vision_fallback_can_be_disabled_for_uncertain_receipts():
+    extractor = Mock()
+    extractor.extract.return_value = "Uncertain receipt"
+    classifier = Mock()
+    classifier.classify.return_value = {
+        "classification": "receipt",
+        "confidence": 0.95,
+    }
+    parser = Mock()
+    parser.parse.return_value = {
+        "merchant": "Store",
+        "confidence": 0.5,
+        "discrepancy": {"difference": 30},
+    }
+
+    result = IngestionJobProcessor(
+        extractor,
+        classifier,
+        parser,
+        vision_fallback_confidence_threshold=0,
+    ).process(_job(file_type="image", storage_path="/path/to/receipt.jpg"))
+
+    parser.parse_with_vision.assert_not_called()
+    assert result.payload["receipt"] == parser.parse.return_value
+
+
 def test_heic_conversion_preserves_source_and_cleans_temporary_jpeg(tmp_path):
     source = tmp_path / "receipt.heic"
     Image.new("RGB", (64, 64), "white").save(source, format="HEIF")

@@ -92,12 +92,23 @@ class IngestionJobProcessor:
         parser: ReceiptParser | None = None,
         chunker: Chunker | None = None,
         checkpoint: Callable[[], None] | None = None,
+        vision_fallback_confidence_threshold: float = 0.9,
     ):
+        if not isinstance(vision_fallback_confidence_threshold, (int, float)) or not (
+            0 <= vision_fallback_confidence_threshold <= 1
+        ):
+            raise ValueError(
+                "vision_fallback_confidence_threshold must be between 0 and 1"
+            )
+
         self._extractor = extractor
         self._classifier = classifier
         self._parser = parser
         self._chunker = chunker
         self._checkpoint = checkpoint or (lambda: None)
+        self._vision_fallback_confidence_threshold = (
+            vision_fallback_confidence_threshold
+        )
 
     def process(self, job: IngestionJob) -> ProcessingResult:
         with self._prepared_input(job) as input_path:
@@ -217,12 +228,13 @@ class IngestionJobProcessor:
             {"jobId": job.job_id, "extractedText": text},
         )
 
-    @staticmethod
-    def _should_try_vision(receipt: dict[str, Any]) -> bool:
-        if receipt.get("discrepancy") is not None:
-            return True
+    def _should_try_vision(self, receipt: dict[str, Any]) -> bool:
+        """Use vision only when the text-only LLM result is below the threshold."""
         confidence = receipt.get("confidence")
-        return isinstance(confidence, (int, float)) and confidence < 0.9
+        return (
+            isinstance(confidence, (int, float))
+            and confidence < self._vision_fallback_confidence_threshold
+        )
 
     @staticmethod
     def _confidence(receipt: dict[str, Any]) -> float:
