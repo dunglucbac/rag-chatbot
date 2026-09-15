@@ -36,7 +36,7 @@ class DoclingExtractor:
         return self._converter
 
     def extract(self, file_path: str) -> str:
-        """Convert a PDF or image and return its Docling TextItems in order."""
+        """Convert a PDF or image and return its text and tables in order."""
         logger.info("Extracting document with Docling: %s", file_path)
         result: ConversionResult = self.converter.convert(file_path)
         if result.status != ConversionStatus.SUCCESS:
@@ -49,11 +49,20 @@ class DoclingExtractor:
                 message = f"{message}; errors={error_details}"
             raise RuntimeError(message)
 
-        return "\n\n".join(
-            text_item.text.strip()
-            for text_item in result.document.texts
-            if text_item.text.strip()
-        )
+        content = []
+        for item, _ in result.document.iterate_items():
+            text = getattr(item, "text", None)
+            if isinstance(text, str) and text.strip():
+                content.append(text.strip())
+                continue
+
+            export_to_markdown = getattr(item, "export_to_markdown", None)
+            if callable(export_to_markdown):
+                markdown = export_to_markdown(doc=result.document)
+                if isinstance(markdown, str) and markdown.strip():
+                    content.append(markdown.strip())
+
+        return "\n\n".join(content)
 
     def _build_converter(self) -> DocumentConverterProtocol:
         # Keep Docling imports lazy so unit tests and commands that do not

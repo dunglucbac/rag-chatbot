@@ -14,6 +14,10 @@ class FakeDocument:
             FakeTextItem("Coffee 4.50"),
             FakeTextItem("Total 4.50"),
         ]
+        self.items = self.texts
+
+    def iterate_items(self):
+        return ((item, 1) for item in self.items)
 
     def export_to_markdown(self):
         return "Store\nCoffee 4.50\nTotal 4.50"
@@ -25,6 +29,10 @@ class ImageOnlyDocument:
             FakeTextItem("Royal Mail"),
             FakeTextItem("Total 4.69"),
         ]
+        self.items = self.texts
+
+    def iterate_items(self):
+        return ((item, 1) for item in self.items)
 
     def export_to_markdown(self):
         return "<!-- image -->"
@@ -33,6 +41,28 @@ class ImageOnlyDocument:
 class FakeTextItem:
     def __init__(self, text):
         self.text = text
+
+
+class FakeTableItem:
+    def __init__(self, markdown):
+        self.markdown = markdown
+        self.document = None
+
+    def export_to_markdown(self, doc=None):
+        self.document = doc
+        return self.markdown
+
+
+class TableReceiptDocument:
+    def __init__(self):
+        self.items = [
+            FakeTextItem("Store"),
+            FakeTableItem("| Coffee | 4.50 |"),
+            FakeTextItem("Total 4.50"),
+        ]
+
+    def iterate_items(self):
+        return ((item, 1) for item in self.items)
 
 
 class FakeConversionResult:
@@ -62,6 +92,19 @@ def test_returns_text_items_when_markdown_only_an_image_is_exported():
     text = DoclingExtractor(converter=converter).extract("/path/to/receipt.jpg")
 
     assert text == "Royal Mail\n\nTotal 4.69"
+
+
+def test_preserves_table_cells_in_the_extracted_text():
+    converter = Mock()
+    converter.convert.return_value = Mock(
+        status=ConversionStatus.SUCCESS,
+        document=TableReceiptDocument(),
+    )
+
+    text = DoclingExtractor(converter=converter).extract("/path/to/receipt.pdf")
+
+    assert text == "Store\n\n| Coffee | 4.50 |\n\nTotal 4.50"
+    assert converter.convert.return_value.document.items[1].document is converter.convert.return_value.document
 
 
 def test_preserves_embedded_pdf_text_while_ocring_image_receipts():
