@@ -12,7 +12,7 @@ IngestionEventType = Literal[
     "image.classify.requested",
 ]
 IngestionFileType = Literal["pdf", "image"]
-IngestionClassification = Literal["receipt", "payment", "document", "unknown"]
+IngestionClassification = Literal["receipt", "payment", "unknown"]
 
 
 class IngestionDispatchPayload(TypedDict):

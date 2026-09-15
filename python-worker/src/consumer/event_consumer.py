@@ -5,7 +5,11 @@ from typing import Any, Protocol, cast
 
 from src.constants.event_types import EventType
 from src.consumer.event_contracts import IngestionEventEnvelope
-from src.processing.ingestion_job_processor import IngestionJob, IngestionJobProcessor
+from src.processing.ingestion_job_processor import (
+    IngestionJob,
+    IngestionJobProcessor,
+    ProcessingResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +70,7 @@ class EventConsumer:
                 job_id,
             )
 
-            result = self.processor.process(job)
+            result: ProcessingResult = self.processor.process(job)
         except Exception as error:
             logger.exception(
                 "Processing failed [correlationId=%s jobId=%s]", correlation_id, job_id

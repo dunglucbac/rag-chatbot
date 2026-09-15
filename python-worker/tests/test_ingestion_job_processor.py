@@ -51,22 +51,46 @@ def test_parses_receipt_and_returns_receipt_event():
     }
 
 
-def test_low_classification_confidence_returns_review_event():
+def test_low_receipt_parser_confidence_returns_review_event():
     extractor = Mock()
     extractor.extract.return_value = "Fuzzy receipt"
     classifier = Mock()
     classifier.classify.return_value = {
         "classification": "receipt",
-        "confidence": 0.55,
+        "confidence": 0.95,
     }
     parser = Mock()
-    parser.parse.return_value = {"merchant": "Unknown", "total": 10.0}
+    parser.parse.return_value = {
+        "merchant": "Unknown",
+        "total": 10.0,
+        "confidence": 0.55,
+    }
 
     result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
 
     assert result.event_type == EventType.RECEIPT_NEEDS_REVIEW
     assert result.payload["confidence"] == 0.55
     assert result.payload["userId"] == "user-456"
+
+
+def test_high_receipt_parser_confidence_returns_parsed_event():
+    extractor = Mock()
+    extractor.extract.return_value = "Clear receipt"
+    classifier = Mock()
+    classifier.classify.return_value = {
+        "classification": "receipt",
+        "confidence": 0.55,
+    }
+    parser = Mock()
+    parser.parse.return_value = {
+        "merchant": "Coffee Shop",
+        "total": 10.0,
+        "confidence": 0.95,
+    }
+
+    result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
+
+    assert result.event_type == EventType.RECEIPT_PARSED
 
 
 def test_payment_event_includes_user_id():
@@ -88,36 +112,6 @@ def test_payment_event_includes_user_id():
         "userId": "user-456",
         "extractedText": "Transfer 50.00",
     }
-
-
-def test_document_event_contains_chunks_and_original_source():
-    extractor = Mock()
-    extractor.extract.return_value = "Document text"
-    classifier = Mock()
-    classifier.classify.return_value = {
-        "classification": "document",
-        "confidence": 0.95,
-    }
-    chunker = Mock()
-    chunker.chunk_with_metadata.return_value = [
-        {
-            "content": "Document text",
-            "metadata": {"source": "/path/to/file.pdf", "type": "pdf"},
-        }
-    ]
-
-    result = IngestionJobProcessor(
-        extractor,
-        classifier,
-        chunker=chunker,
-    ).process(_job())
-
-    chunker.chunk_with_metadata.assert_called_once_with(
-        "Document text",
-        {"source": "/path/to/file.pdf", "type": "pdf"},
-    )
-    assert result.event_type == EventType.DOC_CHUNKS_EMBED_REQUESTED
-    assert result.payload["chunks"] == chunker.chunk_with_metadata.return_value
 
 
 def test_uses_better_vision_result_for_uncertain_image_receipt():
@@ -146,6 +140,32 @@ def test_uses_better_vision_result_for_uncertain_image_receipt():
 
     parser.parse_with_vision.assert_called_once_with("/path/to/receipt.jpg")
     assert result.payload["receipt"] == parser.parse_with_vision.return_value
+
+
+def test_vision_fallback_can_be_disabled_for_uncertain_receipts():
+    extractor = Mock()
+    extractor.extract.return_value = "Uncertain receipt"
+    classifier = Mock()
+    classifier.classify.return_value = {
+        "classification": "receipt",
+        "confidence": 0.95,
+    }
+    parser = Mock()
+    parser.parse.return_value = {
+        "merchant": "Store",
+        "confidence": 0.5,
+        "discrepancy": {"difference": 30},
+    }
+
+    result = IngestionJobProcessor(
+        extractor,
+        classifier,
+        parser,
+        vision_fallback_confidence_threshold=0,
+    ).process(_job(file_type="image", storage_path="/path/to/receipt.jpg"))
+
+    parser.parse_with_vision.assert_not_called()
+    assert result.payload["receipt"] == parser.parse.return_value
 
 
 def test_heic_conversion_preserves_source_and_cleans_temporary_jpeg(tmp_path):

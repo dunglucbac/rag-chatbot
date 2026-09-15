@@ -13,7 +13,6 @@ from src.processing.ingestion_job_processor import IngestionJobProcessor
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
-from src.services.chunking_service import ChunkingService
 from src.consumer.event_consumer import EventConsumer
 from src.publisher.event_publisher import EventPublisher
 
@@ -36,6 +35,9 @@ class Worker:
         self.pdf_queue = os.getenv("RABBITMQ_PDF_QUEUE", "ingest.pdf.queue")
         self.image_queue = os.getenv("RABBITMQ_IMAGE_QUEUE", "ingest.image.queue")
         self.prefetch_count = int(os.getenv("RABBITMQ_PREFETCH_COUNT", "10"))
+        self.vision_fallback_confidence_threshold = (
+            self._read_vision_fallback_confidence_threshold()
+        )
         self.connection = None
         self.channel = None
         self._running = False
@@ -141,14 +143,31 @@ class Worker:
         llm_client = self._build_llm_client()
         classifier = ClassificationService(llm_client) if llm_client else None
         parser = ReceiptParser(llm_client) if llm_client else None
-        chunker = ChunkingService(chunk_size=1000, overlap=200)
         return IngestionJobProcessor(
             extractor,
             classifier,
             parser,
-            chunker,
             checkpoint=self._keepalive,
+            vision_fallback_confidence_threshold=(
+                self.vision_fallback_confidence_threshold
+            ),
         )
+
+    @staticmethod
+    def _read_vision_fallback_confidence_threshold() -> float:
+        value = os.getenv("VISION_FALLBACK_CONFIDENCE_THRESHOLD", "0.9")
+        try:
+            threshold = float(value)
+        except ValueError as error:
+            raise ValueError(
+                "VISION_FALLBACK_CONFIDENCE_THRESHOLD must be a number between 0 and 1"
+            ) from error
+
+        if not 0 <= threshold <= 1:
+            raise ValueError(
+                "VISION_FALLBACK_CONFIDENCE_THRESHOLD must be between 0 and 1"
+            )
+        return threshold
 
     def _keepalive(self) -> None:
         if self.connection and self.connection.is_open:

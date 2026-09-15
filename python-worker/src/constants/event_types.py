@@ -11,15 +11,16 @@ class EventType(StrEnum):
     JOB_FAILED = "job.failed"
     JOB_PROCESSING_STARTED = "job.processing.started"
 
-    # Classification outcomes
+    # Receipt outcomes: structured receipt data is ready, or needs review.
     RECEIPT_PARSED = "receipt.parsed"
     RECEIPT_NEEDS_REVIEW = "receipt.needs_review"
+
+    # Payment outcome: a transfer/payment confirmation was detected. It has no
+    # itemized purchase details yet, so the app follows up with the user.
     PAYMENT_DETECTED = "payment.detected"
-    DOC_CHUNKS_EMBED_REQUESTED = "doc.chunks.embed.requested"
 
 
 class ClassificationType(StrEnum):
     RECEIPT = "receipt"
     PAYMENT = "payment"
-    DOCUMENT = "document"
     UNKNOWN = "unknown"
