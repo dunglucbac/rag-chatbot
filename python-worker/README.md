@@ -1,6 +1,6 @@
 # Python Worker
 
-File processing worker for receipt intelligence. Consumes ingestion jobs from RabbitMQ, extracts layout-aware text from PDFs and images with Docling, classifies documents, parses receipts, chunks documents, and publishes results back to the event bus.
+File processing worker for receipt intelligence. Consumes ingestion jobs from RabbitMQ, extracts layout-aware text from PDFs and images with Docling, classifies receipts and payments, parses receipts, and publishes results back to the event bus.
 
 ## Prerequisites
 
@@ -67,16 +67,14 @@ python-worker/
 │   ├── publisher/
 │   │   └── event_publisher.py     # RabbitMQ event publisher
 │   └── services/
-│       ├── classification_service.py  # LLM-based document classification
+│       ├── classification_service.py  # LLM-based receipt/payment classification
 │       ├── receipt_parser.py          # LLM-based receipt parsing
-│       └── chunking_service.py        # Text chunking for embedding
 ├── tests/
 │   ├── test_docling_extractor.py
 │   ├── test_event_consumer.py
 │   ├── test_ingestion_job_processor.py
 │   ├── test_classification_service.py
-│   ├── test_receipt_parser.py
-│   └── test_chunking_service.py
+│   └── test_receipt_parser.py
 ├── pyproject.toml                 # Poetry config
 ├── poetry.lock                    # Locked dependencies
 └── Dockerfile                     # Production container
@@ -102,7 +100,7 @@ sequenceDiagram
     Worker->>Docling: Extract text / perform OCR
     Docling-->>Worker: Extracted text
     Worker->>Classifier: Classify extracted text
-    Classifier-->>Worker: receipt, payment, or document
+    Classifier-->>Worker: receipt or payment
 
     alt Receipt
         Worker->>Parser: Parse OCR-derived receipt text
@@ -119,8 +117,6 @@ sequenceDiagram
         end
     else Payment
         Worker->>RabbitMQ: Publish payment.detected
-    else Document
-        Worker->>RabbitMQ: Publish doc.chunks.embed.requested
     else No classifier configured or other result
         Worker->>RabbitMQ: Publish doc.pdf.parse.completed
     end
@@ -132,7 +128,7 @@ sequenceDiagram
 2. Consumer validates the message payload as an ingestion job
 3. Processor converts HEIC/HEIF to a temporary JPEG when needed
 4. Docling extracts native PDF text or performs OCR while preserving layout and tables
-5. Processor classifies the text and parses a Receipt, routes a Payment, or chunks a Document
+5. Processor classifies the text and parses a Receipt or routes a Payment
 6. Consumer publishes the resulting event and acknowledges the RabbitMQ delivery
 
 Docling uses its bundled RapidOCR Torch backend with the Vietnamese `vi` recognizer, so no system OCR package is required. It downloads document-layout, table, and OCR models on first conversion. For an offline deployment, pre-fetch them and set `DOCLING_ARTIFACTS_PATH`:

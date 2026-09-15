@@ -25,3 +25,6 @@ def test_can_classify_text_as_receipt():
     llm_client.messages.create.assert_called_once()
     call_kwargs = llm_client.messages.create.call_args[1]
     assert call_kwargs["model"] == "claude-haiku-4-5-20251001"
+    prompt = call_kwargs["messages"][0]["content"]
+    assert '"receipt" or "payment"' in prompt
+    assert "document" not in prompt

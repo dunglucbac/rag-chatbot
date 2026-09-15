@@ -8,14 +8,14 @@ class ClassificationService:
         self.llm_client = llm_client
 
     def classify(self, text: str) -> dict:
-        """Classify text as receipt, payment, or document using LLM"""
-        prompt = f"""Classify the following text as either "receipt", "payment", or "document".
+        """Classify text as a receipt or payment using an LLM."""
+        prompt = f"""Classify the following text as either "receipt" or "payment".
 Return JSON with classification and confidence (0-1).
 
 Text:
 {text}
 
-Response format: {{"classification": "receipt|payment|document", "confidence": 0.95}}
+Response format: {{"classification": "receipt|payment", "confidence": 0.95}}
 
 Reply with ONLY the JSON object, no explanation."""
 

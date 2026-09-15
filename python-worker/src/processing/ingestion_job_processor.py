@@ -33,12 +33,6 @@ class ReceiptParser(Protocol):
     def parse_with_vision(self, image_path: str, /) -> dict[str, Any]: ...
 
 
-class Chunker(Protocol):
-    def chunk_with_metadata(
-        self, text: str, metadata: dict[str, str], /
-    ) -> list[dict[str, Any]]: ...
-
-
 @dataclass(frozen=True)
 class IngestionJob:
     job_id: str
@@ -100,7 +94,6 @@ class IngestionJobProcessor:
         extractor: TextExtractor,
         classifier: Classifier | None = None,
         parser: ReceiptParser | None = None,
-        chunker: Chunker | None = None,
         checkpoint: Callable[[], None] | None = None,
         vision_fallback_confidence_threshold: float = 0.9,
     ):
@@ -114,7 +107,6 @@ class IngestionJobProcessor:
         self._extractor = extractor
         self._classifier = classifier
         self._parser = parser
-        self._chunker = chunker
         self._checkpoint = checkpoint or (lambda: None)
         self._vision_fallback_confidence_threshold = (
             vision_fallback_confidence_threshold
@@ -149,20 +141,6 @@ class IngestionJobProcessor:
                         "jobId": job.job_id,
                         "userId": job.user_id,
                         "extractedText": text,
-                    },
-                )
-
-            if classification == ClassificationType.DOCUMENT and self._chunker:
-                chunks = self._chunker.chunk_with_metadata(
-                    text,
-                    {"source": job.storage_path, "type": job.file_type},
-                )
-                return ProcessingResult(
-                    EventType.DOC_CHUNKS_EMBED_REQUESTED,
-                    {
-                        "jobId": job.job_id,
-                        "userId": job.user_id,
-                        "chunks": chunks,
                     },
                 )
 

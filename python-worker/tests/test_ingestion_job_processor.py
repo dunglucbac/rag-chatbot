@@ -114,36 +114,6 @@ def test_payment_event_includes_user_id():
     }
 
 
-def test_document_event_contains_chunks_and_original_source():
-    extractor = Mock()
-    extractor.extract.return_value = "Document text"
-    classifier = Mock()
-    classifier.classify.return_value = {
-        "classification": "document",
-        "confidence": 0.95,
-    }
-    chunker = Mock()
-    chunker.chunk_with_metadata.return_value = [
-        {
-            "content": "Document text",
-            "metadata": {"source": "/path/to/file.pdf", "type": "pdf"},
-        }
-    ]
-
-    result = IngestionJobProcessor(
-        extractor,
-        classifier,
-        chunker=chunker,
-    ).process(_job())
-
-    chunker.chunk_with_metadata.assert_called_once_with(
-        "Document text",
-        {"source": "/path/to/file.pdf", "type": "pdf"},
-    )
-    assert result.event_type == EventType.DOC_CHUNKS_EMBED_REQUESTED
-    assert result.payload["chunks"] == chunker.chunk_with_metadata.return_value
-
-
 def test_uses_better_vision_result_for_uncertain_image_receipt():
     extractor = Mock()
     extractor.extract.return_value = "Uncertain receipt"
