@@ -83,7 +83,17 @@ class ProcessingResult:
 
 
 class IngestionJobProcessor:
-    """Process one Ingestion Job and produce its next event."""
+    """Process one ingestion job and produce its next event.
+
+    Receipt confidence has two separate cutoffs:
+
+    * ``vision_fallback_confidence_threshold`` (default ``0.9``) controls
+      when an OCR/text-derived receipt is also parsed from its source image.
+    * ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD`` (``0.7``) controls whether the
+      final parsed receipt is accepted automatically or sent for review.
+    """
+
+    RECEIPT_REVIEW_CONFIDENCE_THRESHOLD = 0.7
 
     def __init__(
         self,
@@ -165,6 +175,13 @@ class IngestionJobProcessor:
         input_path: str,
         classification_result: dict[str, Any],
     ) -> ProcessingResult:
+        """Parse a receipt, optionally improve it with vision, then route it.
+
+        The receipt parser's final confidence—not the classifier's
+        confidence—determines the outcome. Values below
+        ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD`` publish
+        ``receipt.needs_review``; all other values publish ``receipt.parsed``.
+        """
         assert self._parser is not None
 
         self._checkpoint()
@@ -172,8 +189,11 @@ class IngestionJobProcessor:
         if job.file_type == "image" and self._should_try_vision(receipt):
             receipt = self._try_vision(input_path, receipt, job.job_id)
 
-        confidence = float(classification_result.get("confidence", 1.0))
-        if confidence < 0.7:
+        # The classifier determines that this is a receipt; the parser is the
+        # authority on whether OCR-derived receipt fields are reliable enough
+        # to accept without review.
+        confidence = float(receipt.get("confidence", 1.0))
+        if confidence < self.RECEIPT_REVIEW_CONFIDENCE_THRESHOLD:
             return ProcessingResult(
                 EventType.RECEIPT_NEEDS_REVIEW,
                 {
@@ -229,7 +249,11 @@ class IngestionJobProcessor:
         )
 
     def _should_try_vision(self, receipt: dict[str, Any]) -> bool:
-        """Use vision only when the text-only LLM result is below the threshold."""
+        """Use vision when text-only parsing is below the fallback threshold.
+
+        This is an improvement step, not an acceptance decision. The final
+        result is separately routed using ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD``.
+        """
         confidence = receipt.get("confidence")
         return (
             isinstance(confidence, (int, float))

@@ -51,22 +51,46 @@ def test_parses_receipt_and_returns_receipt_event():
     }
 
 
-def test_low_classification_confidence_returns_review_event():
+def test_low_receipt_parser_confidence_returns_review_event():
     extractor = Mock()
     extractor.extract.return_value = "Fuzzy receipt"
     classifier = Mock()
     classifier.classify.return_value = {
         "classification": "receipt",
-        "confidence": 0.55,
+        "confidence": 0.95,
     }
     parser = Mock()
-    parser.parse.return_value = {"merchant": "Unknown", "total": 10.0}
+    parser.parse.return_value = {
+        "merchant": "Unknown",
+        "total": 10.0,
+        "confidence": 0.55,
+    }
 
     result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
 
     assert result.event_type == EventType.RECEIPT_NEEDS_REVIEW
     assert result.payload["confidence"] == 0.55
     assert result.payload["userId"] == "user-456"
+
+
+def test_high_receipt_parser_confidence_returns_parsed_event():
+    extractor = Mock()
+    extractor.extract.return_value = "Clear receipt"
+    classifier = Mock()
+    classifier.classify.return_value = {
+        "classification": "receipt",
+        "confidence": 0.55,
+    }
+    parser = Mock()
+    parser.parse.return_value = {
+        "merchant": "Coffee Shop",
+        "total": 10.0,
+        "confidence": 0.95,
+    }
+
+    result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
+
+    assert result.event_type == EventType.RECEIPT_PARSED
 
 
 def test_payment_event_includes_user_id():

@@ -84,6 +84,50 @@ python-worker/
 
 ## Processing flow
 
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Producer as Ingestion service
+    participant RabbitMQ as RabbitMQ (ingest.topic)
+    participant Worker as Python worker
+    participant Docling as Docling OCR/extractor
+    participant Classifier as Classification LLM
+    participant Parser as Receipt parser LLM
+    participant Vision as Vision LLM
+
+    Producer->>RabbitMQ: Publish ingestion request
+    RabbitMQ->>Worker: Deliver PDF or image job
+    Worker->>Docling: Extract text / perform OCR
+    Docling-->>Worker: Extracted text
+    Worker->>Classifier: Classify extracted text
+    Classifier-->>Worker: receipt, payment, or document
+
+    alt Receipt
+        Worker->>Parser: Parse OCR-derived receipt text
+        Parser-->>Worker: Receipt fields and confidence
+        opt Image job and confidence < vision fallback threshold (default 0.9)
+            Worker->>Vision: Parse the source image
+            Vision-->>Worker: Receipt fields and confidence
+            Note over Worker: Keep the vision result only if confidence improves
+        end
+        alt Final parser confidence < review threshold (0.7)
+            Worker->>RabbitMQ: Publish receipt.needs_review
+        else Final parser confidence >= review threshold
+            Worker->>RabbitMQ: Publish receipt.parsed
+        end
+    else Payment
+        Worker->>RabbitMQ: Publish payment.detected
+    else Document
+        Worker->>RabbitMQ: Publish doc.chunks.embed.requested
+    else No classifier configured or other result
+        Worker->>RabbitMQ: Publish doc.pdf.parse.completed
+    end
+
+    Worker->>RabbitMQ: Acknowledge original delivery
+```
+
 1. Worker listens on `ingest.pdf.queue` and `ingest.image.queue`
 2. Consumer validates the message payload as an ingestion job
 3. Processor converts HEIC/HEIF to a temporary JPEG when needed
