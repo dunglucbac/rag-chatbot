@@ -4,6 +4,8 @@ from typing import Protocol
 from docling.datamodel.base_models import ConversionStatus
 from docling.datamodel.document import ConversionResult
 
+from src.extractors.document_extractor import DocumentExtractor
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,7 +15,7 @@ class DocumentConverterProtocol(Protocol):
     def convert(self, source: str, /) -> ConversionResult: ...
 
 
-class DoclingExtractor:
+class DoclingExtractor(DocumentExtractor):
     """Extract text and layout from PDFs and images with Docling.
 
     Docling owns both the direct-PDF extraction and OCR paths. This means a

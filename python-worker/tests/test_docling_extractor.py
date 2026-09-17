@@ -4,6 +4,7 @@ import pytest
 from docling.datamodel.base_models import ConversionStatus, InputFormat
 from docling.datamodel.pipeline_options import OcrMode
 
+from src.extractors.document_extractor import DocumentExtractor
 from src.extractors.docling_extractor import DoclingExtractor
 
 
@@ -50,6 +51,10 @@ def test_extracts_joined_text_items_from_pdf_or_image_with_docling():
 
     assert text == "Store\n\nCoffee 4.50\n\nTotal 4.50"
     converter.convert.assert_called_once_with("/path/to/receipt.jpg")
+
+
+def test_docling_extractor_implements_document_extractor_contract():
+    assert isinstance(DoclingExtractor(converter=Mock()), DocumentExtractor)
 
 
 def test_returns_text_items_when_markdown_only_an_image_is_exported():

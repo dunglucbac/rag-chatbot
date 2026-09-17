@@ -10,6 +10,7 @@ import pillow_heif
 from PIL import Image, ImageOps
 
 from src.constants.event_types import ClassificationType, EventType
+from src.extractors.document_extractor import DocumentExtractor
 
 pillow_heif.register_heif_opener()
 
@@ -17,10 +18,6 @@ logger = logging.getLogger(__name__)
 
 FileType = Literal["pdf", "image"]
 HEIC_EXTENSIONS = {".heic", ".heif", ".heifs"}
-
-
-class TextExtractor(Protocol):
-    def extract(self, file_path: str, /) -> str: ...
 
 
 class Classifier(Protocol):
@@ -91,7 +88,7 @@ class IngestionJobProcessor:
 
     def __init__(
         self,
-        extractor: TextExtractor,
+        extractor: DocumentExtractor,
         classifier: Classifier | None = None,
         parser: ReceiptParser | None = None,
         checkpoint: Callable[[], None] | None = None,
