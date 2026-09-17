@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import pika
 import anthropic
 
-from src.extractors.docling_extractor import DoclingExtractor
+from src.extractors.deepdoc_vietocr_extractor import DeepDocVietOcrExtractor
 from src.processing.ingestion_job_processor import IngestionJobProcessor
 from src.constants.event_types import EventType
 from src.services.classification_service import ClassificationService
@@ -137,8 +137,8 @@ class Worker:
         )
 
     def _build_processor(self) -> IngestionJobProcessor:
-        extractor = DoclingExtractor(
-            artifacts_path=os.getenv("DOCLING_ARTIFACTS_PATH") or None,
+        extractor = DeepDocVietOcrExtractor(
+            layout_threshold=self._read_deepdoc_layout_threshold(),
         )
         llm_client = self._build_llm_client()
         classifier = ClassificationService(llm_client) if llm_client else None
@@ -167,6 +167,20 @@ class Worker:
             raise ValueError(
                 "VISION_FALLBACK_CONFIDENCE_THRESHOLD must be between 0 and 1"
             )
+        return threshold
+
+    @staticmethod
+    def _read_deepdoc_layout_threshold() -> float:
+        value = os.getenv("DEEPDOC_LAYOUT_THRESHOLD", "0.5")
+        try:
+            threshold = float(value)
+        except ValueError as error:
+            raise ValueError(
+                "DEEPDOC_LAYOUT_THRESHOLD must be a number between 0 and 1"
+            ) from error
+
+        if not 0 <= threshold <= 1:
+            raise ValueError("DEEPDOC_LAYOUT_THRESHOLD must be between 0 and 1")
         return threshold
 
     def _keepalive(self) -> None:

@@ -11,10 +11,10 @@ RUN pip install poetry
 
 COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false && poetry install --only main --no-interaction --no-ansi
-RUN docling-tools models download --output-dir /app/docling-models \
-    layout tableformer rapidocr --rapidocr-backend-lang torch:vi
-
-ENV DOCLING_ARTIFACTS_PATH=/app/docling-models
+# VietOCR pins an incompatible Pillow version in its package metadata, while
+# the worker's HEIC support requires Pillow >= 11. Install its code without
+# replacing the resolved worker dependencies.
+RUN pip install --no-deps VietOCR==0.3.13
 
 COPY src/ ./src/
 COPY main.py .

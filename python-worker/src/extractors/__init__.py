@@ -1,3 +1,4 @@
-from src.extractors.docling_extractor import DoclingExtractor
+from src.extractors.document_extractor import DocumentExtractor
+from src.extractors.deepdoc_vietocr_extractor import DeepDocVietOcrExtractor
 
-__all__ = ["DoclingExtractor"]
+__all__ = ["DeepDocVietOcrExtractor", "DocumentExtractor"]
