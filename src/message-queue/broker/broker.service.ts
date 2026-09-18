@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import amqp, { type Channel, type Connection } from 'amqplib';
 import {
-  MESSAGE_QUEUE_BINDINGS,
+  MESSAGE_QUEUE_BROKER_BINDINGS,
   MESSAGE_QUEUE_EXCHANGE,
 } from '@modules/message-queue/message-queue.constants';
 
@@ -51,7 +51,7 @@ export class MessageQueueBrokerService
       durable: true,
     });
 
-    for (const binding of MESSAGE_QUEUE_BINDINGS) {
+    for (const binding of MESSAGE_QUEUE_BROKER_BINDINGS) {
       await this.channel.assertQueue(binding.queue, { durable: true });
       await this.channel.bindQueue(
         binding.queue,

@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import amqp from 'amqplib';
-import { MESSAGE_QUEUE_BINDINGS } from '@modules/message-queue/message-queue.constants';
+import { MESSAGE_QUEUE_BROKER_BINDINGS } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from './broker.service';
 
 jest.mock('amqplib', () => ({
@@ -75,10 +75,10 @@ describe('MessageQueueBrokerService', () => {
       },
     );
     expect(channel.assertQueue).toHaveBeenCalledTimes(
-      MESSAGE_QUEUE_BINDINGS.length,
+      MESSAGE_QUEUE_BROKER_BINDINGS.length,
     );
     expect(channel.bindQueue).toHaveBeenCalledTimes(
-      MESSAGE_QUEUE_BINDINGS.length,
+      MESSAGE_QUEUE_BROKER_BINDINGS.length,
     );
   });
 
