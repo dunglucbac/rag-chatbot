@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { type Channel, type ConsumeMessage } from 'amqplib';
-import { MESSAGE_QUEUE_NESTJS_OWNED_QUEUES } from '@modules/message-queue/message-queue.constants';
+import { MESSAGE_QUEUE_RAG_APP_QUEUES } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 import { MessageRouter } from '@modules/message-queue/router/message-router.service';
 import { EventEnvelope } from '@modules/common/common.types';
@@ -25,7 +25,7 @@ export class MessageQueueConsumer implements OnModuleInit {
       return;
     }
 
-    for (const queue of MESSAGE_QUEUE_NESTJS_OWNED_QUEUES) {
+    for (const queue of MESSAGE_QUEUE_RAG_APP_QUEUES) {
       await this.channel.consume(
         queue,
         (msg) => {

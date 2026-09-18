@@ -1,7 +1,7 @@
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 import {
-  MESSAGE_QUEUE_NESTJS_OWNED_QUEUES,
-  MESSAGE_QUEUE_PYTHON_OWNED_QUEUES,
+  MESSAGE_QUEUE_RAG_APP_QUEUES,
+  MESSAGE_QUEUE_WORKER_QUEUES,
 } from '@modules/message-queue/message-queue.constants';
 import { MessageRouter } from '@modules/message-queue/router/message-router.service';
 import { MessageQueueConsumer } from './consumer.service';
@@ -26,7 +26,7 @@ describe('MessageQueueConsumer', () => {
     await consumer.onModuleInit();
 
     expect(channel.consume).toHaveBeenCalledTimes(
-      MESSAGE_QUEUE_NESTJS_OWNED_QUEUES.length,
+      MESSAGE_QUEUE_RAG_APP_QUEUES.length,
     );
     expect(channel.consume).toHaveBeenCalledWith(
       'ingest.status.queue',
@@ -38,7 +38,7 @@ describe('MessageQueueConsumer', () => {
       expect.any(Function),
       { noAck: false },
     );
-    for (const queue of MESSAGE_QUEUE_PYTHON_OWNED_QUEUES) {
+    for (const queue of MESSAGE_QUEUE_WORKER_QUEUES) {
       expect(channel.consume).not.toHaveBeenCalledWith(
         queue,
         expect.any(Function),

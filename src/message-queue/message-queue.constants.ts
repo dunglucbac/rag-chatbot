@@ -4,12 +4,12 @@ export const MESSAGE_QUEUE_PDF_QUEUE = 'ingest.pdf.queue';
 export const MESSAGE_QUEUE_STATUS_QUEUE = 'ingest.status.queue';
 export const MESSAGE_QUEUE_RESULTS_QUEUE = 'ingest.results.queue';
 
-export const MESSAGE_QUEUE_NESTJS_OWNED_QUEUES = [
+export const MESSAGE_QUEUE_RAG_APP_QUEUES = [
   MESSAGE_QUEUE_STATUS_QUEUE,
   MESSAGE_QUEUE_RESULTS_QUEUE,
 ] as const;
 
-export const MESSAGE_QUEUE_PYTHON_OWNED_QUEUES = [
+export const MESSAGE_QUEUE_WORKER_QUEUES = [
   MESSAGE_QUEUE_PDF_QUEUE,
   MESSAGE_QUEUE_IMAGE_QUEUE,
 ] as const;
