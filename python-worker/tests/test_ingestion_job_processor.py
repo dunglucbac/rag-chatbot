@@ -48,6 +48,7 @@ def test_parses_receipt_and_returns_receipt_event():
         "jobId": "job-123",
         "userId": "user-456",
         "receipt": {"merchant": "Coffee Shop", "total": 4.50},
+        "rawText": "Coffee Shop\nTotal: 4.50",
     }
 
 
@@ -71,6 +72,7 @@ def test_low_receipt_parser_confidence_returns_review_event():
     assert result.event_type == EventType.RECEIPT_NEEDS_REVIEW
     assert result.payload["confidence"] == 0.55
     assert result.payload["userId"] == "user-456"
+    assert result.payload["rawText"] == "Fuzzy receipt"
 
 
 def test_high_receipt_parser_confidence_returns_parsed_event():
@@ -91,6 +93,7 @@ def test_high_receipt_parser_confidence_returns_parsed_event():
     result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
 
     assert result.event_type == EventType.RECEIPT_PARSED
+    assert result.payload["rawText"] == "Clear receipt"
 
 
 def test_payment_event_includes_user_id():

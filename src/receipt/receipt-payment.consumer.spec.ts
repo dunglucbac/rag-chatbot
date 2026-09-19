@@ -115,6 +115,14 @@ describe('ReceiptPaymentConsumer', () => {
           merchant: expect.any(String) as string,
           total: expect.any(Number) as number,
           currency: expect.any(String) as string,
+          lineItems: [
+            expect.objectContaining({
+              name: 'Bought groceries and detergent at Walmart',
+              totalPrice: 50,
+            }),
+          ],
+          confidence: 1,
+          discrepancy: null,
         }) as ReceiptParsedPayload['receipt'],
       }),
       'job-123',

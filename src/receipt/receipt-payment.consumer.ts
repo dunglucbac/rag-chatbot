@@ -73,10 +73,15 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
         purchasedAt: paymentContext.paymentDate || new Date().toISOString(),
         total: paymentContext.paymentAmount || 0,
         currency: 'USD',
+        lineItems: [
+          {
+            name: userMessage,
+            totalPrice: paymentContext.paymentAmount || 0,
+          },
+        ],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [
-        { name: userMessage, totalPrice: paymentContext.paymentAmount || 0 },
-      ],
     };
 
     await this.messageQueueService.publish(

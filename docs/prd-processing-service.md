@@ -5,6 +5,7 @@
 Users upload receipts, payment screenshots, and knowledge documents via Telegram, but the system cannot automatically extract spending data or enrich the knowledge base. Files sit in storage without being processed, forcing users to manually enter expense information or wait for manual document review.
 
 The existing NestJS monolith creates ingestion jobs but has no mechanism to:
+
 - Extract text from PDFs and images
 - Classify file types (receipt vs payment vs document)
 - Parse line items from receipts
@@ -70,7 +71,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 
 ### NestJS Modules to Create/Modify
 
-7. **ReceiptModule** (new): 
+7. **ReceiptModule** (new):
    - Consumes `receipt.parsed` events
    - Saves receipts and line items to PostgreSQL with composite unique constraint on `(userId, merchant, purchasedAt, total, checksumSha256)`
    - Handles duplicate detection and returns appropriate errors
@@ -85,12 +86,14 @@ This enables automatic spending tracking from receipts, user-assisted expense en
    - Emits `receipt.parsed` event with user-provided details
    - Auto-skips after 24 hours if no response
 10. **IngestionModule** (modify):
-   - Consumes completion events (`doc.pdf.parse.completed`, `image.classify.completed`, `job.failed`)
-   - Updates ingestion job status and metadata
+
+- Consumes completion events (`doc.pdf.parse.completed`, `image.classify.completed`, `job.failed`)
+- Updates ingestion job status and metadata
 
 ### Event Schemas
 
 **`receipt.parsed` event:**
+
 ```json
 {
   "jobId": "uuid",
@@ -98,23 +101,27 @@ This enables automatic spending tracking from receipts, user-assisted expense en
   "receipt": {
     "merchant": "Starbucks",
     "purchasedAt": "2026-05-05T10:30:00Z",
-    "total": 12.50,
+    "total": 12.5,
     "tax": 1.15,
-    "currency": "USD"
+    "currency": "USD",
+    "lineItems": [
+      { "name": "Latte", "quantity": 1, "unitPrice": 4.5, "totalPrice": 4.5 }
+    ],
+    "confidence": 0.98,
+    "discrepancy": null
   },
-  "lineItems": [
-    {"name": "Latte", "quantity": 1, "unitPrice": 4.50, "totalPrice": 4.50}
-  ]
+  "rawText": "Starbucks\\nLatte $4.50\\nTotal $12.50"
 }
 ```
 
 **`payment.detected` event:**
+
 ```json
 {
   "jobId": "uuid",
   "userId": "telegram-123",
   "payment": {
-    "amount": 50.00,
+    "amount": 50.0,
     "date": "2026-05-05T14:20:00Z",
     "recipient": "ABC Store"
   }
@@ -122,6 +129,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 ```
 
 **`doc.chunks.embed.requested` event:**
+
 ```json
 {
   "jobId": "uuid",
@@ -129,7 +137,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
   "chunks": [
     {
       "content": "Investment basics chapter text...",
-      "metadata": {"source": "finance.pdf", "page": 42, "chapter": "Ch 3"}
+      "metadata": { "source": "finance.pdf", "page": 42, "chapter": "Ch 3" }
     }
   ]
 }
@@ -140,6 +148,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 **New tables:**
 
 `receipts`:
+
 - id (uuid, PK)
 - userId (varchar)
 - merchant (text)
@@ -155,6 +164,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 - UNIQUE constraint on (userId, merchant, purchasedAt, total, checksumSha256)
 
 `receipt_items`:
+
 - id (uuid, PK)
 - receiptId (uuid, FK to receipts)
 - name (text)
@@ -173,12 +183,14 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 ### Human-in-the-Loop via Telegram
 
 **For payments:**
+
 - Immediate prompt when `payment.detected` event received
 - User provides item descriptions in free text format
 - Bot parses response and emits `receipt.parsed` event
 - Auto-skip after 24 hours if no response
 
 **For low-confidence receipts:**
+
 - Bot sends parsed receipt with inline keyboard: [✅ Looks good] [✏️ Edit] [❌ Reject]
 - User confirms, edits, or rejects
 - Auto-approve after 24 hours if no response

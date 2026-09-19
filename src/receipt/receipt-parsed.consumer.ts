@@ -3,7 +3,6 @@ import { EventEnvelope } from '@modules/common/common.types';
 import { ReceiptParsedPayload } from '../common/event-payloads.types';
 import { ReceiptService } from './receipt.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
-import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 import { EventHandler } from '../message-queue/message-queue.types';
 
 @Injectable()
@@ -13,7 +12,6 @@ export class ReceiptParsedConsumer implements OnModuleInit {
   constructor(
     private readonly receiptService: ReceiptService,
     private readonly router: MessageRouter,
-    private readonly jobRepository: IngestionJobRepository,
   ) {}
 
   onModuleInit() {
@@ -29,13 +27,5 @@ export class ReceiptParsedConsumer implements OnModuleInit {
       `handleReceiptParsed [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
     );
     await this.receiptService.saveFromEvent(envelope.payload);
-
-    const job = await this.jobRepository.findById(envelope.payload.jobId);
-    if (job) {
-      job.status = 'completed';
-      job.classification = 'receipt';
-      job.completedAt = new Date();
-      await this.jobRepository.save(job);
-    }
   }
 }
