@@ -176,6 +176,7 @@ class IngestionJobProcessor:
                     "userId": job.user_id,
                     "confidence": confidence,
                     "receipt": receipt,
+                    "rawText": text,
                 },
             )
 
@@ -185,6 +186,7 @@ class IngestionJobProcessor:
                 "jobId": job.job_id,
                 "userId": job.user_id,
                 "receipt": receipt,
+                "rawText": text,
             },
         )
 

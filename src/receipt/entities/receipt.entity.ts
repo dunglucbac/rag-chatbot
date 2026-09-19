@@ -18,6 +18,14 @@ export class Receipt {
   @Column({ name: 'user_id' })
   userId: string;
 
+  @Column({
+    name: 'ingestion_job_id',
+    type: 'varchar',
+    nullable: true,
+    unique: true,
+  })
+  ingestionJobId: string | null;
+
   @Column()
   merchant: string;
 

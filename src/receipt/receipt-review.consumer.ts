@@ -25,7 +25,7 @@ export class ReceiptReviewConsumer implements OnModuleInit {
 
   async handleNeedsReview(envelope: EventEnvelope<NeedsReviewPayload>) {
     if (!envelope.payload) return;
-    const { userId, receipt, jobId } = envelope.payload;
+    const { userId, receipt, jobId, rawText } = envelope.payload;
     const lineItems = receipt.lineItems;
     this.logger.warn(
       `handleNeedsReview [correlationId=${envelope.correlationId} jobId=${jobId}] confidence=${envelope.payload.confidence}`,
@@ -35,6 +35,7 @@ export class ReceiptReviewConsumer implements OnModuleInit {
     if (job) {
       job.status = 'needs_review';
       job.classification = 'receipt';
+      job.extractedText = rawText ?? job.extractedText;
       await this.jobRepository.save(job);
     }
 

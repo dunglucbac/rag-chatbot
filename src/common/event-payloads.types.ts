@@ -42,6 +42,7 @@ export type NeedsReviewPayload = {
   userId: string;
   confidence: number;
   receipt: ReceiptData;
+  rawText?: string;
 };
 
 export type ParseCompletedPayload = {

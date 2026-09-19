@@ -47,6 +47,7 @@ const needsReviewPayloadSchema = z
     userId: z.string().min(1),
     confidence: z.number().min(0).max(1),
     receipt: receiptDataSchema,
+    rawText: z.string().optional(),
   })
   .strict();
 
