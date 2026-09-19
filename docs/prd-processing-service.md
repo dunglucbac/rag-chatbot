@@ -100,11 +100,13 @@ This enables automatic spending tracking from receipts, user-assisted expense en
     "purchasedAt": "2026-05-05T10:30:00Z",
     "total": 12.50,
     "tax": 1.15,
-    "currency": "USD"
-  },
-  "lineItems": [
-    {"name": "Latte", "quantity": 1, "unitPrice": 4.50, "totalPrice": 4.50}
-  ]
+    "currency": "USD",
+    "lineItems": [
+      {"name": "Latte", "quantity": 1, "unitPrice": 4.50, "totalPrice": 4.50}
+    ],
+    "confidence": 0.98,
+    "discrepancy": null
+  }
 }
 ```
 

@@ -35,10 +35,12 @@ describe('ReceiptService', () => {
         total: 12.5,
         tax: 1.15,
         currency: 'USD',
+        lineItems: [
+          { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
+        ],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [
-        { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
-      ],
     };
 
     const mockReceipt = { id: 'receipt-123', ...eventData.receipt };
@@ -65,11 +67,13 @@ describe('ReceiptService', () => {
         purchasedAt: '2026-05-05T10:30:00Z',
         total: 12.5,
         currency: 'USD',
+        lineItems: [
+          { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
+          { name: 'Croissant', quantity: 2, unitPrice: 3.0, totalPrice: 6.0 },
+        ],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [
-        { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
-        { name: 'Croissant', quantity: 2, unitPrice: 3.0, totalPrice: 6.0 },
-      ],
     };
 
     const mockReceipt = { id: 'receipt-123', ...eventData.receipt };
@@ -94,8 +98,10 @@ describe('ReceiptService', () => {
         purchasedAt: '2026-05-05T10:30:00Z',
         total: 12.5,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const duplicateError = new Error(
@@ -117,8 +123,10 @@ describe('ReceiptService', () => {
         purchasedAt: '2026-05-05T10:30:00Z',
         total: 12.5,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const mockReceipt = { id: 'receipt-123' };

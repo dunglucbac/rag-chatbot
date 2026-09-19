@@ -54,8 +54,10 @@ describe('ReceiptParsedConsumer', () => {
         purchasedAt: '2026-05-05T10:30:00Z',
         total: 12.5,
         currency: 'USD',
+        lineItems: [{ name: 'Latte', totalPrice: 4.5 }],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [{ name: 'Latte', totalPrice: 4.5 }],
     };
 
     const envelope = {

@@ -42,10 +42,12 @@ describe('ReceiptService Integration', () => {
         total: 12.5,
         tax: 1.15,
         currency: 'USD',
+        lineItems: [
+          { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
+        ],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [
-        { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
-      ],
     };
 
     const result = await service.saveFromEvent(event);
@@ -73,8 +75,10 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 50.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     // First save succeeds
@@ -94,8 +98,10 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 50.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const event2 = {
@@ -119,8 +125,10 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 100.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const saved1 = await service.saveFromEvent(event);
