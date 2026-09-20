@@ -1,15 +1,16 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { type Channel, type ConsumeMessage } from 'amqplib';
-import {
-  MESSAGE_QUEUE_BINDINGS,
-  MESSAGE_QUEUE_EXCHANGE,
-} from '@modules/message-queue/message-queue.constants';
+import { MESSAGE_QUEUE_RAG_APP_QUEUES } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
-import { MessageRouter } from '@modules/message-queue/router/message-router.service';
+import {
+  InvalidEventPayloadError,
+  MessageRouter,
+  UnknownEventTypeError,
+} from '@modules/message-queue/router/message-router.service';
 import { EventEnvelope } from '@modules/common/common.types';
 
 @Injectable()
-export class MessageQueueConsumer implements OnModuleInit {
+export class MessageQueueConsumer implements OnApplicationBootstrap {
   private channel?: Channel;
 
   constructor(
@@ -17,35 +18,32 @@ export class MessageQueueConsumer implements OnModuleInit {
     private readonly router: MessageRouter,
   ) {}
 
-  async onModuleInit(): Promise<void> {
+  async onApplicationBootstrap(): Promise<void> {
     const broker = await this.broker.connect();
     this.channel = broker.channel;
-    await this.consumeBindings();
+    await this.consumeOwnedQueues();
   }
 
-  private async consumeBindings(): Promise<void> {
+  private async consumeOwnedQueues(): Promise<void> {
     if (!this.channel) {
       return;
     }
 
-    for (const binding of MESSAGE_QUEUE_BINDINGS) {
-      await this.channel.assertQueue(binding.queue, { durable: true });
-      await this.channel.bindQueue(
-        binding.queue,
-        MESSAGE_QUEUE_EXCHANGE,
-        binding.routingKey,
-      );
+    for (const queue of MESSAGE_QUEUE_RAG_APP_QUEUES) {
       await this.channel.consume(
-        binding.queue,
-        (msg) => {
-          this.handleMessage(msg, binding.queue);
+        queue,
+        async (msg) => {
+          await this.handleMessage(msg, queue);
         },
         { noAck: false },
       );
     }
   }
 
-  private handleMessage(msg: ConsumeMessage | null, queue: string): void {
+  private async handleMessage(
+    msg: ConsumeMessage | null,
+    queue: string,
+  ): Promise<void> {
     if (!this.channel || !msg) {
       return;
     }
@@ -57,12 +55,22 @@ export class MessageQueueConsumer implements OnModuleInit {
       console.log(
         `Received ${envelope.eventType} from ${queue} [correlationId=${envelope.correlationId}]`,
       );
-      void this.router.dispatch(envelope).finally(() => {
-        this.channel!.ack(msg);
-      });
-    } catch (error) {
+      await this.router.dispatch(envelope);
+      this.channel.ack(msg);
+    } catch (error: unknown) {
+      if (
+        error instanceof UnknownEventTypeError ||
+        error instanceof InvalidEventPayloadError
+      ) {
+        console.error(
+          `Dead-lettering non-retryable message from ${queue}: ${error.message}`,
+        );
+        this.channel.nack(msg, false, false);
+        return;
+      }
+
       console.error(`Failed to process message from ${queue}:`, error);
-      this.channel.nack(msg, false, false);
+      this.channel.nack(msg, false, true);
     }
   }
 }

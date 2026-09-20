@@ -6,20 +6,28 @@ export type ReceiptLineItem = {
   category?: string;
 };
 
+export type ReceiptDiscrepancy = {
+  lineItemsSum: number;
+  statedTotal: number;
+  difference: number;
+  likelyExplanation?: string;
+};
+
 export type ReceiptData = {
   merchant: string;
   purchasedAt: string;
   total: number;
-  tax?: number;
+  tax?: number | null;
   currency: string;
-  lineItems?: Array<ReceiptLineItem>;
+  lineItems: Array<ReceiptLineItem>;
+  confidence: number;
+  discrepancy: ReceiptDiscrepancy | null;
 };
 
 export type ReceiptParsedPayload = {
   jobId: string;
   userId: string;
   receipt: ReceiptData;
-  lineItems?: Array<ReceiptLineItem>;
   rawText?: string;
 };
 
@@ -34,6 +42,7 @@ export type NeedsReviewPayload = {
   userId: string;
   confidence: number;
   receipt: ReceiptData;
+  rawText?: string;
 };
 
 export type ParseCompletedPayload = {

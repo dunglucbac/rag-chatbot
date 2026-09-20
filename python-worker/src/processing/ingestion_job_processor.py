@@ -2,6 +2,7 @@ import logging
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal, Protocol, cast
@@ -163,6 +164,7 @@ class IngestionJobProcessor:
         receipt = self._parser.parse(text)
         if job.file_type == "image" and self._should_try_vision(receipt):
             receipt = self._try_vision(input_path, receipt, job.job_id)
+        receipt = self._normalize_purchased_at(receipt)
 
         # The classifier determines that this is a receipt; the parser is the
         # authority on whether OCR-derived receipt fields are reliable enough
@@ -176,6 +178,7 @@ class IngestionJobProcessor:
                     "userId": job.user_id,
                     "confidence": confidence,
                     "receipt": receipt,
+                    "rawText": text,
                 },
             )
 
@@ -185,6 +188,7 @@ class IngestionJobProcessor:
                 "jobId": job.job_id,
                 "userId": job.user_id,
                 "receipt": receipt,
+                "rawText": text,
             },
         )
 
@@ -239,6 +243,30 @@ class IngestionJobProcessor:
     def _confidence(receipt: dict[str, Any]) -> float:
         confidence = receipt.get("confidence")
         return float(confidence) if isinstance(confidence, (int, float)) else 0.0
+
+    @staticmethod
+    def _normalize_purchased_at(receipt: dict[str, Any]) -> dict[str, Any]:
+        """Convert LLM-produced dates to the UTC ISO timestamp required by events."""
+        purchased_at = receipt.get("purchasedAt")
+        if not isinstance(purchased_at, str) or not purchased_at.strip():
+            return receipt
+
+        try:
+            parsed = datetime.fromisoformat(
+                purchased_at.strip().replace("Z", "+00:00")
+            )
+        except ValueError:
+            return receipt
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            parsed = parsed.astimezone(timezone.utc)
+
+        return {
+            **receipt,
+            "purchasedAt": parsed.isoformat().replace("+00:00", "Z"),
+        }
 
     @contextmanager
     def _prepared_input(self, job: IngestionJob) -> Iterator[str]:

@@ -1,6 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
+import { eventPayloadSchemas } from '@modules/common/event-payloads.schemas';
 import { EventHandler } from '../message-queue.types';
+
+export class UnknownEventTypeError extends Error {
+  constructor(eventType: string) {
+    super(`No handler registered for eventType=${eventType}`);
+    this.name = UnknownEventTypeError.name;
+  }
+}
+
+export class InvalidEventPayloadError extends Error {
+  constructor(eventType: string) {
+    super(`Invalid payload for eventType=${eventType}`);
+    this.name = InvalidEventPayloadError.name;
+  }
+}
 
 @Injectable()
 export class MessageRouter {
@@ -19,11 +34,23 @@ export class MessageRouter {
   async dispatch(envelope: EventEnvelope): Promise<void> {
     const handler = this.handlers.get(envelope.eventType);
     if (!handler) {
-      this.logger.warn(
-        `No handler registered for eventType=${envelope.eventType}`,
-      );
-      return;
+      throw new UnknownEventTypeError(envelope.eventType);
     }
+
+    const schema =
+      eventPayloadSchemas[
+        envelope.eventType as keyof typeof eventPayloadSchemas
+      ];
+    const result = schema?.safeParse(envelope.payload);
+    if (result && !result.success) {
+      this.logger.error(
+        `Invalid ${envelope.eventType} payload: ${JSON.stringify(
+          result.error.issues,
+        )}`,
+      );
+      throw new InvalidEventPayloadError(envelope.eventType);
+    }
+
     await handler(envelope);
   }
 }

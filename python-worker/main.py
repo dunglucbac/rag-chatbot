@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 import pika
 import anthropic
+from pika.adapters.utils.connection_workflow import AMQPConnectorStackTimeout
 
 from src.extractors.deepdoc_vietocr_extractor import DeepDocVietOcrExtractor
 from src.processing.ingestion_job_processor import IngestionJobProcessor
@@ -28,6 +29,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+RETRYABLE_CONNECTION_ERRORS = (
+    pika.exceptions.StreamLostError,
+    pika.exceptions.AMQPConnectionError,
+    AMQPConnectorStackTimeout,
+    ConnectionResetError,
+    OSError,
+)
+
+
 class Worker:
     def __init__(self):
         self.rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://localhost")
@@ -45,20 +55,23 @@ class Worker:
 
     def start(self):
         self._running = True
-        self._connect()
 
         while self._running:
             try:
+                self._connect()
                 self.channel.start_consuming()
-            except (
-                pika.exceptions.StreamLostError,
-                pika.exceptions.AMQPConnectionError,
-            ) as e:
-                logger.warning("Connection lost: %s. Reconnecting in 5s...", e)
-                self._reconnect()
+            except RETRYABLE_CONNECTION_ERRORS as error:
+                logger.warning(
+                    "RabbitMQ connection failed: %s. Retrying in 5s...", error
+                )
             except KeyboardInterrupt:
                 self.stop()
                 break
+            finally:
+                self._close_connection()
+
+            if self._running:
+                time.sleep(5)
 
     def _connect(self):
         params = pika.URLParameters(self.rabbitmq_url)
@@ -97,8 +110,8 @@ class Worker:
             self.prefetch_count,
         )
 
-    def _reconnect(self):
-        """Clean up dead connection and reconnect."""
+    def _close_connection(self):
+        """Close the active RabbitMQ resources, ignoring an already-dead socket."""
         try:
             if self.channel:
                 self.channel.close()

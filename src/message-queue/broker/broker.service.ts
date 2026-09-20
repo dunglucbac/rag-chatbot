@@ -7,9 +7,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import amqp, { type Channel, type Connection } from 'amqplib';
 import {
-  MESSAGE_QUEUE_BINDINGS,
+  MESSAGE_QUEUE_BROKER_BINDINGS,
+  MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+  MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
   MESSAGE_QUEUE_EXCHANGE,
+  MESSAGE_QUEUE_RAG_APP_QUEUES,
 } from '@modules/message-queue/message-queue.constants';
+
+const DEAD_LETTERED_QUEUES = new Set<string>(MESSAGE_QUEUE_RAG_APP_QUEUES);
 
 @Injectable()
 export class MessageQueueBrokerService
@@ -50,9 +55,31 @@ export class MessageQueueBrokerService
     await this.channel.assertExchange(this.exchange, 'topic', {
       durable: true,
     });
+    await this.channel.assertExchange(
+      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+      'topic',
+      { durable: true },
+    );
+    await this.channel.assertQueue(MESSAGE_QUEUE_DEAD_LETTER_QUEUE, {
+      durable: true,
+    });
+    await this.channel.bindQueue(
+      MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
+      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+      '#',
+    );
 
-    for (const binding of MESSAGE_QUEUE_BINDINGS) {
-      await this.channel.assertQueue(binding.queue, { durable: true });
+    for (const binding of MESSAGE_QUEUE_BROKER_BINDINGS) {
+      await this.channel.assertQueue(binding.queue, {
+        durable: true,
+        ...(DEAD_LETTERED_QUEUES.has(binding.queue)
+          ? {
+              arguments: {
+                'x-dead-letter-exchange': MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+              },
+            }
+          : {}),
+      });
       await this.channel.bindQueue(
         binding.queue,
         this.exchange,

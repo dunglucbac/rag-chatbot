@@ -64,6 +64,9 @@ describe('ReceiptReviewConsumer', () => {
         purchasedAt: '2026-05-05T10:30:00Z',
         total: 12.5,
         currency: 'USD',
+        lineItems: [],
+        confidence: 0.55,
+        discrepancy: null,
       },
     };
     const envelope: EventEnvelope<NeedsReviewPayload> = {
@@ -109,11 +112,13 @@ describe('ReceiptReviewConsumer', () => {
           purchasedAt: '2026-05-05T14:20:00Z',
           total: 50.0,
           currency: 'USD',
+          lineItems: [
+            { name: 'Groceries', totalPrice: 30.0 },
+            { name: 'Detergent', totalPrice: 20.0 },
+          ],
+          confidence: 0.6,
+          discrepancy: null,
         },
-        lineItems: [
-          { name: 'Groceries', totalPrice: 30.0 },
-          { name: 'Detergent', totalPrice: 20.0 },
-        ],
       }),
     );
 

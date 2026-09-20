@@ -1,12 +1,10 @@
 import { DataSource } from 'typeorm';
 import { Receipt } from './entities/receipt.entity';
 import { ReceiptItem } from './entities/receipt-item.entity';
-import { ReceiptRepository } from './repositories/receipt.repository';
 import { ReceiptService } from './receipt.service';
 
 describe('ReceiptService Integration', () => {
   let dataSource: DataSource;
-  let repository: ReceiptRepository;
   let service: ReceiptService;
 
   beforeAll(async () => {
@@ -18,8 +16,10 @@ describe('ReceiptService Integration', () => {
       logging: false,
     });
     await dataSource.initialize();
-    repository = new ReceiptRepository(dataSource.getRepository(Receipt));
-    service = new ReceiptService(repository);
+    await dataSource.query(
+      `CREATE TABLE ingestion_jobs (id varchar PRIMARY KEY, status varchar, classification varchar, extracted_text text, completed_at datetime)`,
+    );
+    service = new ReceiptService(dataSource);
   });
 
   afterAll(async () => {
@@ -29,9 +29,18 @@ describe('ReceiptService Integration', () => {
   beforeEach(async () => {
     await dataSource.getRepository(ReceiptItem).clear();
     await dataSource.getRepository(Receipt).clear();
+    await dataSource.query(`DELETE FROM ingestion_jobs`);
   });
 
+  async function createIngestionJob(id: string): Promise<void> {
+    await dataSource.query(
+      `INSERT INTO ingestion_jobs (id, status, classification) VALUES (?, ?, ?)`,
+      [id, 'processing', 'unknown'],
+    );
+  }
+
   it('saves a receipt with line items from a parsed event', async () => {
+    await createIngestionJob('job-123');
     const event = {
       jobId: 'job-123',
       userId: 'user-456',
@@ -42,10 +51,12 @@ describe('ReceiptService Integration', () => {
         total: 12.5,
         tax: 1.15,
         currency: 'USD',
+        lineItems: [
+          { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
+        ],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [
-        { name: 'Latte', quantity: 1, unitPrice: 4.5, totalPrice: 4.5 },
-      ],
     };
 
     const result = await service.saveFromEvent(event);
@@ -53,6 +64,8 @@ describe('ReceiptService Integration', () => {
     expect(result.id).toBeDefined();
     expect(result.merchant).toBe('Starbucks');
     expect(result.total).toBe(12.5);
+    expect(result.source).toBe('ingestion');
+    expect(result.ingestionJobId).toBe('job-123');
 
     const found = await dataSource.getRepository(Receipt).findOne({
       where: { id: result.id },
@@ -61,9 +74,41 @@ describe('ReceiptService Integration', () => {
     expect(found?.items).toHaveLength(1);
     expect(found?.items[0].name).toBe('Latte');
     expect(found?.items[0].totalPrice).toBe(4.5);
+
+    const [job] = await dataSource.query(
+      `SELECT status, classification, extracted_text FROM ingestion_jobs WHERE id = ?`,
+      ['job-123'],
+    );
+    expect(job).toEqual({
+      status: 'completed',
+      classification: 'receipt',
+      extracted_text: 'Starbucks\nLatte $4.50\nTotal $12.50',
+    });
+  });
+
+  it('rolls back receipt persistence when the ingestion job is missing', async () => {
+    await expect(
+      service.saveFromEvent({
+        jobId: 'missing-job',
+        userId: 'user-456',
+        receipt: {
+          merchant: 'Starbucks',
+          purchasedAt: '2026-05-05T10:30:00Z',
+          total: 12.5,
+          currency: 'USD',
+          lineItems: [],
+          confidence: 1,
+          discrepancy: null,
+        },
+      }),
+    ).rejects.toThrow('Ingestion job not found: missing-job');
+
+    expect(await dataSource.getRepository(Receipt).count()).toBe(0);
   });
 
   it('detects duplicate receipts via composite unique constraint', async () => {
+    await createIngestionJob('job-dup');
+    await createIngestionJob('job-dup-2');
     const event = {
       jobId: 'job-dup',
       userId: 'user-456',
@@ -73,18 +118,24 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 50.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     // First save succeeds
     await service.saveFromEvent(event);
 
     // Second save with same content produces same checksum, should fail
-    await expect(service.saveFromEvent(event)).rejects.toThrow();
+    await expect(
+      service.saveFromEvent({ ...event, jobId: 'job-dup-2' }),
+    ).rejects.toThrow();
   });
 
   it('validates checksum consistency across saves', async () => {
+    await createIngestionJob('job-1');
+    await createIngestionJob('job-2');
     const event1 = {
       jobId: 'job-1',
       userId: 'user-456',
@@ -94,12 +145,15 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 50.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const event2 = {
       ...event1,
+      jobId: 'job-2',
       rawText: 'Receipt B content - different file',
     };
 
@@ -110,6 +164,7 @@ describe('ReceiptService Integration', () => {
   });
 
   it('same content produces identical checksum', async () => {
+    await createIngestionJob('job-same');
     const event = {
       jobId: 'job-same',
       userId: 'user-456',
@@ -119,8 +174,10 @@ describe('ReceiptService Integration', () => {
         purchasedAt: '2026-05-06T14:00:00Z',
         total: 100.0,
         currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
       },
-      lineItems: [],
     };
 
     const saved1 = await service.saveFromEvent(event);
