@@ -1,14 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import type { App } from 'supertest/types';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ResponseInterceptor } from '../common/response.interceptor';
 import { GlobalExceptionFilter } from '../common/exception.filter';
 
 describe('ChatController', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let chatService: { sendMessage: jest.Mock };
+
+  function getErrorResponse(response: { body: unknown }) {
+    if (
+      !response.body ||
+      typeof response.body !== 'object' ||
+      !('status' in response.body) ||
+      !('data' in response.body)
+    ) {
+      throw new Error('Expected an API error response');
+    }
+
+    return response.body as { status: unknown; data: unknown };
+  }
 
   beforeEach(async () => {
     chatService = { sendMessage: jest.fn() };
@@ -18,9 +32,11 @@ describe('ChatController', () => {
       providers: [{ provide: ChatService, useValue: chatService }],
     }).compile();
 
-    app = module.createNestApplication();
+    app = module.createNestApplication<INestApplication<App>>();
     app.setGlobalPrefix('api/v1');
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     app.useGlobalInterceptors(new ResponseInterceptor());
     app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
@@ -58,8 +74,9 @@ describe('ChatController', () => {
         .send({ message: '' })
         .expect(400);
 
-      expect(response.body.status).toBe('error');
-      expect(response.body.data).toBeNull();
+      const body = getErrorResponse(response);
+      expect(body.status).toBe('error');
+      expect(body.data).toBeNull();
     });
 
     it('returns 400 ApiResponse when message is missing', async () => {
@@ -68,8 +85,9 @@ describe('ChatController', () => {
         .send({})
         .expect(400);
 
-      expect(response.body.status).toBe('error');
-      expect(response.body.data).toBeNull();
+      const body = getErrorResponse(response);
+      expect(body.status).toBe('error');
+      expect(body.data).toBeNull();
     });
   });
 

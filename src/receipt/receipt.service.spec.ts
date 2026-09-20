@@ -1,6 +1,11 @@
 import { DataSource } from 'typeorm';
 import { ReceiptService } from './receipt.service';
-import { Receipt } from './entities/receipt.entity';
+
+type ReceiptCreateInput = {
+  items: Array<{ name: string }>;
+  checksumSha256: string;
+  [key: string]: unknown;
+};
 
 describe('ReceiptService', () => {
   let service: ReceiptService;
@@ -11,11 +16,16 @@ describe('ReceiptService', () => {
     save: jest.Mock;
   };
   let updateIngestionJob: jest.Mock;
+  let createdReceipt: ReceiptCreateInput | undefined;
 
   beforeEach(() => {
+    createdReceipt = undefined;
     receiptRepository = {
       findOneBy: jest.fn().mockResolvedValue(null),
-      create: jest.fn((receipt) => receipt),
+      create: jest.fn((receipt: ReceiptCreateInput) => {
+        createdReceipt = receipt;
+        return receipt;
+      }),
       save: jest.fn(),
     };
     updateIngestionJob = jest.fn().mockResolvedValue({ affected: 1 });
@@ -29,7 +39,10 @@ describe('ReceiptService', () => {
       })),
     };
     dataSource = {
-      transaction: jest.fn((callback) => callback(manager)),
+      transaction: jest.fn(
+        (callback: (transactionManager: typeof manager) => unknown) =>
+          callback(manager),
+      ),
     } as unknown as DataSource;
 
     service = new ReceiptService(dataSource);
@@ -95,10 +108,10 @@ describe('ReceiptService', () => {
 
     expect(result.id).toBe('receipt-123');
     // Verify receipt was created with line items
-    const createCall = receiptRepository.create.mock.calls[0][0];
-    expect(createCall.items).toBeDefined();
-    expect(createCall.items).toHaveLength(2);
-    expect(createCall.items[0].name).toBe('Latte');
+    expect(createdReceipt).toBeDefined();
+    if (!createdReceipt) throw new Error('Receipt was not created');
+    expect(createdReceipt.items).toHaveLength(2);
+    expect(createdReceipt.items[0].name).toBe('Latte');
   });
 
   it('rejects duplicate receipts', async () => {
@@ -116,10 +129,10 @@ describe('ReceiptService', () => {
       },
     };
 
-    const duplicateError = new Error(
-      'duplicate key value violates unique constraint',
+    const duplicateError = Object.assign(
+      new Error('duplicate key value violates unique constraint'),
+      { code: '23505' },
     );
-    (duplicateError as any).code = '23505';
     receiptRepository.save.mockRejectedValue(duplicateError);
 
     await expect(service.saveFromEvent(eventData)).rejects.toThrow('duplicate');
@@ -146,10 +159,10 @@ describe('ReceiptService', () => {
 
     await service.saveFromEvent(eventData);
 
-    const createCall = receiptRepository.create.mock.calls[0][0];
-    expect(createCall.checksumSha256).toBeDefined();
-    expect(createCall.checksumSha256).not.toBe('job-123');
-    expect(createCall.checksumSha256.length).toBe(64); // SHA256 hex length
+    expect(createdReceipt).toBeDefined();
+    if (!createdReceipt) throw new Error('Receipt was not created');
+    expect(createdReceipt.checksumSha256).not.toBe('job-123');
+    expect(createdReceipt.checksumSha256).toHaveLength(64);
   });
 
   it('is idempotent for a redelivered ingestion job', async () => {

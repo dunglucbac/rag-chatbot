@@ -9,6 +9,10 @@ import { MessageQueueService } from '../message-queue/publisher/publisher.servic
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 import { EventHandler } from '../message-queue/message-queue.types';
+import {
+  IngestionClassification,
+  IngestionJobStatus,
+} from '../ingestion/ingestion.types';
 
 @Injectable()
 export class ReceiptPaymentConsumer implements OnModuleInit {
@@ -37,8 +41,8 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
 
     const job = await this.jobRepository.findById(jobId);
     if (job) {
-      job.status = 'needs_review';
-      job.classification = 'payment';
+      job.status = IngestionJobStatus.NEEDS_REVIEW;
+      job.classification = IngestionClassification.PAYMENT;
       await this.jobRepository.save(job);
     }
 

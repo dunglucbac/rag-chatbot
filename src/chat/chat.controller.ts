@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Param, Headers, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  Headers,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dtos/send-message.dto';
 

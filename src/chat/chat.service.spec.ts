@@ -31,7 +31,11 @@ describe('ChatService', () => {
 
     expect(result.sessionId).toBe('session-abc');
     expect(result.reply).toBe('Sure, what else?');
-    expect(mockInvoke).toHaveBeenCalledWith('user-1', 'Another question', 'session-abc');
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'user-1',
+      'Another question',
+      'session-abc',
+    );
   });
 
   it('uses sessionId as userId when no userId is provided', async () => {

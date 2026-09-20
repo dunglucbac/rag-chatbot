@@ -9,9 +9,9 @@ import * as crypto from 'crypto';
 import { MessageQueueService } from '@modules/message-queue';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import {
-  INGESTION_JOB_STATUSES,
   IngestionClassification,
   IngestionFileType,
+  IngestionJobStatus,
 } from '@modules/ingestion/ingestion.types';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { EventEnvelope } from '@modules/common/common.types';
@@ -55,7 +55,7 @@ export class IngestionService {
     const fileType = this.detectFileType(file.mimetype, file.originalname);
     const fileId = this.deriveFileId(file.path);
     const checksumSha256 = await this.computeChecksum(file.path);
-    const classification: IngestionClassification = 'unknown';
+    const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
 
     const job = await this.jobRepository.create({
@@ -66,7 +66,7 @@ export class IngestionService {
       mimeType: file.mimetype,
       fileType,
       classification,
-      status: INGESTION_JOB_STATUSES[0],
+      status: IngestionJobStatus.PENDING,
       checksumSha256,
       correlationId: normalizedCorrelationId,
       metadata: {

@@ -7,6 +7,7 @@ import {
 } from '../common/event-payloads.types';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { MessageRouter } from '../message-queue/router/message-router.service';
+import { IngestionJobStatus } from './ingestion.types';
 
 @Injectable()
 export class IngestionEventConsumer implements OnModuleInit {
@@ -18,15 +19,19 @@ export class IngestionEventConsumer implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.router.register(
-      'doc.pdf.parse.completed',
-      this.handleParseCompleted.bind(this),
+    this.router.register('doc.pdf.parse.completed', async (envelope) =>
+      this.handleParseCompleted(
+        envelope as EventEnvelope<ParseCompletedPayload>,
+      ),
     );
-    this.router.register(
-      'image.classify.completed',
-      this.handleClassifyCompleted.bind(this),
+    this.router.register('image.classify.completed', async (envelope) =>
+      this.handleClassifyCompleted(
+        envelope as EventEnvelope<ClassifyCompletedPayload>,
+      ),
     );
-    this.router.register('job.failed', this.handleJobFailed.bind(this));
+    this.router.register('job.failed', async (envelope) =>
+      this.handleJobFailed(envelope as EventEnvelope<JobFailedPayload>),
+    );
   }
 
   async handleParseCompleted(envelope: EventEnvelope<ParseCompletedPayload>) {
@@ -61,7 +66,7 @@ export class IngestionEventConsumer implements OnModuleInit {
     const job = await this.jobRepository.findById(envelope.payload.jobId);
     if (!job) return;
 
-    job.status = 'failed';
+    job.status = IngestionJobStatus.FAILED;
     job.errorMessage = envelope.payload.error ?? null;
     await this.jobRepository.save(job);
   }
@@ -70,7 +75,7 @@ export class IngestionEventConsumer implements OnModuleInit {
     const job = await this.jobRepository.findById(jobId);
     if (!job) return;
 
-    job.status = 'completed';
+    job.status = IngestionJobStatus.COMPLETED;
     job.extractedText = extractedText ?? null;
     job.completedAt = new Date();
     await this.jobRepository.save(job);

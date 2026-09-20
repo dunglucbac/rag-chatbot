@@ -13,9 +13,13 @@ describe('MessageQueueService', () => {
     } as unknown as MessageQueueBrokerService;
 
     const service = new MessageQueueService(broker);
-    const envelope = await service.publish('ingest.image.uploaded', {
-      fileId: 'file-123',
-    });
+    const envelope = await service.publish(
+      'ingest.image.uploaded',
+      { fileId: 'file-123' },
+      'correlation-123',
+      1,
+      1,
+    );
 
     expect(connect).toHaveBeenCalledTimes(1);
     expect(publish).toHaveBeenCalledWith(
