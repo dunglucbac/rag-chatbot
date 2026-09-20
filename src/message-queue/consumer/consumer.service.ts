@@ -3,6 +3,7 @@ import { type Channel, type ConsumeMessage } from 'amqplib';
 import { MESSAGE_QUEUE_RAG_APP_QUEUES } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 import {
+  InvalidEventPayloadError,
   MessageRouter,
   UnknownEventTypeError,
 } from '@modules/message-queue/router/message-router.service';
@@ -57,9 +58,12 @@ export class MessageQueueConsumer implements OnApplicationBootstrap {
       await this.router.dispatch(envelope);
       this.channel.ack(msg);
     } catch (error: unknown) {
-      if (error instanceof UnknownEventTypeError) {
+      if (
+        error instanceof UnknownEventTypeError ||
+        error instanceof InvalidEventPayloadError
+      ) {
         console.error(
-          `Rejecting unknown event type from ${queue}: ${error.message}`,
+          `Dead-lettering non-retryable message from ${queue}: ${error.message}`,
         );
         this.channel.nack(msg, false, false);
         return;

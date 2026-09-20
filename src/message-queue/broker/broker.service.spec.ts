@@ -1,6 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import amqp from 'amqplib';
-import { MESSAGE_QUEUE_BROKER_BINDINGS } from '@modules/message-queue/message-queue.constants';
+import {
+  MESSAGE_QUEUE_BROKER_BINDINGS,
+  MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+  MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
+  MESSAGE_QUEUE_RESULTS_QUEUE,
+  MESSAGE_QUEUE_STATUS_QUEUE,
+} from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from './broker.service';
 
 jest.mock('amqplib', () => ({
@@ -74,11 +80,43 @@ describe('MessageQueueBrokerService', () => {
         durable: true,
       },
     );
+    expect(channel.assertExchange).toHaveBeenCalledWith(
+      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+      'topic',
+      { durable: true },
+    );
+    expect(channel.assertQueue).toHaveBeenCalledWith(
+      MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
+      { durable: true },
+    );
+    expect(channel.bindQueue).toHaveBeenCalledWith(
+      MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
+      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+      '#',
+    );
+    expect(channel.assertQueue).toHaveBeenCalledWith(
+      MESSAGE_QUEUE_STATUS_QUEUE,
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+        },
+      },
+    );
+    expect(channel.assertQueue).toHaveBeenCalledWith(
+      MESSAGE_QUEUE_RESULTS_QUEUE,
+      {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+        },
+      },
+    );
     expect(channel.assertQueue).toHaveBeenCalledTimes(
-      MESSAGE_QUEUE_BROKER_BINDINGS.length,
+      MESSAGE_QUEUE_BROKER_BINDINGS.length + 1,
     );
     expect(channel.bindQueue).toHaveBeenCalledTimes(
-      MESSAGE_QUEUE_BROKER_BINDINGS.length,
+      MESSAGE_QUEUE_BROKER_BINDINGS.length + 1,
     );
   });
 

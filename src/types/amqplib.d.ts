@@ -12,7 +12,10 @@ declare module 'amqplib' {
       type: 'direct' | 'fanout' | 'topic' | 'headers',
       options?: { durable?: boolean },
     ): Promise<void>;
-    assertQueue(queue: string, options?: { durable?: boolean }): Promise<void>;
+    assertQueue(
+      queue: string,
+      options?: { durable?: boolean; arguments?: Record<string, unknown> },
+    ): Promise<void>;
     bindQueue(queue: string, exchange: string, pattern: string): Promise<void>;
     consume(
       queue: string,

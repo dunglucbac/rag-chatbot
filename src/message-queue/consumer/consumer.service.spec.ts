@@ -4,6 +4,7 @@ import {
   MESSAGE_QUEUE_WORKER_QUEUES,
 } from '@modules/message-queue/message-queue.constants';
 import {
+  InvalidEventPayloadError,
   MessageRouter,
   UnknownEventTypeError,
 } from '@modules/message-queue/router/message-router.service';
@@ -110,6 +111,39 @@ describe('MessageQueueConsumer', () => {
       content: Buffer.from(
         JSON.stringify({
           eventType: 'event.unknown',
+          correlationId: 'correlation-123',
+        }),
+      ),
+    };
+
+    await consumer.onApplicationBootstrap();
+    const handler = getConsumeHandler(consume);
+    await handler(message);
+
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
+  });
+
+  it('dead-letters invalid event payloads without acknowledging them', async () => {
+    const consume = jest.fn();
+    const channel = {
+      consume,
+      ack: jest.fn(),
+      nack: jest.fn(),
+    };
+    const broker = {
+      connect: jest.fn().mockResolvedValue({ channel }),
+    } as unknown as MessageQueueBrokerService;
+    const router = {
+      dispatch: jest
+        .fn()
+        .mockRejectedValue(new InvalidEventPayloadError('receipt.parsed')),
+    } as unknown as MessageRouter;
+    const consumer = new MessageQueueConsumer(broker, router);
+    const message = {
+      content: Buffer.from(
+        JSON.stringify({
+          eventType: 'receipt.parsed',
           correlationId: 'correlation-123',
         }),
       ),

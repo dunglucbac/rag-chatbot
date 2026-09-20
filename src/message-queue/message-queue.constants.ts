@@ -1,4 +1,6 @@
 export const MESSAGE_QUEUE_EXCHANGE = 'ingest.topic';
+export const MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE = 'ingest.dlx';
+export const MESSAGE_QUEUE_DEAD_LETTER_QUEUE = 'ingest.dead-letter.queue';
 export const MESSAGE_QUEUE_IMAGE_QUEUE = 'ingest.image.queue';
 export const MESSAGE_QUEUE_PDF_QUEUE = 'ingest.pdf.queue';
 export const MESSAGE_QUEUE_STATUS_QUEUE = 'ingest.status.queue';
