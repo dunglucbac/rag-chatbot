@@ -17,7 +17,7 @@ class ReceiptParser:
 
 Extract these fields:
 - merchant (string): the store or business name
-- purchasedAt (ISO 8601 datetime string)
+- purchasedAt (UTC ISO 8601 datetime string, e.g. `2026-09-20T00:00:00Z`; use midnight UTC when only a date is available)
 - total (number): the stated total amount on the receipt
 - tax (number or null): tax amount if shown
 - currency (string): ISO 4217 currency code (e.g. USD, VND)

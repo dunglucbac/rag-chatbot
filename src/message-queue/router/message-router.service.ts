@@ -41,7 +41,13 @@ export class MessageRouter {
       eventPayloadSchemas[
         envelope.eventType as keyof typeof eventPayloadSchemas
       ];
-    if (schema && !schema.safeParse(envelope.payload).success) {
+    const result = schema?.safeParse(envelope.payload);
+    if (result && !result.success) {
+      this.logger.error(
+        `Invalid ${envelope.eventType} payload: ${JSON.stringify(
+          result.error.issues,
+        )}`,
+      );
       throw new InvalidEventPayloadError(envelope.eventType);
     }
 

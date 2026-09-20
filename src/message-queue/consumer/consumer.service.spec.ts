@@ -33,7 +33,7 @@ describe('MessageQueueConsumer', () => {
     } as unknown as MessageRouter;
 
     const consumer = new MessageQueueConsumer(broker, router);
-    await consumer.onModuleInit();
+    await consumer.onApplicationBootstrap();
 
     expect(channel.consume).toHaveBeenCalledTimes(
       MESSAGE_QUEUE_RAG_APP_QUEUES.length,
@@ -82,7 +82,7 @@ describe('MessageQueueConsumer', () => {
       ),
     };
 
-    await consumer.onModuleInit();
+    await consumer.onApplicationBootstrap();
     const handler = getConsumeHandler(consume);
     await handler(message);
 
@@ -115,7 +115,7 @@ describe('MessageQueueConsumer', () => {
       ),
     };
 
-    await consumer.onModuleInit();
+    await consumer.onApplicationBootstrap();
     const handler = getConsumeHandler(consume);
     await handler(message);
 
@@ -146,7 +146,7 @@ describe('MessageQueueConsumer', () => {
       ),
     };
 
-    await consumer.onModuleInit();
+    await consumer.onApplicationBootstrap();
     const handler = getConsumeHandler(consume);
     await handler(message);
 

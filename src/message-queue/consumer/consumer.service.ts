@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { type Channel, type ConsumeMessage } from 'amqplib';
 import { MESSAGE_QUEUE_RAG_APP_QUEUES } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
@@ -9,7 +9,7 @@ import {
 import { EventEnvelope } from '@modules/common/common.types';
 
 @Injectable()
-export class MessageQueueConsumer implements OnModuleInit {
+export class MessageQueueConsumer implements OnApplicationBootstrap {
   private channel?: Channel;
 
   constructor(
@@ -17,7 +17,7 @@ export class MessageQueueConsumer implements OnModuleInit {
     private readonly router: MessageRouter,
   ) {}
 
-  async onModuleInit(): Promise<void> {
+  async onApplicationBootstrap(): Promise<void> {
     const broker = await this.broker.connect();
     this.channel = broker.channel;
     await this.consumeOwnedQueues();

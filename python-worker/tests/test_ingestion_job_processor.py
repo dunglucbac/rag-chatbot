@@ -39,7 +39,11 @@ def test_parses_receipt_and_returns_receipt_event():
         "confidence": 0.95,
     }
     parser = Mock()
-    parser.parse.return_value = {"merchant": "Coffee Shop", "total": 4.50}
+    parser.parse.return_value = {
+        "merchant": "Coffee Shop",
+        "total": 4.50,
+        "purchasedAt": "2026-09-20",
+    }
 
     result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
 
@@ -47,7 +51,11 @@ def test_parses_receipt_and_returns_receipt_event():
     assert result.payload == {
         "jobId": "job-123",
         "userId": "user-456",
-        "receipt": {"merchant": "Coffee Shop", "total": 4.50},
+        "receipt": {
+            "merchant": "Coffee Shop",
+            "total": 4.50,
+            "purchasedAt": "2026-09-20T00:00:00Z",
+        },
         "rawText": "Coffee Shop\nTotal: 4.50",
     }
 
