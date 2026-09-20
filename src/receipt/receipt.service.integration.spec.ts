@@ -2,6 +2,11 @@ import { DataSource } from 'typeorm';
 import { Receipt } from './entities/receipt.entity';
 import { ReceiptItem } from './entities/receipt-item.entity';
 import { ReceiptService } from './receipt.service';
+import { IngestionJob } from '../ingestion/entities/ingestion-job.entity';
+
+type MetadataBuildableDataSource = DataSource & {
+  buildMetadatas(): Promise<void>;
+};
 
 describe('ReceiptService Integration', () => {
   let dataSource: DataSource;
@@ -16,8 +21,21 @@ describe('ReceiptService Integration', () => {
       logging: false,
     });
     await dataSource.initialize();
+
+    // SQLite cannot initialize IngestionJob because it has PostgreSQL enum
+    // columns. Register the production metadata separately so this test still
+    // validates the property-to-column mapping used by the real application.
+    const metadataSource = new DataSource({
+      type: 'postgres',
+      entities: [IngestionJob],
+    }) as unknown as MetadataBuildableDataSource;
+    await metadataSource.buildMetadatas();
+    const metadata = metadataSource.getMetadata(IngestionJob);
+    dataSource.entityMetadatas.push(metadata);
+    dataSource.entityMetadatasMap.set(IngestionJob, metadata);
+
     await dataSource.query(
-      `CREATE TABLE ingestion_jobs (id varchar PRIMARY KEY, status varchar, classification varchar, extracted_text text, completed_at datetime)`,
+      `CREATE TABLE ingestion_jobs (id varchar PRIMARY KEY, status varchar, classification varchar, extracted_text text, completed_at datetime, updated_at datetime)`,
     );
     service = new ReceiptService(dataSource);
   });
@@ -75,10 +93,17 @@ describe('ReceiptService Integration', () => {
     expect(found?.items[0].name).toBe('Latte');
     expect(found?.items[0].totalPrice).toBe(4.5);
 
-    const [job] = await dataSource.query(
+    const jobs = await dataSource.query<
+      Array<{
+        status: string;
+        classification: string;
+        extracted_text: string | null;
+      }>
+    >(
       `SELECT status, classification, extracted_text FROM ingestion_jobs WHERE id = ?`,
       ['job-123'],
     );
+    const [job] = jobs;
     expect(job).toEqual({
       status: 'completed',
       classification: 'receipt',

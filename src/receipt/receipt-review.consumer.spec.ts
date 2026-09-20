@@ -8,12 +8,14 @@ import { EventEnvelope } from '@modules/common/common.types';
 
 describe('ReceiptReviewConsumer', () => {
   let consumer: ReceiptReviewConsumer;
-  let telegramService: TelegramService;
   let jobRepo: IngestionJobRepository;
+  let sendMessage: jest.Mock<Promise<void>, [string, string, unknown]>;
 
   beforeEach(async () => {
     const mockRouter = { register: jest.fn() };
     const mockJobRepo = { findById: jest.fn(), save: jest.fn() };
+    sendMessage = jest.fn<Promise<void>, [string, string, unknown]>();
+    sendMessage.mockResolvedValue();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -23,7 +25,7 @@ describe('ReceiptReviewConsumer', () => {
           useValue: {
             bot: {
               telegram: {
-                sendMessage: jest.fn(),
+                sendMessage,
               },
             },
           },
@@ -34,11 +36,12 @@ describe('ReceiptReviewConsumer', () => {
     }).compile();
 
     consumer = module.get<ReceiptReviewConsumer>(ReceiptReviewConsumer);
-    telegramService = module.get<TelegramService>(TelegramService);
     jobRepo = module.get<IngestionJobRepository>(IngestionJobRepository);
   });
 
-  function envelope(payload: Record<string, unknown>) {
+  function envelope(
+    payload: NeedsReviewPayload,
+  ): EventEnvelope<NeedsReviewPayload> {
     return {
       eventId: 'evt-1',
       eventType: 'receipt.needs_review',
@@ -80,20 +83,22 @@ describe('ReceiptReviewConsumer', () => {
     };
     await consumer.handleNeedsReview(envelope);
 
-    expect(telegramService.bot.telegram.sendMessage).toHaveBeenCalledWith(
-      'user-456',
-      expect.stringContaining('Starbucks'),
-      expect.objectContaining({ reply_markup: expect.any(Object) }),
-    );
-
-    const callArgs = (telegramService.bot.telegram.sendMessage as jest.Mock).mock
-      .calls[0];
-    const keyboard =
-      callArgs[2].reply_markup.inline_keyboard;
-    expect(keyboard[0][0].text).toContain('Looks good');
-    expect(keyboard[0][0].callback_data).toBe('review:approve:job-123');
-    expect(keyboard[0][1].text).toContain('Edit');
-    expect(keyboard[0][2].text).toContain('Reject');
+    const call = sendMessage.mock.calls[0];
+    if (!call) throw new Error('Confirmation message was not sent');
+    const [recipient, message, options] = call;
+    expect(recipient).toBe('user-456');
+    expect(message).toContain('Starbucks');
+    expect(options).toEqual({
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Looks good', callback_data: 'review:approve:job-123' },
+            { text: 'Edit', callback_data: 'review:edit:job-123' },
+            { text: 'Reject', callback_data: 'review:reject:job-123' },
+          ],
+        ],
+      },
+    });
   });
 
   it('formats receipt line items in the confirmation message', async () => {
@@ -122,10 +127,12 @@ describe('ReceiptReviewConsumer', () => {
       }),
     );
 
-    const callArgs = (telegramService.bot.telegram.sendMessage as jest.Mock)
-      .mock.calls[0];
-    expect(callArgs[1]).toContain('Groceries');
-    expect(callArgs[1]).toContain('Detergent');
-    expect(callArgs[1]).toContain('$50.00');
+    const call = sendMessage.mock.calls[0];
+    if (!call) throw new Error('Confirmation message was not sent');
+    const [recipient, message] = call;
+    expect(recipient).toBe('user-456');
+    expect(message).toContain('Groceries');
+    expect(message).toContain('Detergent');
+    expect(message).toContain('$50.00');
   });
 });

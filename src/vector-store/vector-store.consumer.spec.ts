@@ -1,14 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { VectorStoreConsumer } from './vector-store.consumer';
 import { VectorStoreService } from './vector-store.service';
+import { EventEnvelope } from '@modules/common/common.types';
+import { EmbedRequestPayload } from '../common/event-payloads.types';
+
+type Documents = Parameters<VectorStoreService['addDocuments']>[0];
 
 describe('VectorStoreConsumer', () => {
   let consumer: VectorStoreConsumer;
-  let vectorStoreService: VectorStoreService;
+  let addDocuments: jest.Mock<Promise<void>, [Documents]>;
 
   beforeEach(async () => {
+    addDocuments = jest.fn<Promise<void>, [Documents]>();
     const mockVectorStore = {
-      addDocuments: jest.fn(),
+      addDocuments,
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -22,10 +27,11 @@ describe('VectorStoreConsumer', () => {
     }).compile();
 
     consumer = module.get<VectorStoreConsumer>(VectorStoreConsumer);
-    vectorStoreService = module.get<VectorStoreService>(VectorStoreService);
   });
 
-  function envelope(payload: Record<string, unknown>) {
+  function envelope(
+    payload: EmbedRequestPayload,
+  ): EventEnvelope<EmbedRequestPayload> {
     return {
       eventId: 'evt-1',
       eventType: 'doc.chunks.embed.requested',
@@ -55,23 +61,26 @@ describe('VectorStoreConsumer', () => {
       }),
     );
 
-    expect(vectorStoreService.addDocuments).toHaveBeenCalledTimes(1);
-    const docs = (vectorStoreService.addDocuments as jest.Mock).mock
-      .calls[0][0];
-    expect(docs).toHaveLength(2);
-    expect(docs[0].pageContent).toBe('Chapter 1 text...');
-    expect(docs[0].metadata.source).toBe('book.pdf');
-    expect(docs[0].metadata.userId).toBe('user-123');
+    expect(addDocuments).toHaveBeenCalledTimes(1);
+    const call = addDocuments.mock.calls[0];
+    if (!call) throw new Error('Documents were not added');
+    const [documents] = call;
+    expect(documents).toHaveLength(2);
+    expect(documents[0].pageContent).toBe('Chapter 1 text...');
+    expect(documents[0].metadata.source).toBe('book.pdf');
+    expect(documents[0].metadata.userId).toBe('user-123');
+    expect(documents[1].pageContent).toBe('Chapter 2 text...');
   });
 
   it('skips embedding when chunks array is empty', async () => {
     await consumer.handleEmbedRequest(
       envelope({
         jobId: 'job-doc-1',
+        userId: 'user-123',
         chunks: [],
       }),
     );
 
-    expect(vectorStoreService.addDocuments).not.toHaveBeenCalled();
+    expect(addDocuments).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,11 @@ import type {
   ReceiptParsedPayload,
   ReceiptLineItem,
 } from '@modules/common/event-payloads.types';
+import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
+import {
+  IngestionClassification,
+  IngestionJobStatus,
+} from '@modules/ingestion/ingestion.types';
 import { Receipt } from './entities/receipt.entity';
 
 @Injectable()
@@ -51,14 +56,14 @@ export class ReceiptService {
       const savedReceipt = await receiptRepository.save(receiptEntity);
 
       const jobUpdate = {
-        status: 'completed',
-        classification: 'receipt',
-        completed_at: new Date(),
-        ...(rawText !== undefined ? { extracted_text: rawText } : {}),
+        status: IngestionJobStatus.COMPLETED,
+        classification: IngestionClassification.RECEIPT,
+        completedAt: new Date(),
+        ...(rawText !== undefined ? { extractedText: rawText } : {}),
       };
       const updateResult = await manager
         .createQueryBuilder()
-        .update('ingestion_jobs')
+        .update(IngestionJob)
         .set(jobUpdate)
         .where('id = :jobId', { jobId })
         .execute();

@@ -1,23 +1,24 @@
 export const INGESTION_FILE_TYPES = ['pdf', 'image'] as const;
 export type IngestionFileType = (typeof INGESTION_FILE_TYPES)[number];
 
-export const INGESTION_CLASSIFICATIONS = [
-  'receipt',
-  'payment',
-  'document',
-  'unknown',
-] as const;
-export type IngestionClassification =
-  (typeof INGESTION_CLASSIFICATIONS)[number];
+export enum IngestionClassification {
+  RECEIPT = 'receipt',
+  PAYMENT = 'payment',
+  DOCUMENT = 'document',
+  UNKNOWN = 'unknown',
+}
 
-export const INGESTION_JOB_STATUSES = [
-  'pending',
-  'processing',
-  'needs_review',
-  'completed',
-  'failed',
-] as const;
-export type IngestionJobStatus = (typeof INGESTION_JOB_STATUSES)[number];
+export const INGESTION_CLASSIFICATIONS = Object.values(IngestionClassification);
+
+export enum IngestionJobStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  NEEDS_REVIEW = 'needs_review',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export const INGESTION_JOB_STATUSES = Object.values(IngestionJobStatus);
 
 export const INGESTION_EVENT_TYPES = [
   'doc.pdf.parse.requested',

@@ -7,11 +7,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import type {
+import {
   IngestionClassification,
-  IngestionFileType,
   IngestionJobStatus,
 } from '@modules/ingestion/ingestion.types';
+import type { IngestionFileType } from '@modules/ingestion/ingestion.types';
 
 @Entity('ingestion_jobs')
 export class IngestionJob extends BaseEntity {
@@ -44,16 +44,16 @@ export class IngestionJob extends BaseEntity {
   @Column({
     name: 'classification',
     type: 'enum',
-    enum: ['receipt', 'payment', 'document', 'unknown'],
-    default: 'unknown',
+    enum: IngestionClassification,
+    default: IngestionClassification.UNKNOWN,
   })
   declare classification: IngestionClassification;
 
   @Column({
     name: 'status',
     type: 'enum',
-    enum: ['pending', 'processing', 'needs_review', 'completed', 'failed'],
-    default: 'pending',
+    enum: IngestionJobStatus,
+    default: IngestionJobStatus.PENDING,
   })
   declare status: IngestionJobStatus;
 
