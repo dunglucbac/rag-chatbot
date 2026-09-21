@@ -7,12 +7,14 @@ import { VectorStoreModule } from '@modules/vector-store/vector-store.module';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { MessageQueueModule } from '@modules/message-queue/message-queue.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([IngestionJob]),
     VectorStoreModule,
     MessageQueueModule,
+    AuthModule,
   ],
   controllers: [IngestionController],
   providers: [IngestionService, IngestionJobRepository, IngestionEventConsumer],
