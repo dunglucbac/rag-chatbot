@@ -46,6 +46,7 @@ export class IngestionController {
     ApiResponse<{
       job: IngestionJobDto;
       accepted: true;
+      deduplicated: boolean;
     }>
   > {
     const result = await this.ingestionService.createJobFromUpload(
@@ -56,10 +57,13 @@ export class IngestionController {
 
     return {
       status: 'success',
-      message: 'File accepted for ingestion',
+      message: result.deduplicated
+        ? 'Duplicate file matched an existing ingestion job'
+        : 'File accepted for ingestion',
       data: {
         job: IngestionJobDto.fromEntity(result.job),
         accepted: true,
+        deduplicated: result.deduplicated,
       },
     };
   }

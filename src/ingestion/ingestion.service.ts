@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import * as path from 'path';
@@ -18,6 +19,7 @@ import { EventEnvelope } from '@modules/common/common.types';
 
 @Injectable()
 export class IngestionService {
+  private readonly logger = new Logger(IngestionService.name);
   private static readonly imageExtensions: ReadonlyArray<string> = [
     '.png',
     '.jpg',
@@ -50,7 +52,11 @@ export class IngestionService {
     userId: string,
     correlationId?: string | null,
     sourceContext?: Record<string, unknown> | null,
-  ): Promise<{ job: IngestionJob; event: EventEnvelope }> {
+  ): Promise<{
+    job: IngestionJob;
+    event?: EventEnvelope;
+    deduplicated: boolean;
+  }> {
     const normalizedCorrelationId = this.normalizeCorrelationId(correlationId);
     const fileType = this.detectFileType(file.mimetype, file.originalname);
     const fileId = this.deriveFileId(file.path);
@@ -58,7 +64,7 @@ export class IngestionService {
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
 
-    const job = await this.jobRepository.create({
+    const { job, created } = await this.jobRepository.createOrGetByChecksum({
       fileId,
       userId,
       originalFilename: file.originalname,
@@ -76,6 +82,11 @@ export class IngestionService {
         sourceContext: sourceContext ?? null,
       },
     });
+    if (!created) {
+      await this.removeDuplicateUpload(file.path);
+      return { job, deduplicated: true };
+    }
+
     const payload = {
       jobId: job.id,
       fileId,
@@ -99,7 +110,7 @@ export class IngestionService {
       1, // schema version now it is being hardcoded but later can be use to version the event
       1, // number attempt we first start with 1
     );
-    return { job, event: dispatched };
+    return { job, event: dispatched, deduplicated: false };
   }
 
   async getJob(id: string): Promise<IngestionJob> {
@@ -157,5 +168,17 @@ export class IngestionService {
   private async computeChecksum(filePath: string): Promise<string> {
     const content = await fs.readFile(filePath);
     return crypto.createHash('sha256').update(content).digest('hex');
+  }
+
+  private async removeDuplicateUpload(filePath: string): Promise<void> {
+    try {
+      await fs.unlink(filePath);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Could not remove duplicate upload at ${filePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 }
