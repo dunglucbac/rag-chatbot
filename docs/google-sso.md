@@ -66,6 +66,61 @@ The state cookie binds the Google callback to the browser that initiated login,
 which protects against OAuth login-CSRF. The API only accepts a Google account
 with a verified email address.
 
+## How the authentication components work together
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Controller as AuthController
+    participant Service as AuthService
+    participant Google
+    participant Guard as GoogleAuthGuard
+    participant API as Protected API route
+
+    Browser->>Controller: Open auth google endpoint
+    Controller->>Service: beginGoogleSignIn
+    Service->>Service: Create signed state
+    Service-->>Controller: Return Google login URL
+    Controller-->>Browser: Set state cookie and redirect
+
+    Browser->>Google: Complete Google sign in
+    Google-->>Controller: Return code and state
+    Controller->>Service: signInWithGoogle
+    Service->>Google: Exchange code for ID token
+    Google-->>Service: Return ID token
+    Service->>Service: Verify Google ID token
+    Service-->>Browser: Return app access token
+
+    Browser->>Guard: Request with Bearer app token
+    Guard->>Service: verifySessionToken
+    Service-->>Guard: Return authenticated user
+    Guard->>API: Allow request and attach user
+```
+
+- `AuthController` owns HTTP behavior: redirects, cookies, query parameters,
+  and endpoint responses.
+- `AuthService` owns the authentication logic. It creates OAuth state, calls
+  Google through `OAuth2Client`, verifies the Google ID token, creates the
+  application token, and verifies that token later.
+- `GoogleAuthGuard` protects chat and ingestion routes. It reads the
+  `Authorization` header, asks `AuthService` to verify the application token,
+  and attaches the verified user to `request.user`.
+
+Google is involved only while the user signs in. On later API requests, the
+guard verifies the application token locally with `AUTH_JWT_SECRET`; it does
+not call Google for every request.
+
+## Token types
+
+- **Google ID token**: issued by Google to prove the user identity to this API
+  during the callback. It is verified for signature, audience, expiration, and
+  verified email address.
+- **Application access token**: issued by this API after Google verification.
+  Clients send it as `Authorization: Bearer <access-token>` to protected API
+  endpoints. It contains the stable Google `sub` value, user email, optional
+  profile information, and an expiration time. It is signed using
+  `AUTH_JWT_SECRET`.
+
 ## Endpoints
 
 ### Start Google login
@@ -108,6 +163,44 @@ When `AUTH_SUCCESS_REDIRECT_URL` is configured, the API redirects to that URL
 and puts `access_token`, `token_type`, and `expires_in` in its URL fragment.
 Fragments are not sent in HTTP requests, which avoids exposing the token to the
 redirect destination's server logs.
+
+## Get an access token without a frontend
+
+Google login is interactive, so start this flow in a browser rather than by
+calling the callback endpoint manually.
+
+1. Start the API:
+
+   ```bash
+   npm run start:dev
+   ```
+
+2. Make sure `AUTH_SUCCESS_REDIRECT_URL` is unset or commented out in `.env`.
+   This makes the callback return JSON in the browser instead of redirecting to
+   a frontend URL.
+
+3. Open this URL in a browser:
+
+   ```
+   http://localhost:3000/auth/google
+   ```
+
+4. Sign in with Google and approve the consent screen. Google redirects the
+   browser back to `/auth/google/callback` automatically.
+
+5. Copy `data.accessToken` from the JSON callback response. Do not share this
+   value or commit it to source control.
+
+6. Verify the token with the current-user endpoint:
+
+   ```bash
+   curl http://localhost:3000/auth/me \
+     -H "Authorization: Bearer PASTE_ACCESS_TOKEN_HERE"
+   ```
+
+The callback endpoint requires the authorization `code`, the signed `state`,
+and the matching browser state cookie. Calling `/auth/google/callback` directly
+will fail by design.
 
 ### Retrieve the current user
 
