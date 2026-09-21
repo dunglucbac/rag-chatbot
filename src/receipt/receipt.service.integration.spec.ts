@@ -152,10 +152,13 @@ describe('ReceiptService Integration', () => {
     // First save succeeds
     await service.saveFromEvent(event);
 
-    // Second save with same content produces same checksum, should fail
-    await expect(
-      service.saveFromEvent({ ...event, jobId: 'job-dup-2' }),
-    ).rejects.toThrow();
+    // A distinct job with the same parsed receipt is acknowledged idempotently.
+    const duplicate = await service.saveFromEvent({
+      ...event,
+      jobId: 'job-dup-2',
+    });
+    expect(duplicate.ingestionJobId).toBe('job-dup');
+    expect(await dataSource.getRepository(Receipt).count()).toBe(1);
   });
 
   it('validates checksum consistency across saves', async () => {

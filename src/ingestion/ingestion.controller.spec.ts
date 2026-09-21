@@ -26,7 +26,9 @@ describe('IngestionController', () => {
     };
 
     const ingestionService = {
-      createJobFromUpload: jest.fn().mockResolvedValue({ job, event: null }),
+      createJobFromUpload: jest
+        .fn()
+        .mockResolvedValue({ job, event: null, deduplicated: false }),
       getJob: jest.fn(),
     } as unknown as IngestionService;
 
@@ -56,6 +58,7 @@ describe('IngestionController', () => {
           mimeType: 'application/pdf',
         },
         accepted: true,
+        deduplicated: false,
       },
     });
   });

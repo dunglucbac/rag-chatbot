@@ -114,7 +114,7 @@ describe('ReceiptService', () => {
     expect(createdReceipt.items[0].name).toBe('Latte');
   });
 
-  it('rejects duplicate receipts', async () => {
+  it('returns an existing matching receipt instead of failing the consumer', async () => {
     const eventData = {
       jobId: 'job-123',
       userId: 'user-456',
@@ -129,13 +129,16 @@ describe('ReceiptService', () => {
       },
     };
 
-    const duplicateError = Object.assign(
-      new Error('duplicate key value violates unique constraint'),
-      { code: '23505' },
-    );
-    receiptRepository.save.mockRejectedValue(duplicateError);
+    const existingReceipt = { id: 'receipt-existing' };
+    receiptRepository.findOneBy
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingReceipt);
 
-    await expect(service.saveFromEvent(eventData)).rejects.toThrow('duplicate');
+    await expect(service.saveFromEvent(eventData)).resolves.toBe(
+      existingReceipt,
+    );
+    expect(receiptRepository.save).not.toHaveBeenCalled();
+    expect(updateIngestionJob).toHaveBeenCalledTimes(1);
   });
 
   it('calculates checksum from receipt content', async () => {

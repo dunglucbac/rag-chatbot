@@ -16,13 +16,20 @@ describe('IngestionService', () => {
       id: 'job-123',
       ...data,
     });
-    const create = jest.fn<CreateResult, [CreateInput]>(createImpl);
+    const createOrGetByChecksum = jest
+      .fn()
+      .mockImplementation((data: CreateInput) => ({
+        job: createImpl(data),
+        created: true,
+      }));
     const publish = jest.fn().mockResolvedValue({
       eventId: 'evt-123',
       eventType: 'doc.pdf.parse.requested',
     });
 
-    const jobRepository = { create } as unknown as IngestionJobRepository;
+    const jobRepository = {
+      createOrGetByChecksum,
+    } as unknown as IngestionJobRepository;
     const messageQueueService = { publish } as unknown as MessageQueueService;
     const service = new IngestionService(jobRepository, messageQueueService);
 
@@ -39,7 +46,7 @@ describe('IngestionService', () => {
       'corr-123',
     );
 
-    expect(create).toHaveBeenCalledWith(
+    expect(createOrGetByChecksum).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-123',
         originalFilename: 'statement.pdf',
@@ -80,13 +87,20 @@ describe('IngestionService', () => {
       id: 'job-456',
       ...data,
     });
-    const create = jest.fn(createImpl);
+    const createOrGetByChecksum = jest
+      .fn()
+      .mockImplementation((data: CreateInput) => ({
+        job: createImpl(data),
+        created: true,
+      }));
     const publish = jest.fn().mockResolvedValue({
       eventId: 'evt-456',
       eventType: 'image.classify.requested',
     });
 
-    const jobRepository = { create } as unknown as IngestionJobRepository;
+    const jobRepository = {
+      createOrGetByChecksum,
+    } as unknown as IngestionJobRepository;
     const messageQueueService = { publish } as unknown as MessageQueueService;
     const service = new IngestionService(jobRepository, messageQueueService);
 
@@ -103,7 +117,7 @@ describe('IngestionService', () => {
       'corr-456',
     );
 
-    expect(create).toHaveBeenCalledWith(
+    expect(createOrGetByChecksum).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-456',
         originalFilename: 'receipt.png',
@@ -129,6 +143,35 @@ describe('IngestionService', () => {
       1,
     );
     expect(result.job.id).toBe('job-456');
+  });
+
+  it('reuses an existing job and does not publish duplicate work', async () => {
+    const tmpFile = path.join(os.tmpdir(), `ingestion-${Date.now()}.pdf`);
+    fs.writeFileSync(tmpFile, 'duplicate-content');
+    const existingJob = { id: 'job-existing' };
+    const createOrGetByChecksum = jest.fn().mockResolvedValue({
+      job: existingJob,
+      created: false,
+    });
+    const publish = jest.fn();
+    const service = new IngestionService(
+      { createOrGetByChecksum } as unknown as IngestionJobRepository,
+      { publish } as unknown as MessageQueueService,
+    );
+
+    const result = await service.createJobFromUpload(
+      {
+        originalname: 'duplicate.pdf',
+        mimetype: 'application/pdf',
+        path: tmpFile,
+        size: 17,
+      } as unknown as Express.Multer.File,
+      'user-123',
+    );
+
+    expect(result).toEqual({ job: existingJob, deduplicated: true });
+    expect(publish).not.toHaveBeenCalled();
+    expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
   it('rejects unsupported file uploads', async () => {

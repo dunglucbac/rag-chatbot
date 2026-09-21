@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import type {
   ReceiptParsedPayload,
   ReceiptLineItem,
@@ -34,6 +34,17 @@ export class ReceiptService {
       const checksumSha256 = createHash('sha256')
         .update(checksumContent)
         .digest('hex');
+      const duplicateReceipt = await receiptRepository.findOneBy({
+        userId,
+        merchant: receipt.merchant,
+        purchasedAt: new Date(receipt.purchasedAt),
+        total: receipt.total,
+        checksumSha256,
+      });
+      if (duplicateReceipt) {
+        await this.completeIngestionJob(manager, jobId, rawText);
+        return duplicateReceipt;
+      }
       const receiptEntity = receiptRepository.create({
         userId,
         ingestionJobId: jobId,
@@ -55,23 +66,31 @@ export class ReceiptService {
       });
       const savedReceipt = await receiptRepository.save(receiptEntity);
 
-      const jobUpdate = {
-        status: IngestionJobStatus.COMPLETED,
-        classification: IngestionClassification.RECEIPT,
-        completedAt: new Date(),
-        ...(rawText !== undefined ? { extractedText: rawText } : {}),
-      };
-      const updateResult = await manager
-        .createQueryBuilder()
-        .update(IngestionJob)
-        .set(jobUpdate)
-        .where('id = :jobId', { jobId })
-        .execute();
-      if (!updateResult.affected) {
-        throw new Error(`Ingestion job not found: ${jobId}`);
-      }
+      await this.completeIngestionJob(manager, jobId, rawText);
 
       return savedReceipt;
     });
+  }
+
+  private async completeIngestionJob(
+    manager: EntityManager,
+    jobId: string,
+    rawText: string | undefined,
+  ): Promise<void> {
+    const jobUpdate = {
+      status: IngestionJobStatus.COMPLETED,
+      classification: IngestionClassification.RECEIPT,
+      completedAt: new Date(),
+      ...(rawText !== undefined ? { extractedText: rawText } : {}),
+    };
+    const updateResult = await manager
+      .createQueryBuilder()
+      .update(IngestionJob)
+      .set(jobUpdate)
+      .where('id = :jobId', { jobId })
+      .execute();
+    if (!updateResult.affected) {
+      throw new Error(`Ingestion job not found: ${jobId}`);
+    }
   }
 }

@@ -2,6 +2,7 @@ import {
   BaseEntity,
   Column,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -14,6 +15,14 @@ import {
 import type { IngestionFileType } from '@modules/ingestion/ingestion.types';
 
 @Entity('ingestion_jobs')
+@Index(
+  'IDX_ingestion_jobs_user_checksum_sha256',
+  ['userId', 'checksumSha256'],
+  {
+    unique: true,
+    where: '"checksum_sha256" IS NOT NULL',
+  },
+)
 export class IngestionJob extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   declare id: string;
