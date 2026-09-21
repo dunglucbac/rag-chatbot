@@ -28,4 +28,12 @@ export default () => ({
   tavily: {
     apiKey: process.env.TAVILY_API_KEY,
   },
+  auth: {
+    googleClientId: process.env.GOOGLE_CLIENT_ID,
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL,
+    jwtSecret: process.env.AUTH_JWT_SECRET,
+    jwtExpiresInSeconds: process.env.AUTH_JWT_EXPIRES_IN_SECONDS ?? '86400',
+    successRedirectUrl: process.env.AUTH_SUCCESS_REDIRECT_URL,
+  },
 });

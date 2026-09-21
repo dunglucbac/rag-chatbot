@@ -4,6 +4,24 @@ Base URL: `http://localhost:3000`
 
 ---
 
+## Authentication
+
+The chat and ingestion APIs require a Google SSO access token. Start the OAuth flow
+by opening `GET /auth/google`. Google redirects to `GET /auth/google/callback`, which
+returns `{ accessToken, tokenType, expiresIn, user }` unless `AUTH_SUCCESS_REDIRECT_URL`
+is configured. In that case, the browser is redirected there and the same token is in
+the URL fragment.
+
+Include the token on protected calls:
+
+```
+Authorization: Bearer <access-token>
+```
+
+`GET /auth/me` returns the authenticated Google user.
+
+---
+
 ## Ingestion
 
 ### Upload file
@@ -13,6 +31,7 @@ Queues an uploaded document for ingestion. The file is stored on disk and a back
 ```
 POST /ingest/file
 Content-Type: multipart/form-data
+Authorization: Bearer <access-token>
 ```
 
 **Form fields**

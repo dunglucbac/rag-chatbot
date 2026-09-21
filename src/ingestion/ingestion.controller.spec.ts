@@ -41,7 +41,7 @@ describe('IngestionController', () => {
         path: '/tmp/statement.pdf',
         size: 1234,
       } as Express.Multer.File,
-      'user-123',
+      { id: 'user-123', email: 'user@example.com' },
       'corr-123',
     );
 
@@ -71,9 +71,12 @@ describe('IngestionController', () => {
 
     const controller = new IngestionController(ingestionService);
 
-    await expect(controller.getJob('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      controller.getJob('missing', {
+        id: 'user-123',
+        email: 'user@example.com',
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('wraps job lookups in the standard api response', async () => {
@@ -91,7 +94,10 @@ describe('IngestionController', () => {
 
     const controller = new IngestionController(ingestionService);
 
-    const result = await controller.getJob('job-123');
+    const result = await controller.getJob('job-123', {
+      id: 'user-123',
+      email: 'user@example.com',
+    });
     expect(result).toMatchObject({
       status: 'success',
       message: 'Ingestion job fetched',

@@ -74,6 +74,7 @@ Background Scraper (every 6h):
 - OpenAI API key (always required for embeddings)
 - Tavily API key
 - Public HTTPS URL for the Telegram webhook (ngrok or VS Code port forwarding)
+- Google OAuth client credentials (for the HTTP API)
 
 ---
 
@@ -124,6 +125,17 @@ cp .env.example .env
 ```
 
 Fill in your values — see `.env.example` for all required keys.
+
+### Google SSO
+
+Create an OAuth 2.0 Web application client in Google Cloud, then register the exact
+`GOOGLE_CALLBACK_URL` (for local development, `http://localhost:3000/auth/google/callback`)
+as an authorized redirect URI. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a
+high-entropy `AUTH_JWT_SECRET` in `.env`.
+
+Open `GET /auth/google` to begin login. The callback returns an application Bearer
+token (or redirects to `AUTH_SUCCESS_REDIRECT_URL` with the token in the URL fragment).
+Send that token as `Authorization: Bearer <token>` when calling the chat or ingestion APIs.
 
 ### 5. Start the database stack
 
@@ -202,6 +214,7 @@ npm run migration:revert
 ```
 POST /ingest/file
 Content-Type: multipart/form-data
+Authorization: Bearer <access-token>
 
 file: <pdf or image file>
 ```
@@ -277,6 +290,7 @@ npm run test:cov
 
 - [Architecture](docs/architecture.md) — module map, data flows, database schema, agent tools
 - [API Reference](docs/api.md) — HTTP endpoints with request/response examples
+- [Google SSO](docs/google-sso.md) — Google OAuth setup, login flow, and protected API usage
 - [Deployment](docs/deployment.md) — Docker, production checklist, caveats
 - [Troubleshooting](docs/troubleshooting.md) — common issues and fixes
 - [Contributing](docs/contributing.md) — setup, conventions, adding tools/providers

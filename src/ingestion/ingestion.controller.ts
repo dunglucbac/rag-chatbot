@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -15,10 +16,14 @@ import { randomUUID } from 'crypto';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
 import { IngestionJobDto } from '@modules/ingestion/dto/ingestion-job.dto';
 import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { GoogleAuthGuard } from '../auth/google-auth.guard';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
 @Controller('ingest')
+@UseGuards(GoogleAuthGuard)
 export class IngestionController {
   constructor(private readonly ingestionService: IngestionService) {}
 
@@ -40,7 +45,7 @@ export class IngestionController {
   )
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Headers('x-user-id') userId?: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Headers('x-correlation-id') correlationId?: string,
   ): Promise<
     ApiResponse<{
@@ -51,7 +56,7 @@ export class IngestionController {
   > {
     const result = await this.ingestionService.createJobFromUpload(
       file,
-      userId ?? 'demo-user',
+      user.id,
       correlationId,
     );
 
@@ -71,8 +76,9 @@ export class IngestionController {
   @Get('jobs/:id')
   async getJob(
     @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<ApiResponse<{ job: IngestionJobDto }>> {
-    const job = await this.ingestionService.getJob(id);
+    const job = await this.ingestionService.getJob(id, user.id);
     return {
       status: 'success',
       message: 'Ingestion job fetched',

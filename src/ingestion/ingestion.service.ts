@@ -113,9 +113,9 @@ export class IngestionService {
     return { job, event: dispatched, deduplicated: false };
   }
 
-  async getJob(id: string): Promise<IngestionJob> {
+  async getJob(id: string, userId: string): Promise<IngestionJob> {
     const job = await this.jobRepository.findById(id);
-    if (!job) {
+    if (!job || job.userId !== userId) {
       throw new NotFoundException('Ingestion job not found');
     }
 

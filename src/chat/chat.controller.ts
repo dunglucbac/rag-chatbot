@@ -3,14 +3,18 @@ import {
   Post,
   Body,
   Param,
-  Headers,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dtos/send-message.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { GoogleAuthGuard } from '../auth/google-auth.guard';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 @Controller('chat')
+@UseGuards(GoogleAuthGuard)
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
@@ -18,11 +22,11 @@ export class ChatController {
   @HttpCode(HttpStatus.CREATED)
   async sendMessage(
     @Body() dto: SendMessageDto,
-    @Headers('x-user-id') userId?: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.sendMessage({
       message: dto.message,
-      userId,
+      userId: user.id,
     });
   }
 
@@ -31,12 +35,12 @@ export class ChatController {
   async sendMessageToSession(
     @Param('sessionId') sessionId: string,
     @Body() dto: SendMessageDto,
-    @Headers('x-user-id') userId?: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.chatService.sendMessage({
       message: dto.message,
       sessionId,
-      userId,
+      userId: user.id,
     });
   }
 }

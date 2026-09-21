@@ -4,6 +4,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
+import { GoogleAuthGuard } from '../auth/google-auth.guard';
 import { ResponseInterceptor } from '../common/response.interceptor';
 import { GlobalExceptionFilter } from '../common/exception.filter';
 
@@ -30,7 +31,20 @@ describe('ChatController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChatController],
       providers: [{ provide: ChatService, useValue: chatService }],
-    }).compile();
+    })
+      .overrideGuard(GoogleAuthGuard)
+      .useValue({
+        canActivate: (context: {
+          switchToHttp: () => { getRequest: () => { user?: unknown } };
+        }) => {
+          context.switchToHttp().getRequest().user = {
+            id: 'google-user-42',
+            email: 'user@example.com',
+          };
+          return true;
+        },
+      })
+      .compile();
 
     app = module.createNestApplication<INestApplication<App>>();
     app.setGlobalPrefix('api/v1');
@@ -43,7 +57,7 @@ describe('ChatController', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    await app?.close();
   });
 
   describe('POST /api/v1/chat/messages', () => {
@@ -114,8 +128,8 @@ describe('ChatController', () => {
     });
   });
 
-  describe('POST /api/v1/chat/messages with x-user-id', () => {
-    it('passes userId from header to ChatService', async () => {
+  describe('POST /api/v1/chat/messages', () => {
+    it('passes the authenticated Google user to ChatService', async () => {
       chatService.sendMessage.mockResolvedValue({
         sessionId: 'session-xyz',
         reply: 'Hello user!',
@@ -123,13 +137,12 @@ describe('ChatController', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/chat/messages')
-        .set('x-user-id', 'user-42')
         .send({ message: 'Hello' })
         .expect(201);
 
       expect(chatService.sendMessage).toHaveBeenCalledWith({
         message: 'Hello',
-        userId: 'user-42',
+        userId: 'google-user-42',
       });
     });
   });
