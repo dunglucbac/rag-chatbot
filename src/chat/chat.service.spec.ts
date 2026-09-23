@@ -1,11 +1,37 @@
+import { DataSource } from 'typeorm';
 import { ChatService } from './chat.service';
 import { AgentService } from '../agent/agent.service';
+import { ChatSession } from './entities/chat-session.entity';
+import { ChatSessionRepository } from './repositories/chat-session.repository';
 
 describe('ChatService', () => {
-  it('returns sessionId and reply on first message (implicit session creation)', async () => {
-    const mockInvoke = jest.fn().mockResolvedValue('Hello! How can I help?');
+  let dataSource: DataSource;
+  let mockInvoke: jest.Mock;
+  let chatService: ChatService;
+
+  beforeEach(async () => {
+    dataSource = new DataSource({
+      type: 'sqlite',
+      database: ':memory:',
+      entities: [ChatSession],
+      synchronize: true,
+    });
+    await dataSource.initialize();
+
+    mockInvoke = jest.fn();
     const agentService = { invoke: mockInvoke } as unknown as AgentService;
-    const chatService = new ChatService(agentService);
+    const sessionRepository = new ChatSessionRepository(
+      dataSource.getRepository(ChatSession),
+    );
+    chatService = new ChatService(agentService, sessionRepository);
+  });
+
+  afterEach(async () => {
+    await dataSource.destroy();
+  });
+
+  it('uses the returned sessionId as the thread for the first message', async () => {
+    mockInvoke.mockResolvedValue('Hello! How can I help?');
 
     const result = await chatService.sendMessage({
       message: 'Hi there',
@@ -15,33 +41,40 @@ describe('ChatService', () => {
     expect(result).toHaveProperty('sessionId');
     expect(result.sessionId).toEqual(expect.any(String));
     expect(result.reply).toBe('Hello! How can I help?');
-    expect(mockInvoke).toHaveBeenCalledWith('user-1', 'Hi there', undefined);
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'user-1',
+      'Hi there',
+      result.sessionId,
+    );
   });
 
   it('continues an existing session by passing sessionId as thread_id', async () => {
-    const mockInvoke = jest.fn().mockResolvedValue('Sure, what else?');
-    const agentService = { invoke: mockInvoke } as unknown as AgentService;
-    const chatService = new ChatService(agentService);
+    mockInvoke
+      .mockResolvedValueOnce('Hello!')
+      .mockResolvedValueOnce('Sure, what else?');
 
-    const result = await chatService.sendMessage({
-      message: 'Another question',
-      sessionId: 'session-abc',
+    const firstMessage = await chatService.sendMessage({
+      message: 'First question',
       userId: 'user-1',
     });
 
-    expect(result.sessionId).toBe('session-abc');
+    const result = await chatService.sendMessage({
+      message: 'Another question',
+      sessionId: firstMessage.sessionId,
+      userId: 'user-1',
+    });
+
+    expect(result.sessionId).toBe(firstMessage.sessionId);
     expect(result.reply).toBe('Sure, what else?');
     expect(mockInvoke).toHaveBeenCalledWith(
       'user-1',
       'Another question',
-      'session-abc',
+      firstMessage.sessionId,
     );
   });
 
   it('uses sessionId as userId when no userId is provided', async () => {
-    const mockInvoke = jest.fn().mockResolvedValue('Hello anonymous');
-    const agentService = { invoke: mockInvoke } as unknown as AgentService;
-    const chatService = new ChatService(agentService);
+    mockInvoke.mockResolvedValue('Hello anonymous');
 
     const result = await chatService.sendMessage({
       message: 'Hello',
@@ -52,7 +85,7 @@ describe('ChatService', () => {
     expect(mockInvoke).toHaveBeenCalledWith(
       expect.any(String),
       'Hello',
-      undefined,
+      result.sessionId,
     );
   });
 });

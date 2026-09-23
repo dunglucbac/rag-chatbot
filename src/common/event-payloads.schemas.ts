@@ -96,6 +96,13 @@ const embedRequestPayloadSchema = z
   })
   .strict();
 
+const receiptCategorizationRequestedPayloadSchema = z
+  .object({
+    receiptId: z.string().uuid(),
+    userId: z.string().min(1),
+  })
+  .strict();
+
 export const eventPayloadSchemas = {
   'receipt.parsed': receiptParsedPayloadSchema,
   'receipt.needs_review': needsReviewPayloadSchema,
@@ -104,4 +111,5 @@ export const eventPayloadSchemas = {
   'image.classify.completed': classifyCompletedPayloadSchema,
   'job.failed': jobFailedPayloadSchema,
   'doc.chunks.embed.requested': embedRequestPayloadSchema,
+  'receipt.items.categorize': receiptCategorizationRequestedPayloadSchema,
 };

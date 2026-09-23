@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
 import { AgentService } from './agent.service';
 import { LlmModule } from '../llm/llm.module';
-import { VectorStoreModule } from '../vector-store/vector-store.module';
-import { WebSearchModule } from '../web-search/web-search.module';
+import { AGENT_CHECKPOINTER } from './agent.constants';
+import { AgentCheckpointerService } from './agent-checkpointer.service';
+import { ReceiptAnalyticsModule } from '../receipt/receipt-analytics.module';
 
 @Module({
-  imports: [LlmModule, VectorStoreModule, WebSearchModule],
-  providers: [AgentService],
+  imports: [LlmModule, ReceiptAnalyticsModule],
+  providers: [
+    AgentService,
+    AgentCheckpointerService,
+    {
+      provide: AGENT_CHECKPOINTER,
+      inject: [AgentCheckpointerService],
+      useFactory: (service: AgentCheckpointerService) => service.checkpointer,
+    },
+  ],
   exports: [AgentService],
 })
 export class AgentModule {}

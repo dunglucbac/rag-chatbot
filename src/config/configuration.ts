@@ -36,4 +36,7 @@ export default () => ({
     jwtExpiresInSeconds: process.env.AUTH_JWT_EXPIRES_IN_SECONDS ?? '86400',
     successRedirectUrl: process.env.AUTH_SUCCESS_REDIRECT_URL,
   },
+  receiptAnalytics: {
+    cursorHmacSecret: process.env.RECEIPT_CURSOR_HMAC_SECRET,
+  },
 });

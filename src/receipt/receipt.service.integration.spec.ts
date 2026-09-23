@@ -37,7 +37,9 @@ describe('ReceiptService Integration', () => {
     await dataSource.query(
       `CREATE TABLE ingestion_jobs (id varchar PRIMARY KEY, status varchar, classification varchar, extracted_text text, completed_at datetime, updated_at datetime)`,
     );
-    service = new ReceiptService(dataSource);
+    service = new ReceiptService(dataSource, {
+      publish: jest.fn().mockResolvedValue({}),
+    } as never);
   });
 
   afterAll(async () => {

@@ -69,3 +69,8 @@ export type EmbedRequestPayload = {
     metadata: Record<string, unknown>;
   }>;
 };
+
+export type ReceiptCategorizationRequestedPayload = {
+  receiptId: string;
+  userId: string;
+};

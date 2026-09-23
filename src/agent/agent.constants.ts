@@ -1,0 +1,1 @@
+export const AGENT_CHECKPOINTER = Symbol('AGENT_CHECKPOINTER');

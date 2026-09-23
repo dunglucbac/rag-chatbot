@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Post,
   Body,
   Param,
@@ -42,5 +43,14 @@ export class ChatController {
       sessionId,
       userId: user.id,
     });
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.chatService.deleteSession(user.id, sessionId);
   }
 }

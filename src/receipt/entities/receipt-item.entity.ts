@@ -8,6 +8,12 @@ import {
 } from 'typeorm';
 import { Receipt } from './receipt.entity';
 
+export enum ReceiptCategorizationStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 @Entity('receipt_items')
 export class ReceiptItem {
   @PrimaryGeneratedColumn('uuid')
@@ -30,6 +36,29 @@ export class ReceiptItem {
 
   @Column({ type: 'text', nullable: true })
   category: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  subcategory: string | null;
+
+  @Column({
+    name: 'categorization_status',
+    type: 'varchar',
+    default: ReceiptCategorizationStatus.PENDING,
+  })
+  categorizationStatus: ReceiptCategorizationStatus;
+
+  @Column({ name: 'category_confidence', type: 'numeric', nullable: true })
+  categoryConfidence: number | null;
+
+  @Column({ name: 'taxonomy_version', type: 'varchar', nullable: true })
+  taxonomyVersion: string | null;
+
+  @Column({
+    name: 'classification_metadata',
+    type: 'simple-json',
+    nullable: true,
+  })
+  classificationMetadata: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
