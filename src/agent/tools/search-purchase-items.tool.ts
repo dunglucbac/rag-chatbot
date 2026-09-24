@@ -14,7 +14,7 @@ import { MAX_RECEIPT_TOOL_CALLS, ToolCallBudget } from '../tool-call-budget';
 const searchPurchaseItemsSchema = z
   .object({
     rangeType: z.enum(['relative', 'absolute']),
-    period: z.literal('last_week').optional(),
+    period: z.enum(['last_week', 'last_month']).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     query: z.string().min(1).optional(),

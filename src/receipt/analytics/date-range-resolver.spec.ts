@@ -16,6 +16,21 @@ describe('DateRangeResolver', () => {
     });
   });
 
+  it('resolves last month to the previous calendar month in Ho Chi Minh City', () => {
+    const resolver = new DateRangeResolver();
+
+    const range = resolver.resolve(
+      { rangeType: 'relative', period: 'last_month' },
+      new Date('2026-09-22T12:00:00.000Z'),
+    );
+
+    expect(range).toEqual({
+      start: new Date('2026-07-31T17:00:00.000Z'),
+      end: new Date('2026-08-31T17:00:00.000Z'),
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+  });
+
   it('resolves an explicit local date range to UTC boundaries', () => {
     const resolver = new DateRangeResolver();
 

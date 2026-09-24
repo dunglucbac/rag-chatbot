@@ -16,7 +16,7 @@ export class InvalidDateRangeError extends Error {
 export type DateRangeInput =
   | {
       rangeType: 'relative';
-      period: 'last_week';
+      period: 'last_week' | 'last_month';
     }
   | {
       rangeType: 'absolute';
@@ -50,13 +50,31 @@ export class DateRangeResolver {
       };
     }
 
+    const localNow = new Date(now.getTime() + UTC_OFFSET_MS);
+    if (input.period === 'last_month') {
+      const currentMonth = Date.UTC(
+        localNow.getUTCFullYear(),
+        localNow.getUTCMonth(),
+        1,
+      );
+      const previousMonth = Date.UTC(
+        localNow.getUTCFullYear(),
+        localNow.getUTCMonth() - 1,
+        1,
+      );
+      return {
+        start: new Date(previousMonth - UTC_OFFSET_MS),
+        end: new Date(currentMonth - UTC_OFFSET_MS),
+        timeZone: TIME_ZONE,
+      };
+    }
+
     if (input.period !== 'last_week') {
       throw new InvalidDateRangeError(
         `Unsupported relative period: ${String(input.period)}`,
       );
     }
 
-    const localNow = new Date(now.getTime() + UTC_OFFSET_MS);
     const localDate = Date.UTC(
       localNow.getUTCFullYear(),
       localNow.getUTCMonth(),

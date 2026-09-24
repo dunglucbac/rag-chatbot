@@ -10,7 +10,7 @@ import { MAX_RECEIPT_TOOL_CALLS, ToolCallBudget } from '../tool-call-budget';
 const purchaseSummarySchema = z
   .object({
     rangeType: z.enum(['relative', 'absolute']),
-    period: z.literal('last_week').optional(),
+    period: z.enum(['last_week', 'last_month']).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
   })
@@ -86,7 +86,7 @@ export function createPurchaseSummaryTool(
     {
       name: 'get_purchase_summary',
       description:
-        "Get deterministic counts and spending totals from the authenticated user's parsed receipts. Use relative last_week by default, or provide an absolute startDate and exclusive endDate in YYYY-MM-DD format.",
+        "Get deterministic counts and spending totals from the authenticated user's parsed receipts. Use relative last_week or last_month by default, or provide an absolute startDate and exclusive endDate in YYYY-MM-DD format.",
       schema: purchaseSummarySchema,
     },
   );
