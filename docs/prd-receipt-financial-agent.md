@@ -110,8 +110,9 @@ The receipt analytics module is a deep module with a small service interface. It
 
 ### Time-range semantics
 
-- Relative periods are the default tool input; explicit start/end dates are also supported for uncommon audits.
+- Relative periods (`last_week` and `last_month`) are the default tool inputs; explicit start/end dates are also supported for uncommon audits.
 - `last_week` means the previous calendar week from Monday at 00:00 through the next Monday at 00:00.
+- `last_month` means the previous complete calendar month from day 1 at 00:00 through the following month’s day 1 at 00:00.
 - All version 1 date boundaries use `Asia/Ho_Chi_Minh`.
 - Per-user timezone preferences are deferred.
 - Explicit date ranges may span at most 366 days in one tool call. Longer audits must be split into smaller deterministic summaries.
