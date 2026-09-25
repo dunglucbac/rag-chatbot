@@ -97,59 +97,52 @@ Cron: 0 */6 * * *  (ScraperService.scrapeAndEmbed)
 
 ---
 
+## RabbitMQ topology
+
+The broker declares the durable `ingest.topic` topic exchange and routes events
+to the queues shown below. The RAG application queues dead-letter rejected or
+expired messages to `ingest.dlx`; worker queues do not currently have a
+dead-letter exchange configured.
+
+```mermaid
+flowchart LR
+    EX{{Topic exchange<br/>ingest.topic}}
+
+    PDF[Worker queue<br/>ingest.pdf.queue]
+    IMAGE[Worker queue<br/>ingest.image.queue]
+    STATUS[RAG app queue<br/>ingest.status.queue]
+    RESULTS[RAG app queue<br/>ingest.results.queue]
+
+    DLX{{Dead-letter exchange<br/>ingest.dlx}}
+    DLQ[Dead-letter queue<br/>ingest.dead-letter.queue]
+
+    EX -->|doc.pdf.parse.requested| PDF
+    EX -->|image.classify.requested| IMAGE
+    EX -->|job.processing.started<br/>doc.pdf.parse.completed<br/>image.classify.completed<br/>job.failed| STATUS
+    EX -->|receipt.parsed<br/>payment.detected<br/>doc.chunks.embed.requested<br/>receipt.needs_review<br/>receipt.items.categorize| RESULTS
+
+    STATUS -. rejected or expired .-> DLX
+    RESULTS -. rejected or expired .-> DLX
+    DLX -->|#| DLQ
+```
+
+| Queue | Consumers | Binding keys |
+|---|---|---|
+| `ingest.pdf.queue` | PDF worker | `doc.pdf.parse.requested` |
+| `ingest.image.queue` | Image worker | `image.classify.requested` |
+| `ingest.status.queue` | RAG app | `job.processing.started`, `doc.pdf.parse.completed`, `image.classify.completed`, `job.failed` |
+| `ingest.results.queue` | RAG app | `receipt.parsed`, `payment.detected`, `doc.chunks.embed.requested`, `receipt.needs_review`, `receipt.items.categorize` |
+| `ingest.dead-letter.queue` | Operations / recovery workflow | All events published to `ingest.dlx` (`#`) |
+
+Source: [`message-queue.constants.ts`](../src/message-queue/message-queue.constants.ts) and [`broker.service.ts`](../src/message-queue/broker/broker.service.ts).
+
+---
+
 ## Database Schema
 
-### `receipts` and `receipt_items` (relational analytics data)
-
-| Column | Type | Description |
-|---|---|---|
-| receipts.id | uuid | Primary key |
-| receipts.userId | varchar | Owner of the receipt |
-| receipts.merchant | text | Store / merchant name |
-| receipts.purchasedAt | timestamp | Receipt date and time |
-| receipts.total | numeric | Grand total |
-| receipts.tax | numeric | Tax amount, if available |
-| receipts.currency | varchar | Currency code |
-| receipts.source | varchar | Upload, email, or other source |
-| receipts.rawText | text | OCR/text extraction output for traceability |
-| receipt_items.id | uuid | Primary key |
-| receipt_items.receiptId | uuid | Parent receipt |
-| receipt_items.name | text | Item name |
-| receipt_items.quantity | numeric | Quantity, if detected |
-| receipt_items.unitPrice | numeric | Unit price, if detected |
-| receipt_items.totalPrice | numeric | Line item total |
-| receipt_items.category | text | Optional inferred category |
-
-### `document_embeddings` (managed by PGVector)
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| content | text | Chunk text |
-| metadata | jsonb | Source path/URL, type (pdf/web), page number |
-| embedding | vector(1536) | OpenAI text-embedding-3-small |
-
-### `messages` (TypeORM entity)
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| userId | varchar | Telegram user ID |
-| threadId | varchar | Conversation thread |
-| role | enum | `human` or `ai` |
-| content | text | Message text |
-| createdAt | timestamp | Auto-generated |
-
-### `web_search_logs` (TypeORM entity)
-
-| Column | Type | Description |
-|---|---|---|
-| id | uuid | Primary key |
-| userId | varchar | Telegram user ID who triggered the search |
-| query | text | Search query string |
-| url | text | Tavily result URL |
-| scraped | boolean | Whether content has been added to vector store |
-| timestamp | timestamp | Auto-generated |
+The canonical PostgreSQL table inventory and entity-relationship diagram are
+maintained in [Database schema](database-schema.md). PGVector also creates and
+maintains its own embedding storage independently of the TypeORM migrations.
 
 ---
 
