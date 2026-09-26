@@ -222,6 +222,83 @@ describe('ReceiptAnalyticsService', () => {
     expect(secondPage.items[0]).not.toHaveProperty('rawText');
   });
 
+  it('returns the most recent purchases first when sorted by purchasedAt', async () => {
+    await saveReceipt({
+      userId: 'user-1',
+      merchant: 'Older Store',
+      purchasedAt: '2026-09-15T03:00:00.000Z',
+      total: 500,
+      currency: 'USD',
+      items: [
+        {
+          id: '00000000-0000-4000-8000-000000000011',
+          name: 'Older expensive item',
+          quantity: 1,
+          totalPrice: 500,
+          createdAt: '2026-09-20T00:00:00.000Z',
+        },
+      ],
+    });
+    await saveReceipt({
+      userId: 'user-1',
+      merchant: 'Middle Store',
+      purchasedAt: '2026-09-17T03:00:00.000Z',
+      total: 100,
+      currency: 'USD',
+      items: [
+        {
+          id: '00000000-0000-4000-8000-000000000012',
+          name: 'Middle item',
+          quantity: 1,
+          totalPrice: 100,
+          createdAt: '2026-09-20T00:00:00.000Z',
+        },
+      ],
+    });
+    await saveReceipt({
+      userId: 'user-1',
+      merchant: 'Latest Store',
+      purchasedAt: '2026-09-19T03:00:00.000Z',
+      total: 10,
+      currency: 'USD',
+      items: [
+        {
+          id: '00000000-0000-4000-8000-000000000013',
+          name: 'Latest inexpensive item',
+          quantity: 1,
+          totalPrice: 10,
+          createdAt: '2026-09-20T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const input = {
+      rangeType: 'absolute' as const,
+      startDate: '2026-09-01',
+      endDate: '2026-10-01',
+      sortBy: 'purchasedAt' as const,
+      pageSize: 2,
+    };
+    const now = new Date('2026-09-22T05:30:00.000Z');
+
+    const firstPage = await analytics.searchPurchaseItems('user-1', input, now);
+    expect(firstPage.items.map((item) => item.name)).toEqual([
+      'Latest inexpensive item',
+      'Middle item',
+    ]);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await analytics.searchPurchaseItems(
+      'user-1',
+      { ...input, cursor: firstPage.nextCursor! },
+      now,
+    );
+    expect(secondPage.items.map((item) => item.name)).toEqual([
+      'Older expensive item',
+    ]);
+    expect(secondPage.nextCursor).toBeNull();
+  });
+
   async function saveReceipt(input: {
     userId: string;
     merchant: string;

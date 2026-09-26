@@ -17,15 +17,17 @@ export interface PurchaseCursorBinding {
   filterFingerprint: string;
   rangeStart: string;
   rangeEnd: string;
+  sortBy?: 'totalPrice' | 'purchasedAt';
 }
 
 export interface PurchaseCursorPosition {
-  totalPrice: string;
+  totalPrice?: string;
+  purchasedAt?: string;
   itemId: string;
   asOf: string;
 }
 
-interface SignedPurchaseCursorPayload {
+interface PricePurchaseCursorPayload {
   v: 1;
   uh: string;
   ff: string;
@@ -36,6 +38,23 @@ interface SignedPurchaseCursorPayload {
   id: string;
   exp: number;
 }
+
+interface DatePurchaseCursorPayload {
+  v: 2;
+  uh: string;
+  ff: string;
+  rs: string;
+  re: string;
+  as: string;
+  sk: 'purchasedAt';
+  pv: string;
+  id: string;
+  exp: number;
+}
+
+type SignedPurchaseCursorPayload =
+  | PricePurchaseCursorPayload
+  | DatePurchaseCursorPayload;
 
 const DEFAULT_CURSOR_TTL_MS = 60 * 60 * 1000;
 
@@ -54,17 +73,30 @@ export class PurchaseCursorCodec {
     position: PurchaseCursorPosition,
     binding: PurchaseCursorBinding,
   ): string {
-    const payload: SignedPurchaseCursorPayload = {
-      v: 1,
-      uh: this.userHash(binding.userId),
-      ff: binding.filterFingerprint,
-      rs: binding.rangeStart,
-      re: binding.rangeEnd,
-      as: position.asOf,
-      tp: position.totalPrice,
-      id: position.itemId,
-      exp: this.clock().getTime() + this.ttlMs,
-    };
+    const payload: SignedPurchaseCursorPayload = position.purchasedAt
+      ? {
+          v: 2,
+          uh: this.userHash(binding.userId),
+          ff: binding.filterFingerprint,
+          rs: binding.rangeStart,
+          re: binding.rangeEnd,
+          as: position.asOf,
+          sk: 'purchasedAt',
+          pv: position.purchasedAt,
+          id: position.itemId,
+          exp: this.clock().getTime() + this.ttlMs,
+        }
+      : {
+          v: 1,
+          uh: this.userHash(binding.userId),
+          ff: binding.filterFingerprint,
+          rs: binding.rangeStart,
+          re: binding.rangeEnd,
+          as: position.asOf,
+          tp: position.totalPrice ?? '',
+          id: position.itemId,
+          exp: this.clock().getTime() + this.ttlMs,
+        };
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
       'base64url',
     );
@@ -119,8 +151,17 @@ export class PurchaseCursorCodec {
       throw this.invalid();
     }
 
+    if (
+      (payload.v === 1 && (binding.sortBy ?? 'totalPrice') !== 'totalPrice') ||
+      (payload.v === 2 && binding.sortBy !== payload.sk)
+    ) {
+      throw this.invalid();
+    }
+
     return {
-      totalPrice: payload.tp,
+      ...(payload.v === 1
+        ? { totalPrice: payload.tp }
+        : { purchasedAt: payload.pv }),
       itemId: payload.id,
       asOf: payload.as,
     };
@@ -137,19 +178,21 @@ export class PurchaseCursorCodec {
   }
 
   private isValidPayload(
-    payload: Partial<SignedPurchaseCursorPayload> | null,
+    payload: Partial<PricePurchaseCursorPayload | DatePurchaseCursorPayload> | null,
   ): payload is SignedPurchaseCursorPayload {
     return (
       payload !== null &&
-      payload.v === 1 &&
       typeof payload.uh === 'string' &&
       typeof payload.ff === 'string' &&
       typeof payload.rs === 'string' &&
       typeof payload.re === 'string' &&
       typeof payload.as === 'string' &&
-      typeof payload.tp === 'string' &&
       typeof payload.id === 'string' &&
-      typeof payload.exp === 'number'
+      typeof payload.exp === 'number' &&
+      ((payload.v === 1 && typeof payload.tp === 'string') ||
+        (payload.v === 2 &&
+          payload.sk === 'purchasedAt' &&
+          typeof payload.pv === 'string'))
     );
   }
 

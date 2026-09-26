@@ -39,6 +39,7 @@ describe('search_purchase_items tool', () => {
         query: 'coffee',
         merchant: undefined,
         category: undefined,
+        sortBy: 'totalPrice',
         pageSize: 20,
         cursor: undefined,
       },

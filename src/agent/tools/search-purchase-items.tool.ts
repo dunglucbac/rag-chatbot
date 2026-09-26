@@ -20,6 +20,7 @@ const searchPurchaseItemsSchema = z
     query: z.string().min(1).optional(),
     merchant: z.string().min(1).optional(),
     category: z.string().min(1).optional(),
+    sortBy: z.enum(['totalPrice', 'purchasedAt']).default('totalPrice'),
     pageSize: z.number().int().min(1).max(50).default(20),
     cursor: z.string().min(1).optional(),
   })
@@ -56,6 +57,7 @@ export function createSearchPurchaseItemsTool(
         query: input.query,
         merchant: input.merchant,
         category: input.category,
+        sortBy: input.sortBy,
         pageSize: input.pageSize,
         cursor: input.cursor,
       };
@@ -83,7 +85,7 @@ export function createSearchPurchaseItemsTool(
     {
       name: 'search_purchase_items',
       description:
-        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results are ordered by item total descending and paginated with an opaque cursor. Repeat the same filters and date range when continuing with nextCursor.",
+        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results default to highest item total first (sortBy totalPrice). For a question about the latest or most recent purchases, use sortBy purchasedAt. Results are paginated with an opaque cursor; repeat the same filters, date range, and sortBy when continuing with nextCursor.",
       schema: searchPurchaseItemsSchema,
     },
   );

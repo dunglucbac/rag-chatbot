@@ -10,6 +10,7 @@ import {
   ResolvedDateRange,
 } from './date-range-resolver';
 import {
+  InvalidPurchaseCursorError,
   PurchaseCursorBinding,
   PurchaseCursorCodec,
 } from './purchase-cursor.codec';
@@ -44,6 +45,7 @@ export type SearchPurchaseItemsInput = DateRangeInput & {
   query?: string;
   merchant?: string;
   category?: string;
+  sortBy?: 'totalPrice' | 'purchasedAt';
   pageSize?: number;
   cursor?: string;
 };
@@ -173,6 +175,7 @@ export class ReceiptAnalyticsService {
       merchant: this.normalizeFilter(input.merchant),
       category: this.normalizeFilter(input.category),
     };
+    const sortBy = input.sortBy ?? 'totalPrice';
     const binding: PurchaseCursorBinding = {
       userId,
       filterFingerprint: createHash('sha256')
@@ -180,6 +183,7 @@ export class ReceiptAnalyticsService {
         .digest('base64url'),
       rangeStart: range.start.toISOString(),
       rangeEnd: range.end.toISOString(),
+      sortBy,
     };
     const cursorPosition = input.cursor
       ? this.purchaseCursorCodec.decode(input.cursor, binding)
@@ -211,17 +215,42 @@ export class ReceiptAnalyticsService {
       });
     }
     if (cursorPosition) {
-      query.andWhere(
-        '(item.totalPrice < :cursorTotalPrice OR (item.totalPrice = :cursorTotalPrice AND item.id < :cursorItemId))',
-        {
-          cursorTotalPrice: cursorPosition.totalPrice,
-          cursorItemId: cursorPosition.itemId,
-        },
-      );
+      if (sortBy === 'purchasedAt') {
+        if (!cursorPosition.purchasedAt) {
+          throw new InvalidPurchaseCursorError(
+            'CURSOR_INVALID',
+            'Purchase item cursor is invalid for this request',
+          );
+        }
+        query.andWhere(
+          '(receipt.purchased_at < :cursorPurchasedAt OR (receipt.purchased_at = :cursorPurchasedAt AND item.id < :cursorItemId))',
+          {
+            cursorPurchasedAt: new Date(cursorPosition.purchasedAt),
+            cursorItemId: cursorPosition.itemId,
+          },
+        );
+      } else {
+        if (!cursorPosition.totalPrice) {
+          throw new InvalidPurchaseCursorError(
+            'CURSOR_INVALID',
+            'Purchase item cursor is invalid for this request',
+          );
+        }
+        query.andWhere(
+          '(item.totalPrice < :cursorTotalPrice OR (item.totalPrice = :cursorTotalPrice AND item.id < :cursorItemId))',
+          {
+            cursorTotalPrice: cursorPosition.totalPrice,
+            cursorItemId: cursorPosition.itemId,
+          },
+        );
+      }
     }
 
-    const rows = await query
-      .orderBy('item.totalPrice', 'DESC')
+    const orderedQuery =
+      sortBy === 'purchasedAt'
+        ? query.orderBy('receipt.purchasedAt', 'DESC')
+        : query.orderBy('item.totalPrice', 'DESC');
+    const rows = await orderedQuery
       .addOrderBy('item.id', 'DESC')
       .take(pageSize + 1)
       .getMany();
@@ -247,11 +276,17 @@ export class ReceiptAnalyticsService {
       nextCursor:
         hasNextPage && lastItem
           ? this.purchaseCursorCodec.encode(
-              {
-                totalPrice: String(lastItem.totalPrice),
-                itemId: lastItem.id,
-                asOf: asOf.toISOString(),
-              },
+              sortBy === 'purchasedAt'
+                ? {
+                    purchasedAt: lastItem.receipt.purchasedAt.toISOString(),
+                    itemId: lastItem.id,
+                    asOf: asOf.toISOString(),
+                  }
+                : {
+                    totalPrice: String(lastItem.totalPrice),
+                    itemId: lastItem.id,
+                    asOf: asOf.toISOString(),
+                  },
               binding,
             )
           : null,
