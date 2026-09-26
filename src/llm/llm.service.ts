@@ -12,13 +12,13 @@ export class LlmService {
     const provider = this.config.get<string>('llm.provider');
     if (provider === 'openai') {
       return new ChatOpenAI({
-        model: 'gpt-4o',
+        model: this.config.get<string>('llm.model') ?? 'gpt-4o',
         apiKey: this.config.get<string>('llm.openaiApiKey'),
       });
     }
 
     return new ChatAnthropic({
-      model: 'claude-sonnet-4-6',
+      model: this.config.get<string>('llm.model') ?? 'claude-sonnet-4-6',
       apiKey: this.config.get<string>('llm.anthropicApiKey'),
       clientOptions: {
         baseURL: this.config.get<string>('llm.anthropicBaseUrl'),
