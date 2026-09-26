@@ -13,13 +13,23 @@ export class InvalidDateRangeError extends Error {
   }
 }
 
+export enum DateRangeType {
+  RELATIVE = 'relative',
+  ABSOLUTE = 'absolute',
+}
+
+export enum RelativePeriod {
+  LAST_WEEK = 'last_week',
+  LAST_MONTH = 'last_month',
+}
+
 export type DateRangeInput =
   | {
-      rangeType: 'relative';
-      period: 'last_week' | 'last_month';
+      rangeType: DateRangeType.RELATIVE;
+      period: RelativePeriod;
     }
   | {
-      rangeType: 'absolute';
+      rangeType: DateRangeType.ABSOLUTE;
       startDate: string;
       endDate: string;
     };
@@ -33,7 +43,7 @@ export interface ResolvedDateRange {
 @Injectable()
 export class DateRangeResolver {
   resolve(input: DateRangeInput, now = new Date()): ResolvedDateRange {
-    if (input.rangeType === 'absolute') {
+    if (input.rangeType === DateRangeType.ABSOLUTE) {
       const start = this.parseLocalDate(input.startDate);
       const end = this.parseLocalDate(input.endDate);
       if (end <= start) {
@@ -51,7 +61,7 @@ export class DateRangeResolver {
     }
 
     const localNow = new Date(now.getTime() + UTC_OFFSET_MS);
-    if (input.period === 'last_month') {
+    if (input.period === RelativePeriod.LAST_MONTH) {
       const currentMonth = Date.UTC(
         localNow.getUTCFullYear(),
         localNow.getUTCMonth(),
@@ -69,7 +79,7 @@ export class DateRangeResolver {
       };
     }
 
-    if (input.period !== 'last_week') {
+    if (input.period !== RelativePeriod.LAST_WEEK) {
       throw new InvalidDateRangeError(
         `Unsupported relative period: ${String(input.period)}`,
       );

@@ -45,10 +45,15 @@ export type SearchPurchaseItemsInput = DateRangeInput & {
   query?: string;
   merchant?: string;
   category?: string;
-  sortBy?: 'totalPrice' | 'purchasedAt';
+  sortBy?: PurchaseItemSortBy;
   pageSize?: number;
   cursor?: string;
 };
+
+export enum PurchaseItemSortBy {
+  TOTAL_PRICE = 'totalPrice',
+  PURCHASED_AT = 'purchasedAt',
+}
 
 export interface PurchaseItemSearchResult {
   range: ResolvedDateRange;
@@ -175,7 +180,7 @@ export class ReceiptAnalyticsService {
       merchant: this.normalizeFilter(input.merchant),
       category: this.normalizeFilter(input.category),
     };
-    const sortBy = input.sortBy ?? 'totalPrice';
+    const sortBy = input.sortBy ?? PurchaseItemSortBy.TOTAL_PRICE;
     const binding: PurchaseCursorBinding = {
       userId,
       filterFingerprint: createHash('sha256')
@@ -215,7 +220,7 @@ export class ReceiptAnalyticsService {
       });
     }
     if (cursorPosition) {
-      if (sortBy === 'purchasedAt') {
+      if (sortBy === PurchaseItemSortBy.PURCHASED_AT) {
         if (!cursorPosition.purchasedAt) {
           throw new InvalidPurchaseCursorError(
             'CURSOR_INVALID',
@@ -247,7 +252,7 @@ export class ReceiptAnalyticsService {
     }
 
     const orderedQuery =
-      sortBy === 'purchasedAt'
+      sortBy === PurchaseItemSortBy.PURCHASED_AT
         ? query.orderBy('receipt.purchasedAt', 'DESC')
         : query.orderBy('item.totalPrice', 'DESC');
     const rows = await orderedQuery
@@ -276,7 +281,7 @@ export class ReceiptAnalyticsService {
       nextCursor:
         hasNextPage && lastItem
           ? this.purchaseCursorCodec.encode(
-              sortBy === 'purchasedAt'
+              sortBy === PurchaseItemSortBy.PURCHASED_AT
                 ? {
                     purchasedAt: lastItem.receipt.purchasedAt.toISOString(),
                     itemId: lastItem.id,

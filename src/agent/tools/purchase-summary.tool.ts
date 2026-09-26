@@ -1,16 +1,18 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import {
+  DateRangeType,
   DateRangeInput,
   InvalidDateRangeError,
+  RelativePeriod,
 } from '../../receipt/analytics/date-range-resolver';
 import { ReceiptAnalyticsService } from '../../receipt/analytics/receipt-analytics.service';
 import { MAX_RECEIPT_TOOL_CALLS, ToolCallBudget } from '../tool-call-budget';
 
 const purchaseSummarySchema = z
   .object({
-    rangeType: z.enum(['relative', 'absolute']),
-    period: z.enum(['last_week', 'last_month']).optional(),
+    rangeType: z.nativeEnum(DateRangeType),
+    period: z.nativeEnum(RelativePeriod).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
   })
@@ -35,10 +37,13 @@ export function createPurchaseSummaryTool(
         };
       }
       const range: DateRangeInput =
-        input.rangeType === 'relative'
-          ? { rangeType: 'relative', period: input.period ?? 'last_week' }
+        input.rangeType === DateRangeType.RELATIVE
+          ? {
+              rangeType: DateRangeType.RELATIVE,
+              period: input.period ?? RelativePeriod.LAST_WEEK,
+            }
           : {
-              rangeType: 'absolute',
+              rangeType: DateRangeType.ABSOLUTE,
               startDate: input.startDate ?? '',
               endDate: input.endDate ?? '',
             };
