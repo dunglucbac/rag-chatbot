@@ -131,7 +131,7 @@ to the HTTP or Telegram error boundary.
 The currently registered tools are:
 
 - `get_purchase_summary` calls `ReceiptAnalyticsService.getPurchaseSummary` for
-  a relative (`last_week` or `last_month`) or absolute date range. It returns
+  a relative (`last_week`, `last_month`, or `last_quarter`) or absolute date range. It returns
   deterministic counts, totals by currency, category totals, coverage, and a
   small set of receipt references.
 - `search_purchase_items` calls

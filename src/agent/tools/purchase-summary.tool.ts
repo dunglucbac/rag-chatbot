@@ -91,7 +91,7 @@ export function createPurchaseSummaryTool(
     {
       name: 'get_purchase_summary',
       description:
-        "Get deterministic counts and spending totals from the authenticated user's parsed receipts. Use relative last_week or last_month by default, or provide an absolute startDate and exclusive endDate in YYYY-MM-DD format.",
+        "Get deterministic counts and spending totals from the authenticated user's parsed receipts. Use relative last_week, last_month, or last_quarter by default, or provide an absolute startDate and exclusive endDate in YYYY-MM-DD format.",
       schema: purchaseSummarySchema,
     },
   );

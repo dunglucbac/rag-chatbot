@@ -14,7 +14,7 @@ Implemented read capabilities:
 
 - deterministic purchase summaries;
 - paginated receipt-item search;
-- `last_week`, `last_month`, and explicit date ranges;
+- `last_week`, `last_month`, `last_quarter`, and explicit date ranges;
 - persistent, user-owned chat sessions;
 - HMAC-signed keyset cursors;
 - asynchronous receipt-item categorization;
@@ -148,6 +148,7 @@ All version-1 report boundaries use `Asia/Ho_Chi_Minh`.
 | --- | --- |
 | `last_week` | Previous Monday 00:00 through current Monday 00:00. |
 | `last_month` | Previous complete calendar month, from day 1 at 00:00 through the next month’s day 1 at 00:00. |
+| `last_quarter` | Previous complete calendar quarter, from its first day at 00:00 through the current quarter’s first day at 00:00. |
 | `absolute` | Half-open `[startDate, endDate)` local-date range. |
 
 The resolver converts local boundaries to UTC before querying PostgreSQL. An

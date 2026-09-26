@@ -21,6 +21,7 @@ export enum DateRangeType {
 export enum RelativePeriod {
   LAST_WEEK = 'last_week',
   LAST_MONTH = 'last_month',
+  LAST_QUARTER = 'last_quarter',
 }
 
 export type DateRangeInput =
@@ -75,6 +76,26 @@ export class DateRangeResolver {
       return {
         start: new Date(previousMonth - UTC_OFFSET_MS),
         end: new Date(currentMonth - UTC_OFFSET_MS),
+        timeZone: TIME_ZONE,
+      };
+    }
+
+    if (input.period === RelativePeriod.LAST_QUARTER) {
+      const currentQuarterStartMonth =
+        Math.floor(localNow.getUTCMonth() / 3) * 3;
+      const currentQuarter = Date.UTC(
+        localNow.getUTCFullYear(),
+        currentQuarterStartMonth,
+        1,
+      );
+      const previousQuarter = Date.UTC(
+        localNow.getUTCFullYear(),
+        currentQuarterStartMonth - 3,
+        1,
+      );
+      return {
+        start: new Date(previousQuarter - UTC_OFFSET_MS),
+        end: new Date(currentQuarter - UTC_OFFSET_MS),
         timeZone: TIME_ZONE,
       };
     }
