@@ -29,6 +29,10 @@ Ingestion Pipeline:
 
   ← handle receipt.parsed                   receipt.parsed ──→
        → save receipt + line items to DB
+       → queue item categorization
+  ← handle receipt.items.categorize
+       → classify items against the receipt taxonomy
+       → save category, subcategory, confidence, and status
   ← handle receipt.needs_review              receipt.needs_review ──→
        → send Telegram confirmation prompt
   ← handle payment.detected                  payment.detected ──→
@@ -242,6 +246,33 @@ GET /ingest/jobs/:id
 
 ---
 
+## Receipt financial assistant
+
+Authenticated users can ask the agent about their parsed receipt data. The
+agent uses deterministic, user-scoped tools for purchase summaries and
+paginated item search; it does not allow the model to generate SQL or read raw
+OCR text.
+
+Receipt items are categorized asynchronously after receipt parsing. The
+categorizer uses a versioned taxonomy and stores a category, optional
+subcategory, confidence score, and processing status for every item. Low
+confidence results are stored as `unknown`, while failed categorization can be
+retried through the existing queue pipeline.
+
+The financial tools support:
+
+- spending totals by currency and category;
+- category coverage, so incomplete results are disclosed;
+- item searches filtered by item name, merchant, or category;
+- `last_week`, `last_month`, `last_quarter`, or explicit local date ranges;
+- stable, signed cursor pagination for item results.
+
+For the full tool contracts, categorization lifecycle, taxonomy behavior, and
+security model, see the [Receipt Financial Agent guide](docs/receipt-financial-agent.md)
+and its [product requirements document](docs/prd-receipt-financial-agent.md).
+
+---
+
 ## Project Structure
 
 ```
@@ -257,7 +288,7 @@ src/
 ├── ingestion/          # Upload, job tracking, and queue handoff
 ├── llm/                # LLM provider abstraction (Claude / GPT-4o)
 ├── message-queue/      # RabbitMQ broker and publisher
-├── receipt/            # Receipt analytics and summaries
+├── receipt/            # Receipt parsing, categorization, analytics, and summaries
 ├── scraper/            # Background web scraper (cron, every 6h)
 ├── telegram/           # Telegram bot handler + webhook
 ├── vector-store/       # PGVector service
@@ -289,6 +320,8 @@ npm run test:cov
 ## Docs
 
 - [Architecture](docs/architecture.md) — module map, data flows, database schema, agent tools
+- [Receipt Financial Agent](docs/receipt-financial-agent.md) — receipt analytics, categorized items, tools, and safety rules
+- [Receipt Financial Agent PRD](docs/prd-receipt-financial-agent.md) — requirements and acceptance criteria for receipt capabilities
 - [Database schema](docs/database-schema.md) — current PostgreSQL tables, constraints, and relationships
 - [RabbitMQ topology](docs/architecture.md#rabbitmq-topology) — exchanges, queues, bindings, and dead-letter routing
 - [API Reference](docs/api.md) — HTTP endpoints with request/response examples
