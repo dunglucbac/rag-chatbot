@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import type {
@@ -11,22 +11,29 @@ import {
   IngestionJobStatus,
 } from '@modules/ingestion/ingestion.types';
 import { Receipt } from './entities/receipt.entity';
+import { ReceiptCategorizationStatus } from './entities/receipt-item.entity';
+import { MessageQueueService } from '../message-queue/publisher/publisher.service';
 
 @Injectable()
 export class ReceiptService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(ReceiptService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly messageQueueService: MessageQueueService,
+  ) {}
 
   async saveFromEvent(eventData: ReceiptParsedPayload) {
     const { jobId, userId, receipt, rawText } = eventData;
     const lineItems = receipt.lineItems;
 
-    return this.dataSource.transaction(async (manager) => {
+    const outcome = await this.dataSource.transaction(async (manager) => {
       const receiptRepository = manager.getRepository(Receipt);
       const existingReceipt = await receiptRepository.findOneBy({
         ingestionJobId: jobId,
       });
       if (existingReceipt) {
-        return existingReceipt;
+        return { receipt: existingReceipt, newlyCreated: false };
       }
 
       const checksumContent =
@@ -43,7 +50,7 @@ export class ReceiptService {
       });
       if (duplicateReceipt) {
         await this.completeIngestionJob(manager, jobId, rawText);
-        return duplicateReceipt;
+        return { receipt: duplicateReceipt, newlyCreated: false };
       }
       const receiptEntity = receiptRepository.create({
         userId,
@@ -61,15 +68,40 @@ export class ReceiptService {
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
-          category: item.category,
+          category: null,
+          subcategory: null,
+          categorizationStatus: ReceiptCategorizationStatus.PENDING,
+          categoryConfidence: null,
+          taxonomyVersion: null,
+          classificationMetadata: item.category
+            ? { extractedCategory: item.category }
+            : null,
         })),
       });
       const savedReceipt = await receiptRepository.save(receiptEntity);
 
       await this.completeIngestionJob(manager, jobId, rawText);
 
-      return savedReceipt;
+      return { receipt: savedReceipt, newlyCreated: true };
     });
+
+    if (outcome.newlyCreated) {
+      await this.messageQueueService
+        .publish(
+          'receipt.items.categorize',
+          { receiptId: outcome.receipt.id, userId },
+          jobId,
+          1,
+          1,
+        )
+        .catch(() => {
+          this.logger.error(
+            `Unable to queue receipt categorization [jobId=${jobId}]`,
+          );
+        });
+    }
+
+    return outcome.receipt;
   }
 
   private async completeIngestionJob(

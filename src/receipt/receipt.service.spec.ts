@@ -1,5 +1,7 @@
 import { DataSource } from 'typeorm';
 import { ReceiptService } from './receipt.service';
+import { ReceiptCategorizationStatus } from './entities/receipt-item.entity';
+import { MessageQueueService } from '../message-queue/publisher/publisher.service';
 
 type ReceiptCreateInput = {
   items: Array<{ name: string }>;
@@ -16,6 +18,7 @@ describe('ReceiptService', () => {
     save: jest.Mock;
   };
   let updateIngestionJob: jest.Mock;
+  let messageQueueService: { publish: jest.Mock };
   let createdReceipt: ReceiptCreateInput | undefined;
 
   beforeEach(() => {
@@ -29,6 +32,7 @@ describe('ReceiptService', () => {
       save: jest.fn(),
     };
     updateIngestionJob = jest.fn().mockResolvedValue({ affected: 1 });
+    messageQueueService = { publish: jest.fn().mockResolvedValue({}) };
     const manager = {
       getRepository: jest.fn(() => receiptRepository),
       createQueryBuilder: jest.fn(() => ({
@@ -45,7 +49,10 @@ describe('ReceiptService', () => {
       ),
     } as unknown as DataSource;
 
-    service = new ReceiptService(dataSource);
+    service = new ReceiptService(
+      dataSource,
+      messageQueueService as unknown as MessageQueueService,
+    );
   });
 
   it('can save a receipt from parsed event data', async () => {
@@ -112,6 +119,65 @@ describe('ReceiptService', () => {
     if (!createdReceipt) throw new Error('Receipt was not created');
     expect(createdReceipt.items).toHaveLength(2);
     expect(createdReceipt.items[0].name).toBe('Latte');
+  });
+
+  it('marks parsed items as pending categorization without trusting OCR categories', async () => {
+    receiptRepository.save.mockResolvedValue({ id: 'receipt-123' });
+
+    await service.saveFromEvent({
+      jobId: 'job-123',
+      userId: 'user-456',
+      receipt: {
+        merchant: 'Market',
+        purchasedAt: '2026-05-05T10:30:00Z',
+        total: 12.5,
+        currency: 'USD',
+        lineItems: [
+          {
+            name: 'Milk',
+            totalPrice: 4.5,
+            category: 'groceries',
+          },
+        ],
+        confidence: 1,
+        discrepancy: null,
+      },
+    });
+
+    expect(createdReceipt?.items[0]).toMatchObject({
+      category: null,
+      subcategory: null,
+      categorizationStatus: ReceiptCategorizationStatus.PENDING,
+      categoryConfidence: null,
+      taxonomyVersion: null,
+      classificationMetadata: { extractedCategory: 'groceries' },
+    });
+  });
+
+  it('queues categorization after a receipt is persisted', async () => {
+    receiptRepository.save.mockResolvedValue({ id: 'receipt-123' });
+
+    await service.saveFromEvent({
+      jobId: 'job-123',
+      userId: 'user-456',
+      receipt: {
+        merchant: 'Market',
+        purchasedAt: '2026-05-05T10:30:00Z',
+        total: 12.5,
+        currency: 'USD',
+        lineItems: [],
+        confidence: 1,
+        discrepancy: null,
+      },
+    });
+
+    expect(messageQueueService.publish).toHaveBeenCalledWith(
+      'receipt.items.categorize',
+      { receiptId: 'receipt-123', userId: 'user-456' },
+      'job-123',
+      1,
+      1,
+    );
   });
 
   it('returns an existing matching receipt instead of failing the consumer', async () => {

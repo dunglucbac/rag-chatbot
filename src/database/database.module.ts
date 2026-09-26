@@ -5,6 +5,7 @@ import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { WebSearchLog } from '@modules/web-search/entities/web-search-log.entity';
 import { Receipt } from '@modules/receipt/entities/receipt.entity';
 import { ReceiptItem } from '@modules/receipt/entities/receipt-item.entity';
+import { ChatSession } from '@modules/chat/entities/chat-session.entity';
 
 @Module({
   imports: [
@@ -20,7 +21,13 @@ import { ReceiptItem } from '@modules/receipt/entities/receipt-item.entity';
           username: configService.get('db.user'),
           password: configService.get('db.pass'),
           database: configService.get('db.name'),
-          entities: [IngestionJob, WebSearchLog, Receipt, ReceiptItem],
+          entities: [
+            IngestionJob,
+            WebSearchLog,
+            Receipt,
+            ReceiptItem,
+            ChatSession,
+          ],
           synchronize: false,
           logging: false,
           ssl: sslEnabled ? { rejectUnauthorized: false } : false,

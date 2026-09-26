@@ -57,4 +57,8 @@ export const MESSAGE_QUEUE_BROKER_BINDINGS = [
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
     routingKey: 'receipt.needs_review',
   },
+  {
+    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
+    routingKey: 'receipt.items.categorize',
+  },
 ] as const;

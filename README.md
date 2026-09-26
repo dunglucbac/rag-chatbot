@@ -289,6 +289,8 @@ npm run test:cov
 ## Docs
 
 - [Architecture](docs/architecture.md) — module map, data flows, database schema, agent tools
+- [Database schema](docs/database-schema.md) — current PostgreSQL tables, constraints, and relationships
+- [RabbitMQ topology](docs/architecture.md#rabbitmq-topology) — exchanges, queues, bindings, and dead-letter routing
 - [API Reference](docs/api.md) — HTTP endpoints with request/response examples
 - [Google SSO](docs/google-sso.md) — Google OAuth setup, login flow, and protected API usage
 - [Deployment](docs/deployment.md) — Docker, production checklist, caveats

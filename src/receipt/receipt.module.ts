@@ -10,6 +10,9 @@ import { ReceiptParsedConsumer } from './receipt-parsed.consumer';
 import { TelegramModule } from '../telegram/telegram.module';
 import { MessageQueueModule } from '../message-queue/message-queue.module';
 import { IngestionModule } from '../ingestion/ingestion.module';
+import { LlmModule } from '../llm/llm.module';
+import { ReceiptCategorizationService } from './categorization/receipt-categorization.service';
+import { ReceiptCategorizationConsumer } from './receipt-categorization.consumer';
 
 @Module({
   imports: [
@@ -17,6 +20,7 @@ import { IngestionModule } from '../ingestion/ingestion.module';
     TelegramModule,
     MessageQueueModule,
     IngestionModule,
+    LlmModule,
   ],
   providers: [
     ReceiptRepository,
@@ -24,6 +28,8 @@ import { IngestionModule } from '../ingestion/ingestion.module';
     ReceiptPaymentConsumer,
     ReceiptParsedConsumer,
     ReceiptReviewConsumer,
+    ReceiptCategorizationService,
+    ReceiptCategorizationConsumer,
   ],
   exports: [ReceiptService],
 })

@@ -16,6 +16,7 @@ export default () => ({
   },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
+    model: process.env.LLM_MODEL,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     anthropicBaseUrl: process.env.ANTHROPIC_BASE_URL,
     openaiApiKey: process.env.OPENAI_API_KEY,
@@ -35,5 +36,8 @@ export default () => ({
     jwtSecret: process.env.AUTH_JWT_SECRET,
     jwtExpiresInSeconds: process.env.AUTH_JWT_EXPIRES_IN_SECONDS ?? '86400',
     successRedirectUrl: process.env.AUTH_SUCCESS_REDIRECT_URL,
+  },
+  receiptAnalytics: {
+    cursorHmacSecret: process.env.RECEIPT_CURSOR_HMAC_SECRET,
   },
 });

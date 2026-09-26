@@ -10,7 +10,7 @@ import { GlobalExceptionFilter } from '../common/exception.filter';
 
 describe('ChatController', () => {
   let app: INestApplication<App>;
-  let chatService: { sendMessage: jest.Mock };
+  let chatService: { sendMessage: jest.Mock; deleteSession: jest.Mock };
 
   function getErrorResponse(response: { body: unknown }) {
     if (
@@ -26,7 +26,7 @@ describe('ChatController', () => {
   }
 
   beforeEach(async () => {
-    chatService = { sendMessage: jest.fn() };
+    chatService = { sendMessage: jest.fn(), deleteSession: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ChatController],
@@ -144,6 +144,21 @@ describe('ChatController', () => {
         message: 'Hello',
         userId: 'google-user-42',
       });
+    });
+  });
+
+  describe('DELETE /api/v1/chat/sessions/:sessionId', () => {
+    it('deletes a session owned by the authenticated Google user', async () => {
+      chatService.deleteSession.mockResolvedValue(undefined);
+
+      await request(app.getHttpServer())
+        .delete('/api/v1/chat/sessions/session-abc')
+        .expect(204);
+
+      expect(chatService.deleteSession).toHaveBeenCalledWith(
+        'google-user-42',
+        'session-abc',
+      );
     });
   });
 });
