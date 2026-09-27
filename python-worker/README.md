@@ -61,7 +61,7 @@ Start the worker, then publish an event to the configured exchange (default
     "fileId": "test-file-001",
     "userId": "test-user-001",
     "originalFilename": "receipt.jpg",
-    "storageKey": "raw/test-file-001.jpg",
+    "storageKey": "raw/test-user-001/test-file-001.jpg",
     "mimeType": "image/jpeg",
     "fileType": "image",
     "classification": "unknown",

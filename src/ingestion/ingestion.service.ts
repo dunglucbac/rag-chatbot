@@ -63,7 +63,7 @@ export class IngestionService {
     const fileType = this.detectFileType(file.mimetype, file.originalname);
     const fileId = this.deriveFileId(file.path);
     const checksumSha256 = await this.computeChecksum(file.path);
-    const storageKey = this.deriveStorageKey(fileId, file.originalname);
+    const storageKey = this.deriveStorageKey(userId, fileId, file.originalname);
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
     let uploaded = false;
@@ -186,8 +186,14 @@ export class IngestionService {
     return path.basename(filePath, path.extname(filePath));
   }
 
-  private deriveStorageKey(fileId: string, filename: string): string {
-    return `raw/${fileId}${path.extname(filename).toLowerCase()}`;
+  private deriveStorageKey(
+    userId: string,
+    fileId: string,
+    filename: string,
+  ): string {
+    return `raw/${encodeURIComponent(userId)}/${fileId}${path
+      .extname(filename)
+      .toLowerCase()}`;
   }
 
   private async computeChecksum(filePath: string): Promise<string> {

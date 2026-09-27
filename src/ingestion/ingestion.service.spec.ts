@@ -55,7 +55,7 @@ describe('IngestionService', () => {
       expect.objectContaining({
         userId: 'user-123',
         originalFilename: 'statement.pdf',
-        storageKey: expect.stringMatching(/^raw\/.+\.pdf$/),
+        storageKey: expect.stringMatching(/^raw\/user-123\/.+\.pdf$/),
         mimeType: 'application/pdf',
         fileType: 'pdf',
         classification: 'unknown',
@@ -81,7 +81,7 @@ describe('IngestionService', () => {
       1,
     );
     expect(objectStorageService.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^raw\/.+\.pdf$/),
+      expect.stringMatching(/^raw\/user-123\/.+\.pdf$/),
       tmpFile,
       'application/pdf',
     );
@@ -137,7 +137,7 @@ describe('IngestionService', () => {
       expect.objectContaining({
         userId: 'user-456',
         originalFilename: 'receipt.png',
-        storageKey: expect.stringMatching(/^raw\/.+\.png$/),
+        storageKey: expect.stringMatching(/^raw\/user-456\/.+\.png$/),
         mimeType: 'image/png',
         fileType: 'image',
         classification: 'unknown',

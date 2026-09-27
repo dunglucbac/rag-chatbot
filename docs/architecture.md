@@ -163,7 +163,7 @@ memory per Telegram user but do not create a `chat_sessions` row.
 Authenticated upload
   → POST /ingest/file
   → Multer stages /tmp/<uuid>.<extension>
-  → IngestionService hashes and uploads the original as raw/<uuid>.<extension>
+  → IngestionService hashes and uploads the original as raw/<userId>/<uuid>.<extension>
   → creates or reuses ingestion_jobs with the object storage key
   → MessageQueueService publishes a persistent event to ingest.topic
       ├── doc.pdf.parse.requested → external PDF worker queue

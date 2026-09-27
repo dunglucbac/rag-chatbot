@@ -7,6 +7,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Protocol
 
+import boto3
+from botocore.config import Config
+
 
 class ObjectStorage(Protocol):
     @contextmanager
@@ -32,14 +35,6 @@ class S3ObjectStorage:
         secret_key: str,
         force_path_style: bool = False,
     ) -> None:
-        try:
-            import boto3
-            from botocore.config import Config
-        except ImportError as error:
-            raise RuntimeError(
-                "boto3 is required for S3-compatible object storage; run poetry install"
-            ) from error
-
         self._bucket = bucket
         self._client = boto3.client(
             "s3",
