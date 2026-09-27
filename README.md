@@ -18,9 +18,9 @@ Agent (LangGraph ReAct)
 Ingestion Pipeline:
   NestJS                                    Python Worker
   ──────────────────────────────────        ──────────────────────────────
-  POST /ingest/file
-    → stage upload in /tmp, persist original to S3-compatible object storage
-    → create ingestion_jobs row
+  POST /ingest
+    → accept a client-provided S3-compatible storage key
+    → validate the stored object and create ingestion_jobs row
     → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
                                                → extract text (PDF/OCR)
                                                → classify (receipt/payment/doc)
@@ -213,19 +213,24 @@ npm run migration:revert
 
 ## API
 
-### Upload a file
+### Queue an uploaded object
 
 ```
-POST /ingest/file
-Content-Type: multipart/form-data
+POST /ingest
+Content-Type: application/json
 Authorization: Bearer <access-token>
-
-file: <pdf or image file>
 ```
 
 ```json
-{ "id": "job-id", "status": "pending" }
+{
+  "storageKey": "raw/<user-id>/<file-id>.pdf",
+  "originalFilename": "statement.pdf",
+  "mimeType": "application/pdf"
+}
 ```
+
+Create an upload target first with `POST /storage/upload-targets`, upload the
+file bytes directly to its signed URL, then submit the returned `storageKey`.
 
 ### Get ingestion job status
 

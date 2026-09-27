@@ -2,220 +2,112 @@ import { BadRequestException } from '@nestjs/common';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { MessageQueueService } from '@modules/message-queue';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { ObjectStorageService } from '../storage/object-storage.service';
 
 describe('IngestionService', () => {
-  it('creates a pending PDF ingestion job and publishes a requested-work event', async () => {
-    const tmpFile = path.join(os.tmpdir(), `ingestion-${Date.now()}.pdf`);
-    fs.writeFileSync(tmpFile, 'pdf-content');
-    type CreateInput = Parameters<IngestionJobRepository['create']>[0];
-    type CreateResult = { id: string } & CreateInput;
-    const createImpl = (data: CreateInput): CreateResult => ({
-      id: 'job-123',
-      ...data,
-    });
-    const createOrGetByChecksum = jest
-      .fn()
-      .mockImplementation((data: CreateInput) => ({
-        job: createImpl(data),
-        created: true,
-      }));
-    const publish = jest.fn().mockResolvedValue({
-      eventId: 'evt-123',
-      eventType: 'doc.pdf.parse.requested',
-    });
+  const input = {
+    storageKey: 'raw/user-123/file-123.pdf',
+    originalFilename: 'statement.pdf',
+    mimeType: 'application/pdf',
+    checksumSha256: 'a'.repeat(64),
+  };
 
-    const jobRepository = {
-      createOrGetByChecksum,
-    } as unknown as IngestionJobRepository;
-    const messageQueueService = { publish } as unknown as MessageQueueService;
-    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
+  it('creates a job from an existing object and publishes requested work', async () => {
+    const createOrGetByChecksum = jest.fn().mockResolvedValue({
+      job: { id: 'job-123' },
+      created: true,
+    });
+    const publish = jest.fn().mockResolvedValue({ eventId: 'event-123' });
+    const getObjectMetadata = jest.fn().mockResolvedValue({
+      contentType: 'application/pdf',
+      size: 1234,
+    });
     const service = new IngestionService(
-      jobRepository,
-      messageQueueService,
-      objectStorageService as never,
+      { createOrGetByChecksum } as unknown as IngestionJobRepository,
+      { publish } as unknown as MessageQueueService,
+      { getObjectMetadata } as unknown as ObjectStorageService,
     );
 
-    const file = {
-      originalname: 'statement.pdf',
-      mimetype: 'application/pdf',
-      path: tmpFile,
-      size: 1234,
-    } as unknown as Express.Multer.File;
-
-    const result = await service.createJobFromUpload(
-      file,
+    const result = await service.createJobFromObject(
+      input,
       'user-123',
       'corr-123',
     );
 
     expect(createOrGetByChecksum).toHaveBeenCalledWith(
       expect.objectContaining({
+        fileId: 'file-123',
         userId: 'user-123',
-        originalFilename: 'statement.pdf',
-        storageKey: expect.stringMatching(/^raw\/user-123\/.+\.pdf$/),
-        mimeType: 'application/pdf',
-        fileType: 'pdf',
-        classification: 'unknown',
-        status: 'pending',
-        correlationId: 'corr-123',
+        storageKey: input.storageKey,
+        checksumSha256: input.checksumSha256,
       }),
     );
     expect(publish).toHaveBeenCalledWith(
       'doc.pdf.parse.requested',
       expect.objectContaining({
-        classification: 'unknown',
-        correlationId: 'corr-123',
-        fileExtension: '.pdf',
-        fileSize: 1234,
-        fileType: 'pdf',
         jobId: 'job-123',
-        mimeType: 'application/pdf',
-        originalFilename: 'statement.pdf',
-        userId: 'user-123',
+        storageKey: input.storageKey,
+        fileSize: 1234,
       }),
       'corr-123',
       1,
       1,
     );
-    expect(objectStorageService.upload).toHaveBeenCalledWith(
-      expect.stringMatching(/^raw\/user-123\/.+\.pdf$/),
-      tmpFile,
-      'application/pdf',
-    );
-    expect(fs.existsSync(tmpFile)).toBe(false);
-    expect(result.job.id).toBe('job-123');
+    expect(result.deduplicated).toBe(false);
   });
 
-  it('creates a pending image ingestion job and publishes an image classification request', async () => {
-    const tmpFile = path.join(os.tmpdir(), `ingestion-${Date.now()}.png`);
-    fs.writeFileSync(tmpFile, 'image-content');
-    type CreateInput = Parameters<IngestionJobRepository['create']>[0];
-    type CreateResult = { id: string } & CreateInput;
-    const createImpl = (data: CreateInput): CreateResult => ({
-      id: 'job-456',
-      ...data,
-    });
-    const createOrGetByChecksum = jest
-      .fn()
-      .mockImplementation((data: CreateInput) => ({
-        job: createImpl(data),
-        created: true,
-      }));
-    const publish = jest.fn().mockResolvedValue({
-      eventId: 'evt-456',
-      eventType: 'image.classify.requested',
-    });
-
-    const jobRepository = {
-      createOrGetByChecksum,
-    } as unknown as IngestionJobRepository;
-    const messageQueueService = { publish } as unknown as MessageQueueService;
-    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
-    const service = new IngestionService(
-      jobRepository,
-      messageQueueService,
-      objectStorageService as never,
-    );
-
-    const file = {
-      originalname: 'receipt.png',
-      mimetype: 'image/png',
-      path: tmpFile,
-      size: 456,
-    } as unknown as Express.Multer.File;
-
-    const result = await service.createJobFromUpload(
-      file,
-      'user-456',
-      'corr-456',
-    );
-
-    expect(createOrGetByChecksum).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-456',
-        originalFilename: 'receipt.png',
-        storageKey: expect.stringMatching(/^raw\/user-456\/.+\.png$/),
-        mimeType: 'image/png',
-        fileType: 'image',
-        classification: 'unknown',
-        status: 'pending',
-        correlationId: 'corr-456',
-      }),
-    );
-    expect(publish).toHaveBeenCalledWith(
-      'image.classify.requested',
-      expect.objectContaining({
-        jobId: 'job-456',
-        userId: 'user-456',
-        fileType: 'image',
-        classification: 'unknown',
-        correlationId: 'corr-456',
-      }),
-      'corr-456',
-      1,
-      1,
-    );
-    expect(result.job.id).toBe('job-456');
-  });
-
-  it('reuses an existing job and does not publish duplicate work', async () => {
-    const tmpFile = path.join(os.tmpdir(), `ingestion-${Date.now()}.pdf`);
-    fs.writeFileSync(tmpFile, 'duplicate-content');
-    const existingJob = { id: 'job-existing' };
+  it('does not publish a duplicate object ingestion job', async () => {
     const createOrGetByChecksum = jest.fn().mockResolvedValue({
-      job: existingJob,
+      job: { id: 'job-existing' },
       created: false,
     });
     const publish = jest.fn();
-    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
     const service = new IngestionService(
       { createOrGetByChecksum } as unknown as IngestionJobRepository,
       { publish } as unknown as MessageQueueService,
-      objectStorageService as never,
-    );
-
-    const result = await service.createJobFromUpload(
       {
-        originalname: 'duplicate.pdf',
-        mimetype: 'application/pdf',
-        path: tmpFile,
-        size: 17,
-      } as unknown as Express.Multer.File,
-      'user-123',
+        getObjectMetadata: jest.fn().mockResolvedValue({
+          contentType: 'application/pdf',
+          size: 1234,
+        }),
+      } as unknown as ObjectStorageService,
     );
 
-    expect(result).toEqual({ job: existingJob, deduplicated: true });
+    const result = await service.createJobFromObject(input, 'user-123');
+
+    expect(result).toEqual({ job: { id: 'job-existing' }, deduplicated: true });
     expect(publish).not.toHaveBeenCalled();
-    expect(objectStorageService.delete).toHaveBeenCalledTimes(1);
-    expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
-  it('rejects unsupported file uploads', async () => {
-    const jobRepository = {
-      create: jest.fn(),
-    } as unknown as IngestionJobRepository;
-    const messageQueueService = {
-      publish: jest.fn(),
-    } as unknown as MessageQueueService;
+  it('rejects an object key outside the authenticated user prefix', async () => {
+    const getObjectMetadata = jest.fn();
     const service = new IngestionService(
-      jobRepository,
-      messageQueueService,
-      { upload: jest.fn(), delete: jest.fn() } as never,
+      {} as IngestionJobRepository,
+      {} as MessageQueueService,
+      { getObjectMetadata } as unknown as ObjectStorageService,
     );
 
-    const file = {
-      correlationId: 'corr-123',
-      originalname: 'notes.txt',
-      mimetype: 'text/plain',
-      path: '/tmp/notes.txt',
-      size: 10,
-    } as unknown as Express.Multer.File;
+    await expect(
+      service.createJobFromObject(input, 'another-user'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(getObjectMetadata).not.toHaveBeenCalled();
+  });
+
+  it('rejects object content whose type differs from the request', async () => {
+    const service = new IngestionService(
+      {} as IngestionJobRepository,
+      {} as MessageQueueService,
+      {
+        getObjectMetadata: jest.fn().mockResolvedValue({
+          contentType: 'image/png',
+        }),
+      } as unknown as ObjectStorageService,
+    );
 
     await expect(
-      service.createJobFromUpload(file, 'user-123'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+      service.createJobFromObject(input, 'user-123'),
+    ).rejects.toThrow(
+      'Object content type does not match the ingestion request',
+    );
   });
 });

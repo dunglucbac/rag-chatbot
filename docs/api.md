@@ -24,39 +24,46 @@ Authorization: Bearer <access-token>
 
 ## Ingestion
 
-### Upload file
+### Create upload target
 
-Queues an uploaded document for ingestion. The API persists the original in
-private S3-compatible object storage and creates a background job to process it.
+Creates a short-lived, direct upload URL. Uploading an object does not queue it
+for ingestion.
 
 ```
-POST /ingest/file
-Content-Type: multipart/form-data
+POST /storage/upload-targets
+Content-Type: application/json
 Authorization: Bearer <access-token>
 ```
 
-**Form fields**
+```json
+{ "originalFilename": "statement.pdf", "mimeType": "application/pdf" }
+```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| file | file | yes | Uploaded file |
+The response contains a `storageKey` and a 15-minute `uploadUrl`. The client
+uploads its bytes with an HTTP `PUT` to that URL and the same `Content-Type`.
 
-**Response 201**
+### Queue object for ingestion
+
+Queues a previously uploaded object. The key must belong to the authenticated
+user (`raw/{userId}/…`), and the API checks that the object exists before
+publishing worker work.
+
+```
+POST /ingest
+Content-Type: application/json
+Authorization: Bearer <access-token>
+```
 
 ```json
 {
-  "message": "File queued for ingestion",
-  "job": {
-    "id": "uuid",
-    "status": "pending"
-  }
+  "storageKey": "raw/user-123/file-123.pdf",
+  "originalFilename": "statement.pdf",
+  "mimeType": "application/pdf",
+  "checksumSha256": "optional 64-character SHA-256 hex"
 }
 ```
 
-**Notes**
-- The API uses a temporary local file only while uploading; the durable source
-  is stored under an opaque `storageKey` in object storage
-- Use `GET /ingest/jobs/:id` to inspect ingestion status
+Use `GET /ingest/jobs/:id` to inspect ingestion status.
 
 ---
 

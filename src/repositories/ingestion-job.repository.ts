@@ -34,9 +34,12 @@ export class IngestionJobRepository extends BaseRepository<IngestionJob> {
   async createOrGetByChecksum(
     data: DeepPartial<IngestionJob> & {
       userId: string;
-      checksumSha256: string;
+      checksumSha256?: string | null;
     },
   ): Promise<{ job: IngestionJob; created: boolean }> {
+    if (!data.checksumSha256) {
+      return { job: await this.create(data), created: true };
+    }
     const existing = await this.repository.findOneBy({
       userId: data.userId,
       checksumSha256: data.checksumSha256,

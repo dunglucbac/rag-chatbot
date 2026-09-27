@@ -222,9 +222,9 @@ Content-Type: application/json
 ```
 
 ```http
-POST /ingest/file
+POST /storage/upload-targets
 Authorization: Bearer <access-token>
-Content-Type: multipart/form-data
+Content-Type: application/json
 ```
 
 The API uses the stable Google `sub` claim as its internal user ID. It does not

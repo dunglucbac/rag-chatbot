@@ -97,6 +97,8 @@ Before deploying, confirm:
   write that bucket (for DigitalOcean Spaces, use its Spaces access keys)
 - [ ] Set `OBJECT_STORAGE_FORCE_PATH_STYLE=true` only for providers such as
   MinIO that require path-style S3 addressing
+- [ ] Configure bucket CORS to allow your client origin to `PUT` directly to
+  the signed upload URL with the `Content-Type` header
 - [ ] `DB_*` variables match your production database credentials
 - [ ] PostgreSQL has the pgvector extension enabled (`init.sql` handles this on first run)
 

@@ -122,9 +122,7 @@ class IngestionJobProcessor:
 
             self._checkpoint()
             classification_result = self._classifier.classify(text)
-            classification = ClassificationType(
-                classification_result["classification"]
-            )
+            classification = ClassificationType(classification_result["classification"])
             logger.info("Classified as %s [jobId=%s]", classification, job.job_id)
 
             if classification == ClassificationType.RECEIPT and self._parser:
@@ -255,9 +253,7 @@ class IngestionJobProcessor:
             return receipt
 
         try:
-            parsed = datetime.fromisoformat(
-                purchased_at.strip().replace("Z", "+00:00")
-            )
+            parsed = datetime.fromisoformat(purchased_at.strip().replace("Z", "+00:00"))
         except ValueError:
             return receipt
 
@@ -275,10 +271,7 @@ class IngestionJobProcessor:
     def _prepared_input(self, job: IngestionJob) -> Iterator[str]:
         with self._object_storage.download(job.storage_key) as downloaded_path:
             source = Path(downloaded_path)
-            if (
-                job.file_type != "image"
-                or source.suffix.lower() not in HEIC_EXTENSIONS
-            ):
+            if job.file_type != "image" or source.suffix.lower() not in HEIC_EXTENSIONS:
                 yield downloaded_path
                 return
 

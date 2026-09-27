@@ -19,11 +19,13 @@ describe('LlmService', () => {
   });
 
   it('uses LLM_MODEL for OpenAI', () => {
-    const service = new LlmService(config({
-      'llm.provider': 'openai',
-      'llm.model': 'gpt-5-mini',
-      'llm.openaiApiKey': 'openai-key',
-    }));
+    const service = new LlmService(
+      config({
+        'llm.provider': 'openai',
+        'llm.model': 'gpt-5-mini',
+        'llm.openaiApiKey': 'openai-key',
+      }),
+    );
 
     service.getModel();
 
@@ -34,12 +36,14 @@ describe('LlmService', () => {
   });
 
   it('uses LLM_MODEL for Anthropic', () => {
-    const service = new LlmService(config({
-      'llm.provider': 'anthropic',
-      'llm.model': 'claude-sonnet-5',
-      'llm.anthropicApiKey': 'anthropic-key',
-      'llm.anthropicBaseUrl': 'https://example.test',
-    }));
+    const service = new LlmService(
+      config({
+        'llm.provider': 'anthropic',
+        'llm.model': 'claude-sonnet-5',
+        'llm.anthropicApiKey': 'anthropic-key',
+        'llm.anthropicBaseUrl': 'https://example.test',
+      }),
+    );
 
     service.getModel();
 
@@ -51,10 +55,12 @@ describe('LlmService', () => {
   });
 
   it('keeps the provider defaults when LLM_MODEL is unset', () => {
-    const service = new LlmService(config({
-      'llm.provider': 'openai',
-      'llm.openaiApiKey': 'openai-key',
-    }));
+    const service = new LlmService(
+      config({
+        'llm.provider': 'openai',
+        'llm.openaiApiKey': 'openai-key',
+      }),
+    );
 
     service.getModel();
 

@@ -43,9 +43,7 @@ class S3ObjectStorage:
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             config=(
-                Config(s3={"addressing_style": "path"})
-                if force_path_style
-                else None
+                Config(s3={"addressing_style": "path"}) if force_path_style else None
             ),
         )
 

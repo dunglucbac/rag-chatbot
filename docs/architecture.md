@@ -80,8 +80,10 @@ The protected application endpoints are:
 - `POST /chat/sessions/:sessionId/messages` continues an owned session.
 - `DELETE /chat/sessions/:sessionId` deletes an owned session and its LangGraph
   checkpoint history.
-- `POST /ingest/file` accepts a PDF or supported image in the `file` multipart
-  field.
+- `POST /storage/upload-targets` creates a signed direct-upload URL for an
+  object owned by the authenticated user.
+- `POST /ingest` accepts a previously uploaded `storageKey` plus file metadata
+  and queues supported PDFs or images for processing.
 - `GET /ingest/jobs/:id` returns an ingestion job only to its owner.
 
 ## Chat and financial-agent flow
@@ -161,10 +163,10 @@ memory per Telegram user but do not create a `chat_sessions` row.
 
 ```text
 Authenticated upload
-  → POST /ingest/file
-  → Multer stages /tmp/<uuid>.<extension>
-  → IngestionService hashes and uploads the original as raw/<userId>/<uuid>.<extension>
-  → creates or reuses ingestion_jobs with the object storage key
+  → POST /storage/upload-targets returns a signed upload URL and a raw/<userId>/<uuid> key
+  → client uploads directly to object storage
+  → POST /ingest submits the storage key for validation and processing
+  → IngestionService creates or reuses ingestion_jobs with that object key
   → MessageQueueService publishes a persistent event to ingest.topic
       ├── doc.pdf.parse.requested → external PDF worker queue
       └── image.classify.requested → external image worker queue
