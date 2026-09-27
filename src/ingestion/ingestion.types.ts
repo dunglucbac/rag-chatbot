@@ -32,7 +32,7 @@ export type IngestionEventType = (typeof INGESTION_EVENT_TYPES)[number];
 
 export type IngestionJobUpdate = {
   originalFilename?: string;
-  storagePath?: string;
+  storageKey?: string;
   mimeType?: string;
   fileType?: IngestionFileType;
   classification?: IngestionClassification;
@@ -51,7 +51,7 @@ export type IngestionDispatchPayload = {
   fileId: string;
   userId: string;
   originalFilename: string;
-  storagePath: string;
+  storageKey: string;
   mimeType: string;
   fileType: IngestionFileType;
   classification: IngestionClassification;

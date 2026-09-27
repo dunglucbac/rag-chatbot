@@ -26,7 +26,8 @@ Authorization: Bearer <access-token>
 
 ### Upload file
 
-Queues an uploaded document for ingestion. The file is stored on disk and a background job is created to process it.
+Queues an uploaded document for ingestion. The API persists the original in
+private S3-compatible object storage and creates a background job to process it.
 
 ```
 POST /ingest/file
@@ -53,7 +54,8 @@ Authorization: Bearer <access-token>
 ```
 
 **Notes**
-- The file is written to `storage/uploads` under the project root
+- The API uses a temporary local file only while uploading; the durable source
+  is stored under an opaque `storageKey` in object storage
 - Use `GET /ingest/jobs/:id` to inspect ingestion status
 
 ---

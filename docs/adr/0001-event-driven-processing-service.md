@@ -59,7 +59,9 @@ We will build a separate **Python Worker** that:
 
 ### Neutral
 
-- **Shared filesystem required (initially):** Python Worker reads files from `storage/uploads/` via volume mount. Migration to S3 planned for production.
+- **Object storage required:** The API writes originals to S3-compatible object
+  storage and the worker downloads the `storageKey` to ephemeral local storage.
+  This removes the shared-filesystem requirement and permits independent scaling.
 
 ## Alternatives Considered
 
@@ -71,4 +73,3 @@ We will build a separate **Python Worker** that:
 
 ### Alternative 3: Use AWS Textract instead of Tesseract
 **Deferred:** Start with free Tesseract. If accuracy becomes a problem, swap to Textract using strategy pattern. LLM structured parsing will catch most OCR errors anyway.
-

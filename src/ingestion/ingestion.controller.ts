@@ -9,8 +9,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { diskStorage } from 'multer';
 import { randomUUID } from 'crypto';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
@@ -19,8 +19,6 @@ import { ApiResponse } from '@modules/ingestion/dto/api-response.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { GoogleAuthGuard } from '../auth/google-auth.guard';
 import type { AuthenticatedUser } from '../auth/auth.types';
-
-const uploadDir = path.join(process.cwd(), 'storage', 'uploads');
 
 @Controller('ingest')
 @UseGuards(GoogleAuthGuard)
@@ -31,10 +29,7 @@ export class IngestionController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          fs.mkdirSync(uploadDir, { recursive: true });
-          cb(null, uploadDir);
-        },
+        destination: (_req, _file, cb) => cb(null, os.tmpdir()),
         filename: (_req, file, cb) =>
           cb(
             null,

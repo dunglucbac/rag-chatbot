@@ -20,7 +20,7 @@ class IngestionDispatchPayload(TypedDict):
     fileId: str
     userId: str
     originalFilename: str
-    storagePath: str
+    storageKey: str
     mimeType: str
     fileType: IngestionFileType
     classification: IngestionClassification

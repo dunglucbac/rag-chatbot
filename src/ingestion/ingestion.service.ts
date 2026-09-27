@@ -16,6 +16,7 @@ import {
 } from '@modules/ingestion/ingestion.types';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { EventEnvelope } from '@modules/common/common.types';
+import { ObjectStorageService } from '../storage/object-storage.service';
 
 @Injectable()
 export class IngestionService {
@@ -45,6 +46,7 @@ export class IngestionService {
   constructor(
     private readonly jobRepository: IngestionJobRepository,
     private readonly messageQueueService: MessageQueueService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {}
 
   async createJobFromUpload(
@@ -61,56 +63,75 @@ export class IngestionService {
     const fileType = this.detectFileType(file.mimetype, file.originalname);
     const fileId = this.deriveFileId(file.path);
     const checksumSha256 = await this.computeChecksum(file.path);
+    const storageKey = this.deriveStorageKey(fileId, file.originalname);
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
+    let uploaded = false;
+    let jobCreated = false;
 
-    const { job, created } = await this.jobRepository.createOrGetByChecksum({
-      fileId,
-      userId,
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
-      fileType,
-      classification,
-      status: IngestionJobStatus.PENDING,
-      checksumSha256,
-      correlationId: normalizedCorrelationId,
-      metadata: {
-        size: file.size,
-        mimetype: file.mimetype,
-        originalExtension: path.extname(file.originalname).toLowerCase(),
+    try {
+      await this.objectStorageService.upload(
+        storageKey,
+        file.path,
+        file.mimetype,
+      );
+      uploaded = true;
+
+      const { job, created } = await this.jobRepository.createOrGetByChecksum({
+        fileId,
+        userId,
+        originalFilename: file.originalname,
+        storageKey,
+        mimeType: file.mimetype,
+        fileType,
+        classification,
+        status: IngestionJobStatus.PENDING,
+        checksumSha256,
+        correlationId: normalizedCorrelationId,
+        metadata: {
+          size: file.size,
+          mimetype: file.mimetype,
+          originalExtension: path.extname(file.originalname).toLowerCase(),
+          sourceContext: sourceContext ?? null,
+        },
+      });
+      if (!created) {
+        await this.removeObject(storageKey);
+        return { job, deduplicated: true };
+      }
+      jobCreated = true;
+
+      const payload = {
+        jobId: job.id,
+        fileId,
+        userId,
+        originalFilename: file.originalname,
+        storageKey,
+        mimeType: file.mimetype,
+        fileType,
+        classification,
+        fileExtension: path.extname(file.originalname).toLowerCase(),
+        fileSize: file.size,
+        checksumSha256,
         sourceContext: sourceContext ?? null,
-      },
-    });
-    if (!created) {
-      await this.removeDuplicateUpload(file.path);
-      return { job, deduplicated: true };
+        correlationId: normalizedCorrelationId,
+      };
+      const dispatched = await this.messageQueueService.publish(
+        eventType,
+        payload,
+        normalizedCorrelationId,
+        1,
+        1,
+      );
+      return { job, event: dispatched, deduplicated: false };
+    } catch (error) {
+      if (uploaded && !jobCreated) {
+        await this.removeObject(storageKey);
+      }
+      throw error;
+    } finally {
+      await this.removeTemporaryUpload(file.path);
     }
-
-    const payload = {
-      jobId: job.id,
-      fileId,
-      userId,
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
-      fileType,
-      classification,
-      fileExtension: path.extname(file.originalname).toLowerCase(),
-      fileSize: file.size,
-      checksumSha256,
-      sourceContext: sourceContext ?? null,
-      correlationId: normalizedCorrelationId,
-    };
-    // for now we can fire and forget the event, we will add a retry mechanism later
-    const dispatched = await this.messageQueueService.publish(
-      eventType,
-      payload,
-      normalizedCorrelationId,
-      1, // schema version now it is being hardcoded but later can be use to version the event
-      1, // number attempt we first start with 1
-    );
-    return { job, event: dispatched, deduplicated: false };
   }
 
   async getJob(id: string, userId: string): Promise<IngestionJob> {
@@ -165,17 +186,33 @@ export class IngestionService {
     return path.basename(filePath, path.extname(filePath));
   }
 
+  private deriveStorageKey(fileId: string, filename: string): string {
+    return `raw/${fileId}${path.extname(filename).toLowerCase()}`;
+  }
+
   private async computeChecksum(filePath: string): Promise<string> {
     const content = await fs.readFile(filePath);
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
-  private async removeDuplicateUpload(filePath: string): Promise<void> {
+  private async removeTemporaryUpload(filePath: string): Promise<void> {
     try {
       await fs.unlink(filePath);
     } catch (error: unknown) {
       this.logger.warn(
-        `Could not remove duplicate upload at ${filePath}: ${
+        `Could not remove temporary upload at ${filePath}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private async removeObject(storageKey: string): Promise<void> {
+    try {
+      await this.objectStorageService.delete(storageKey);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `Could not remove object ${storageKey}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

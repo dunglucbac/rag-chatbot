@@ -55,7 +55,8 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 - **Separate Python worker** for file processing, deployed as containerized workers consuming from RabbitMQ
 - **Event-driven communication** between NestJS and Python Worker via RabbitMQ events
 - **Strategy pattern** for extraction (PDFExtractor, OCRExtractor) and classification routing
-- **Shared filesystem** for file access initially (volume mount), with planned migration to S3 for production
+- **S3-compatible object storage** for raw-file access; workers download each
+  queued `storageKey` into ephemeral local storage for processing
 
 ### Python Worker Modules
 

@@ -10,7 +10,7 @@ export class IngestionJobDto {
   declare fileId: string;
   declare userId: string;
   declare originalFilename: string;
-  declare storagePath: string;
+  declare storageKey: string;
   declare mimeType: string;
   declare fileType: IngestionFileType;
   declare classification: IngestionClassification;
@@ -30,7 +30,7 @@ export class IngestionJobDto {
     dto.fileId = entity.fileId;
     dto.userId = entity.userId;
     dto.originalFilename = entity.originalFilename;
-    dto.storagePath = entity.storagePath;
+    dto.storageKey = entity.storageKey;
     dto.mimeType = entity.mimeType;
     dto.fileType = entity.fileType;
     dto.classification = entity.classification;

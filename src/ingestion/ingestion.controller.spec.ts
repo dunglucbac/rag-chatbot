@@ -18,7 +18,7 @@ describe('IngestionController', () => {
       updatedAt: new Date('2026-04-30T00:00:00.000Z'),
       completedAt: null,
       metadata: null,
-      storagePath: '/tmp/statement.pdf',
+      storageKey: 'raw/statement.pdf',
       fileType: 'pdf',
       classification: 'unknown',
       checksumSha256: 'abc123',

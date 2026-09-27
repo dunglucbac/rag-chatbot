@@ -162,8 +162,9 @@ memory per Telegram user but do not create a `chat_sessions` row.
 ```text
 Authenticated upload
   → POST /ingest/file
-  → Multer writes storage/uploads/<uuid>.<extension>
-  → IngestionService hashes the file and creates or reuses ingestion_jobs
+  → Multer stages /tmp/<uuid>.<extension>
+  → IngestionService hashes and uploads the original as raw/<uuid>.<extension>
+  → creates or reuses ingestion_jobs with the object storage key
   → MessageQueueService publishes a persistent event to ingest.topic
       ├── doc.pdf.parse.requested → external PDF worker queue
       └── image.classify.requested → external image worker queue
@@ -176,8 +177,9 @@ External worker result
 ```
 
 Upload deduplication is per user and file checksum. When a duplicate is found,
-the newly written upload is removed and the existing job is returned; no new
-worker event is published.
+the newly uploaded object is removed and the existing job is returned; no new
+worker event is published. Queue messages carry `storageKey`, not a filesystem
+path, so API and worker containers can scale independently.
 
 The following incoming events have registered application handlers:
 

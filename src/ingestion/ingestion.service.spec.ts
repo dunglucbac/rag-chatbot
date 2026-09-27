@@ -31,7 +31,12 @@ describe('IngestionService', () => {
       createOrGetByChecksum,
     } as unknown as IngestionJobRepository;
     const messageQueueService = { publish } as unknown as MessageQueueService;
-    const service = new IngestionService(jobRepository, messageQueueService);
+    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
+    const service = new IngestionService(
+      jobRepository,
+      messageQueueService,
+      objectStorageService as never,
+    );
 
     const file = {
       originalname: 'statement.pdf',
@@ -50,7 +55,7 @@ describe('IngestionService', () => {
       expect.objectContaining({
         userId: 'user-123',
         originalFilename: 'statement.pdf',
-        storagePath: tmpFile,
+        storageKey: expect.stringMatching(/^raw\/.+\.pdf$/),
         mimeType: 'application/pdf',
         fileType: 'pdf',
         classification: 'unknown',
@@ -75,6 +80,12 @@ describe('IngestionService', () => {
       1,
       1,
     );
+    expect(objectStorageService.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^raw\/.+\.pdf$/),
+      tmpFile,
+      'application/pdf',
+    );
+    expect(fs.existsSync(tmpFile)).toBe(false);
     expect(result.job.id).toBe('job-123');
   });
 
@@ -102,7 +113,12 @@ describe('IngestionService', () => {
       createOrGetByChecksum,
     } as unknown as IngestionJobRepository;
     const messageQueueService = { publish } as unknown as MessageQueueService;
-    const service = new IngestionService(jobRepository, messageQueueService);
+    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
+    const service = new IngestionService(
+      jobRepository,
+      messageQueueService,
+      objectStorageService as never,
+    );
 
     const file = {
       originalname: 'receipt.png',
@@ -121,7 +137,7 @@ describe('IngestionService', () => {
       expect.objectContaining({
         userId: 'user-456',
         originalFilename: 'receipt.png',
-        storagePath: tmpFile,
+        storageKey: expect.stringMatching(/^raw\/.+\.png$/),
         mimeType: 'image/png',
         fileType: 'image',
         classification: 'unknown',
@@ -154,9 +170,11 @@ describe('IngestionService', () => {
       created: false,
     });
     const publish = jest.fn();
+    const objectStorageService = { upload: jest.fn(), delete: jest.fn() };
     const service = new IngestionService(
       { createOrGetByChecksum } as unknown as IngestionJobRepository,
       { publish } as unknown as MessageQueueService,
+      objectStorageService as never,
     );
 
     const result = await service.createJobFromUpload(
@@ -171,6 +189,7 @@ describe('IngestionService', () => {
 
     expect(result).toEqual({ job: existingJob, deduplicated: true });
     expect(publish).not.toHaveBeenCalled();
+    expect(objectStorageService.delete).toHaveBeenCalledTimes(1);
     expect(fs.existsSync(tmpFile)).toBe(false);
   });
 
@@ -181,7 +200,11 @@ describe('IngestionService', () => {
     const messageQueueService = {
       publish: jest.fn(),
     } as unknown as MessageQueueService;
-    const service = new IngestionService(jobRepository, messageQueueService);
+    const service = new IngestionService(
+      jobRepository,
+      messageQueueService,
+      { upload: jest.fn(), delete: jest.fn() } as never,
+    );
 
     const file = {
       correlationId: 'corr-123',

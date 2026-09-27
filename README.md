@@ -19,7 +19,7 @@ Ingestion Pipeline:
   NestJS                                    Python Worker
   ──────────────────────────────────        ──────────────────────────────
   POST /ingest/file
-    → save upload to disk
+    → stage upload in /tmp, persist original to S3-compatible object storage
     → create ingestion_jobs row
     → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
                                                → extract text (PDF/OCR)

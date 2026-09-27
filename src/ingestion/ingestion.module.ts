@@ -8,6 +8,7 @@ import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
 import { MessageQueueModule } from '@modules/message-queue/message-queue.module';
 import { AuthModule } from '../auth/auth.module';
+import { ObjectStorageService } from '../storage/object-storage.service';
 
 @Module({
   imports: [
@@ -17,7 +18,12 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [IngestionController],
-  providers: [IngestionService, IngestionJobRepository, IngestionEventConsumer],
+  providers: [
+    IngestionService,
+    IngestionJobRepository,
+    IngestionEventConsumer,
+    ObjectStorageService,
+  ],
   exports: [IngestionJobRepository],
 })
 export class IngestionModule {}

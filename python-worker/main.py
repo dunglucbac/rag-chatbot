@@ -16,6 +16,7 @@ from src.services.classification_service import ClassificationService
 from src.services.receipt_parser import ReceiptParser
 from src.consumer.event_consumer import EventConsumer
 from src.publisher.event_publisher import EventPublisher
+from src.storage.object_storage import S3ObjectStorage
 
 # override=True so .env values take precedence over existing system env vars
 load_dotenv(override=True)
@@ -156,11 +157,13 @@ class Worker:
         llm_client = self._build_llm_client()
         classifier = ClassificationService(llm_client) if llm_client else None
         parser = ReceiptParser(llm_client) if llm_client else None
+        object_storage = S3ObjectStorage.from_environment()
         return IngestionJobProcessor(
             extractor,
             classifier,
             parser,
             checkpoint=self._keepalive,
+            object_storage=object_storage,
             vision_fallback_confidence_threshold=(
                 self.vision_fallback_confidence_threshold
             ),

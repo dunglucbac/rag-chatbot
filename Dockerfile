@@ -13,7 +13,7 @@ RUN npm run build
 FROM base AS runner
 ENV NODE_ENV=production
 COPY package*.json ./
-RUN npm ci --omit=dev && mkdir -p /app/storage/uploads
+RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
