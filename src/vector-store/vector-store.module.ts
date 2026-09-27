@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { VectorStoreService } from './vector-store.service';
-import { VectorStoreConsumer } from './vector-store.consumer';
 
 @Module({
-  providers: [VectorStoreService, VectorStoreConsumer],
+  providers: [VectorStoreService],
   exports: [VectorStoreService],
 })
 export class VectorStoreModule {}

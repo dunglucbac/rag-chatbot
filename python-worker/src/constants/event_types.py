@@ -9,7 +9,6 @@ class EventType(StrEnum):
     # Outgoing
     DOC_PDF_PARSE_COMPLETED = "doc.pdf.parse.completed"
     JOB_FAILED = "job.failed"
-    JOB_PROCESSING_STARTED = "job.processing.started"
 
     # Receipt outcomes: structured receipt data is ready, or needs review.
     RECEIPT_PARSED = "receipt.parsed"

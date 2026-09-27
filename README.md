@@ -23,8 +23,8 @@ Ingestion Pipeline:
     → validate the stored object and create ingestion_jobs row
     → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
                                                → extract text (PDF/OCR)
-                                               → classify (receipt/payment/doc)
-                                               → parse receipts / chunk docs
+                                               → classify (receipt/payment; all other files are documents)
+                                               → parse receipts when applicable
                                                → publish result events
 
   ← handle receipt.parsed                   receipt.parsed ──→
@@ -37,8 +37,6 @@ Ingestion Pipeline:
        → send Telegram confirmation prompt
   ← handle payment.detected                  payment.detected ──→
        → send Telegram "what did you buy?"
-  ← handle doc.chunks.embed.requested        doc.chunks.embed.requested ──→
-       → embed chunks into PGVector
   ← handle job.failed / parse.completed      job.failed / parse.completed ──→
        → update ingestion_jobs status
 

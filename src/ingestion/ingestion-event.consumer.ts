@@ -2,7 +2,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
 import {
   ParseCompletedPayload,
-  ClassifyCompletedPayload,
   JobFailedPayload,
 } from '../common/event-payloads.types';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
@@ -24,11 +23,6 @@ export class IngestionEventConsumer implements OnModuleInit {
         envelope as EventEnvelope<ParseCompletedPayload>,
       ),
     );
-    this.router.register('image.classify.completed', async (envelope) =>
-      this.handleClassifyCompleted(
-        envelope as EventEnvelope<ClassifyCompletedPayload>,
-      ),
-    );
     this.router.register('job.failed', async (envelope) =>
       this.handleJobFailed(envelope as EventEnvelope<JobFailedPayload>),
     );
@@ -38,19 +32,6 @@ export class IngestionEventConsumer implements OnModuleInit {
     if (!envelope.payload) return;
     this.logger.log(
       `handleParseCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
-    );
-    await this.completeJob(
-      envelope.payload.jobId,
-      envelope.payload.extractedText,
-    );
-  }
-
-  async handleClassifyCompleted(
-    envelope: EventEnvelope<ClassifyCompletedPayload>,
-  ) {
-    if (!envelope.payload) return;
-    this.logger.log(
-      `handleClassifyCompleted [correlationId=${envelope.correlationId} jobId=${envelope.payload.jobId}]`,
     );
     await this.completeJob(
       envelope.payload.jobId,

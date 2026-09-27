@@ -14,6 +14,12 @@ The existing NestJS monolith creates ingestion jobs but has no mechanism to:
 
 ## Solution
 
+> **Implementation status (2026-09-27):** Receipt and payment flows are
+> implemented. Document chunking and embedding remain a future capability; the
+> active worker emits `doc.pdf.parse.completed` with extracted text instead of
+> `doc.chunks.embed.requested`. The current classifier explicitly recognizes
+> receipt and payment, and uses the document path as its fallback.
+
 Build a separate Python Worker that consumes file processing events from RabbitMQ, extracts and classifies content using OCR and LLMs, and publishes structured results back to the system. The service will:
 
 - Automatically extract text from uploaded files using appropriate strategies (direct text extraction for PDFs, OCR for images)
@@ -68,7 +74,9 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 3. **ClassificationService**: LLM integration using Claude Haiku with structured output to classify as receipt/payment/document
 4. **ReceiptParser**: LLM integration using Claude Sonnet with structured output to extract merchant, date, total, tax, currency, and line items (name, quantity, unitPrice, totalPrice)
 5. **DocumentChunker**: Splits text into 1000-character chunks with 200-character overlap, preserves metadata (source, page, chapter, type)
-6. **EventPublisher**: Publishes results to RabbitMQ (`receipt.parsed`, `payment.detected`, `doc.chunks.embed.requested`, completion events)
+6. **EventPublisher**: Publishes the active result events to RabbitMQ:
+   `receipt.parsed`, `receipt.needs_review`, `payment.detected`,
+   `doc.pdf.parse.completed`, and `job.failed`
 
 ### NestJS Modules to Create/Modify
 
@@ -76,10 +84,10 @@ This enables automatic spending tracking from receipts, user-assisted expense en
    - Consumes `receipt.parsed` events
    - Saves receipts and line items to PostgreSQL with composite unique constraint on `(userId, merchant, purchasedAt, total, checksumSha256)`
    - Handles duplicate detection and returns appropriate errors
-8. **VectorStoreModule** (modify):
-   - Consumes `doc.chunks.embed.requested` events (batches of up to 100 chunks)
-   - Generates embeddings using OpenAI text-embedding-3-small
-   - Stores in pgvector with metadata
+8. **VectorStoreModule** (future):
+   - Document chunking, embedding, and storage are not wired to RabbitMQ yet
+   - When introduced, this must be delivered with a producer, binding, payload
+     schema, and registered consumer in one change
 9. **TelegramModule** (modify):
    - Consumes `payment.detected` events
    - Sends immediate prompt: "What did you buy with this $X payment?"
@@ -88,7 +96,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
    - Auto-skips after 24 hours if no response
 10. **IngestionModule** (modify):
 
-- Consumes completion events (`doc.pdf.parse.completed`, `image.classify.completed`, `job.failed`)
+- Consumes completion events (`doc.pdf.parse.completed`, `job.failed`)
 - Updates ingestion job status and metadata
 
 ### Event Schemas
@@ -129,20 +137,8 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 }
 ```
 
-**`doc.chunks.embed.requested` event:**
-
-```json
-{
-  "jobId": "uuid",
-  "userId": "telegram-123",
-  "chunks": [
-    {
-      "content": "Investment basics chapter text...",
-      "metadata": { "source": "finance.pdf", "page": 42, "chapter": "Ch 3" }
-    }
-  ]
-}
-```
+There is no `doc.chunks.embed.requested` event in the active topology.
+Document indexing is deferred until the entire flow can be introduced together.
 
 ### Database Schema Changes
 

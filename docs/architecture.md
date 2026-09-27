@@ -185,8 +185,9 @@ path, so API and worker containers can scale independently.
 
 The following incoming events have registered application handlers:
 
-- `doc.pdf.parse.completed` and `image.classify.completed` mark the ingestion
-  job complete and save extracted text.
+- `doc.pdf.parse.completed` marks a document ingestion job complete and saves
+  extracted text. This is the worker's fallback outcome for a file that is not
+  classified as a receipt or payment.
 - `job.failed` marks the job failed and stores the worker's error message.
 - `receipt.parsed` persists a normalized receipt and its line items, marks the
   job complete, and publishes `receipt.items.categorize` for newly created
@@ -196,11 +197,10 @@ The following incoming events have registered application handlers:
 - `payment.detected` and `receipt.needs_review` update job state and send a
   Telegram follow-up or review prompt.
 
-`doc.chunks.embed.requested` and `job.processing.started` are bound to app
-queues, but no `MessageRouter` handler is currently registered for either. The
-consumer treats them as non-retryable unknown events and dead-letters them. A
-`VectorStoreConsumer` class exists, but it is not registered with the router at
-present.
+Document chunking and embedding are intentionally outside the current worker
+pipeline. No `doc.chunks.embed.requested` event, vector-store queue consumer,
+or `job.processing.started` event is declared. Add those together in a future
+change only when document indexing is implemented end-to-end.
 
 ## RabbitMQ topology
 
@@ -220,8 +220,8 @@ flowchart LR
 
     EX -->|doc.pdf.parse.requested| PDF
     EX -->|image.classify.requested| IMAGE
-    EX -->|status events| STATUS
-    EX -->|receipt and result events| RESULTS
+    EX -->|doc.pdf.parse.completed · job.failed| STATUS
+    EX -->|receipt.parsed · receipt.needs_review<br/>payment.detected · receipt.items.categorize| RESULTS
     STATUS -. rejected or expired .-> DLX
     RESULTS -. rejected or expired .-> DLX
     DLX -->|#| DLQ

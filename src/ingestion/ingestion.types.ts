@@ -23,9 +23,7 @@ export const INGESTION_JOB_STATUSES = Object.values(IngestionJobStatus);
 export const INGESTION_EVENT_TYPES = [
   'doc.pdf.parse.requested',
   'image.classify.requested',
-  'job.processing.started',
   'doc.pdf.parse.completed',
-  'image.classify.completed',
   'job.failed',
 ] as const;
 export type IngestionEventType = (typeof INGESTION_EVENT_TYPES)[number];

@@ -66,33 +66,10 @@ const parseCompletedPayloadSchema = z
   })
   .strict();
 
-const classifyCompletedPayloadSchema = z
-  .object({
-    jobId: z.string().min(1),
-    extractedText: z.string(),
-    classification: z.string().min(1),
-  })
-  .strict();
-
 const jobFailedPayloadSchema = z
   .object({
     jobId: z.string().min(1),
     error: z.string().min(1),
-  })
-  .strict();
-
-const embedRequestPayloadSchema = z
-  .object({
-    jobId: z.string().min(1),
-    userId: z.string().min(1),
-    chunks: z.array(
-      z
-        .object({
-          content: z.string(),
-          metadata: z.record(z.string(), z.unknown()),
-        })
-        .strict(),
-    ),
   })
   .strict();
 
@@ -108,8 +85,6 @@ export const eventPayloadSchemas = {
   'receipt.needs_review': needsReviewPayloadSchema,
   'payment.detected': paymentDetectedPayloadSchema,
   'doc.pdf.parse.completed': parseCompletedPayloadSchema,
-  'image.classify.completed': classifyCompletedPayloadSchema,
   'job.failed': jobFailedPayloadSchema,
-  'doc.chunks.embed.requested': embedRequestPayloadSchema,
   'receipt.items.categorize': receiptCategorizationRequestedPayloadSchema,
 };
