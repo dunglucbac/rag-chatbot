@@ -1,67 +1,410 @@
 {
   "info": {
+    "_postman_id": "58004c26-84e2-44dd-8414-62e1e2dda8f7",
     "name": "RAG Chatbot",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "42752505",
+    "_collection_link": "https://go.postman.co/collection/42752505-58004c26-84e2-44dd-8414-62e1e2dda8f7?source=collection_link"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000"
-    }
-  ],
   "item": [
+    {
+      "name": "Telegram",
+      "item": [
+        {
+          "name": "Telegram Webhook Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{telegram-bot}}/getWebhookInfo",
+              "host": [
+                "{{telegram-bot}}"
+              ],
+              "path": [
+                "getWebhookInfo"
+              ]
+            },
+            "description": "Generated from cURL: curl https://api.telegram.org/bot<YOUR_TOKEN>/getWebhookInfo\n"
+          },
+          "response": []
+        },
+        {
+          "name": "Telegram get Updates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{telegram-bot}}/getUpdates",
+              "host": [
+                "{{telegram-bot}}"
+              ],
+              "path": [
+                "getUpdates"
+              ]
+            },
+            "description": "Generated from cURL: curl https://api.telegram.org/bot8673784150:AAECwIYB8GwDwaF-9AmsH1uUPEb16zuvX9Y/getUpdates"
+          },
+          "response": []
+        },
+        {
+          "name": "Telegram Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"update_id\": 123456789,\n  \"message\": {\n    \"message_id\": 1,\n    \"from\": {\n      \"id\": 987654321,\n      \"is_bot\": false,\n      \"first_name\": \"Thomas\"\n    },\n    \"chat\": {\n      \"id\": 987654321,\n      \"type\": \"private\",\n      \"first_name\": \"Thomas\"\n    },\n    \"date\": 1713000000,\n    \"text\": \"Hello, what can you do?\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/telegram/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "telegram",
+                "webhook"
+              ]
+            },
+            "description": "Receives Telegram update payloads. Called by Telegram servers — not for manual use in production."
+          },
+          "response": []
+        },
+        {
+          "name": "Telegram Webhook Forward",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"update_id\": 123456789,\n  \"message\": {\n    \"message_id\": 1,\n    \"from\": {\n      \"id\": 987654321,\n      \"is_bot\": false,\n      \"first_name\": \"Thomas\"\n    },\n    \"chat\": {\n      \"id\": 987654321,\n      \"type\": \"private\",\n      \"first_name\": \"Thomas\"\n    },\n    \"date\": 1713000000,\n    \"text\": \"Hello, what can you do?\"\n  }\n}"
+            },
+            "url": {
+              "raw": "https://x8pgg8vc-3000.asse.devtunnels.ms/telegram/webhook",
+              "protocol": "https",
+              "host": [
+                "x8pgg8vc-3000",
+                "asse",
+                "devtunnels",
+                "ms"
+              ],
+              "path": [
+                "telegram",
+                "webhook"
+              ]
+            },
+            "description": "Receives Telegram update payloads. Called by Telegram servers — not for manual use in production."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "Ingest PDF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();\n\npm.test(\"Upload returned a job ID\", () => {\n  pm.expect(response.data.job.id).to.be.a(\"string\").and.not.empty;\n});\n\npm.environment.set(\"jobId\", response.data.job.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{Bearer TOKEN}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storageKey\": \"{{storageKey}}\",\n  \"originalFilename\": \"{{originalFilename}}\",\n  \"mimeType\": \"{{mimeType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ingest/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingest",
+                "file"
+              ]
+            },
+            "description": "Upload a PDF file to ingest into the vector store."
+          },
+          "response": []
+        },
+        {
+          "name": "Job Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ingest/jobs/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ingest",
+                "jobs",
+                "{{jobId}}"
+              ]
+            },
+            "description": "Upload a PDF file to ingest into the vector store."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{Bearer TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Generated from cURL: curl http://localhost:3000/auth/me \\\n  -H \"Authorization: \""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "New Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();\n\npm.test(\"A session ID was returned\", () => {\n  pm.expect(body.data.sessionId).to.be.a(\"string\").and.not.empty;\n});\n\npm.collectionVariables.set(\"sessionId\", body.data.sessionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{Bearer TOKEN}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"what time is this\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "messages"
+              ]
+            },
+            "description": "Generated from cURL: curl http://localhost:3000/auth/me \\\n  -H \"Authorization: \""
+          },
+          "response": []
+        },
+        {
+          "name": "Current Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{Bearer TOKEN}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"message\": \"how much I was spent last quater\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/sessions/{{sessionId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "sessions",
+                "{{sessionId}}",
+                "messages"
+              ]
+            },
+            "description": "Generated from cURL: curl http://localhost:3000/auth/me \\\n  -H \"Authorization: \""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Storage",
+      "item": [
+        {
+          "name": "Request Pre-sign URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const response = pm.response.json();\n\npm.test(\"Upload target was created\", () => {\n  pm.expect(response.status).to.eql(\"success\");\n  pm.expect(response.data.uploadUrl).to.be.a(\"string\");\n  pm.expect(response.data.storageKey).to.be.a(\"string\");\n});\n\npm.collectionVariables.set(\"uploadUrl\", response.data.uploadUrl);\npm.collectionVariables.set(\"storageKey\", response.data.storageKey);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"originalFilename\", \"IMG_0961.HEIC\");\npm.collectionVariables.set(\"mimeType\", \"image/heic\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{Bearer TOKEN}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"originalFilename\": \"{{originalFilename}}\",\n  \"mimeType\": \"{{mimeType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storage/upload-targets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "storage",
+                "upload-targets"
+              ]
+            },
+            "description": "Upload a PDF file to ingest into the vector store."
+          },
+          "response": []
+        },
+        {
+          "name": "R2 Upload",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{uploadUrl}}",
+              "host": [
+                "{{uploadUrl}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Health Check",
       "request": {
         "method": "GET",
-        "url": "{{baseUrl}}/",
-        "description": "Returns system health status, server hostname, and request timestamp."
-      }
-    },
-    {
-      "name": "Ingest File",
-      "request": {
-        "method": "POST",
-        "url": "{{baseUrl}}/ingest/file",
-        "description": "Upload an image, PDF, or other supported file to create an ingestion job and publish the corresponding message queue event.",
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": "",
-              "description": "File to ingest (image/pdf/etc.)"
-            }
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
           ]
-        }
-      }
+        },
+        "description": "Returns Hello World to verify the server is running."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
     },
     {
-      "name": "Get Ingestion Job",
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/ingest/jobs/:id",
-        "description": "Fetch an ingestion job by id. Replace :id with the job identifier."
-      }
+      "key": "sessionId",
+      "value": ""
     },
     {
-      "name": "Telegram Webhook",
-      "request": {
-        "method": "POST",
-        "url": "{{baseUrl}}/telegram/webhook",
-        "description": "Receives Telegram update payloads. Called by Telegram servers — not for manual use in production.",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"update_id\": 123456789,\n  \"message\": {\n    \"message_id\": 1,\n    \"from\": {\n      \"id\": 987654321,\n      \"is_bot\": false,\n      \"first_name\": \"Thomas\"\n    },\n    \"chat\": {\n      \"id\": 987654321,\n      \"type\": \"private\",\n      \"first_name\": \"Thomas\"\n    },\n    \"date\": 1713000000,\n    \"text\": \"Hello, what can you do?\"\n  }\n}"
-        }
-      }
+      "key": "uploadUrl",
+      "value": ""
+    },
+    {
+      "key": "storageKey",
+      "value": ""
+    },
+    {
+      "key": "originalFilename",
+      "value": ""
+    },
+    {
+      "key": "mimeType",
+      "value": ""
     }
   ]
 }
