@@ -14,6 +14,14 @@ export default () => ({
     imageQueue: process.env.RABBITMQ_IMAGE_QUEUE ?? 'ingest.image.queue',
     pdfQueue: process.env.RABBITMQ_PDF_QUEUE ?? 'ingest.pdf.queue',
   },
+  objectStorage: {
+    endpoint: process.env.OBJECT_STORAGE_ENDPOINT,
+    region: process.env.OBJECT_STORAGE_REGION ?? 'us-east-1',
+    bucket: process.env.OBJECT_STORAGE_BUCKET,
+    accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY,
+    secretAccessKey: process.env.OBJECT_STORAGE_SECRET_KEY,
+    forcePathStyle: process.env.OBJECT_STORAGE_FORCE_PATH_STYLE ?? 'false',
+  },
   llm: {
     provider: process.env.LLM_PROVIDER ?? 'anthropic',
     model: process.env.LLM_MODEL,

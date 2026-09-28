@@ -32,6 +32,12 @@ poetry run python main.py
 | `RABBITMQ_PDF_QUEUE` | `ingest.pdf.queue` | Queue for PDF parse requests |
 | `RABBITMQ_IMAGE_QUEUE` | `ingest.image.queue` | Queue for image classify requests |
 | `RABBITMQ_PREFETCH_COUNT` | `10` | Max unacked messages per worker |
+| `OBJECT_STORAGE_ENDPOINT` | — | S3-compatible endpoint, such as `https://sgp1.digitaloceanspaces.com` |
+| `OBJECT_STORAGE_REGION` | `us-east-1` | S3 signing region; use `us-east-1` for DigitalOcean Spaces (the `sgp1` location belongs in the endpoint) |
+| `OBJECT_STORAGE_BUCKET` | — | Private bucket containing original uploads |
+| `OBJECT_STORAGE_ACCESS_KEY` | — | S3-compatible access key with bucket read access |
+| `OBJECT_STORAGE_SECRET_KEY` | — | S3-compatible secret key |
+| `OBJECT_STORAGE_FORCE_PATH_STYLE` | `false` | Set to `true` for MinIO or another provider requiring path-style addresses |
 | `DEEPDOC_LAYOUT_THRESHOLD` | `0.5` | Minimum layout-detection confidence used by DeepDoc |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for LLM classification and parsing (optional; skips LLM services if unset) |
 | `VISION_FALLBACK_CONFIDENCE_THRESHOLD` | `0.9` | Sends an image to the vision model only when text-only receipt parsing confidence is below this value; set to `0` to disable vision fallback. |
@@ -40,7 +46,7 @@ poetry run python main.py
 
 Start the worker, then publish an event to the configured exchange (default
 `ingest.topic`) with routing key `image.classify.requested`. The
-`storagePath` must be a path that exists inside the worker container or process.
+`storageKey` identifies an object in the configured private S3-compatible bucket.
 
 ```json
 {
@@ -55,7 +61,7 @@ Start the worker, then publish an event to the configured exchange (default
     "fileId": "test-file-001",
     "userId": "test-user-001",
     "originalFilename": "receipt.jpg",
-    "storagePath": "/Users/thomas/Downloads/receipts/P0 (3).jpg",
+    "storageKey": "raw/test-user-001/test-file-001.jpg",
     "mimeType": "image/jpeg",
     "fileType": "image",
     "classification": "unknown",
@@ -69,7 +75,7 @@ Start the worker, then publish an event to the configured exchange (default
 
 For a PDF, publish the same envelope with routing key
 `doc.pdf.parse.requested`, set `fileType` to `pdf`, and provide a PDF
-`storagePath`.
+`storageKey`.
 
 ## Tests
 

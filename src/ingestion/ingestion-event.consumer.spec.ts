@@ -5,7 +5,6 @@ import { MessageRouter } from '../message-queue/router/message-router.service';
 import {
   JobFailedPayload,
   ParseCompletedPayload,
-  ClassifyCompletedPayload,
 } from '@modules/common/event-payloads.types';
 import { EventEnvelope } from '@modules/common/common.types';
 
@@ -92,38 +91,6 @@ describe('IngestionEventConsumer', () => {
       expect.objectContaining({
         status: 'failed',
         errorMessage: 'PDF parsing failed: corrupted file',
-      }),
-    );
-  });
-
-  it('updates job status on image.classify.completed event', async () => {
-    const job = { id: 'job-456', status: 'processing' };
-    (repository.findById as jest.Mock).mockResolvedValue(job);
-    (repository.save as jest.Mock).mockResolvedValue({
-      ...job,
-      status: 'completed',
-    });
-    const payload: ClassifyCompletedPayload = {
-      jobId: 'job-456',
-      extractedText: 'OCR text from image',
-      classification: 'receipt',
-    };
-    const event: EventEnvelope<ClassifyCompletedPayload> = {
-      eventId: 'evt-1',
-      eventType: 'image.classify.completed',
-      correlationId: 'corr-123',
-      schemaVersion: 1,
-      attempt: 1,
-      createdAt: new Date().toISOString(),
-      payload,
-    };
-
-    await consumer.handleClassifyCompleted(event);
-
-    expect(repository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'completed',
-        extractedText: 'OCR text from image',
       }),
     );
   });

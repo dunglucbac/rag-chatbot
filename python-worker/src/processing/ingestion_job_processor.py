@@ -12,6 +12,7 @@ from PIL import Image, ImageOps
 
 from src.constants.event_types import ClassificationType, EventType
 from src.extractors.document_extractor import DocumentExtractor
+from src.storage.object_storage import LocalObjectStorage, ObjectStorage
 
 pillow_heif.register_heif_opener()
 
@@ -34,7 +35,7 @@ class ReceiptParser(Protocol):
 @dataclass(frozen=True)
 class IngestionJob:
     job_id: str
-    storage_path: str
+    storage_key: str
     file_type: FileType
     user_id: str | None = None
 
@@ -44,7 +45,7 @@ class IngestionJob:
             raise ValueError("payload must be an object")
 
         job_id = cls._required_text(payload, "jobId")
-        storage_path = cls._required_text(payload, "storagePath")
+        storage_key = cls._required_text(payload, "storageKey")
         file_type = payload.get("fileType")
         if file_type not in {"pdf", "image"}:
             raise ValueError("payload.fileType must be 'pdf' or 'image'")
@@ -55,7 +56,7 @@ class IngestionJob:
 
         return cls(
             job_id=job_id,
-            storage_path=storage_path,
+            storage_key=storage_key,
             file_type=cast(FileType, file_type),
             user_id=user_id,
         )
@@ -93,6 +94,7 @@ class IngestionJobProcessor:
         classifier: Classifier | None = None,
         parser: ReceiptParser | None = None,
         checkpoint: Callable[[], None] | None = None,
+        object_storage: ObjectStorage | None = None,
         vision_fallback_confidence_threshold: float = 0.9,
     ):
         if not isinstance(vision_fallback_confidence_threshold, (int, float)) or not (
@@ -106,6 +108,7 @@ class IngestionJobProcessor:
         self._classifier = classifier
         self._parser = parser
         self._checkpoint = checkpoint or (lambda: None)
+        self._object_storage = object_storage or LocalObjectStorage()
         self._vision_fallback_confidence_threshold = (
             vision_fallback_confidence_threshold
         )
@@ -119,9 +122,7 @@ class IngestionJobProcessor:
 
             self._checkpoint()
             classification_result = self._classifier.classify(text)
-            classification = ClassificationType(
-                classification_result["classification"]
-            )
+            classification = ClassificationType(classification_result["classification"])
             logger.info("Classified as %s [jobId=%s]", classification, job.job_id)
 
             if classification == ClassificationType.RECEIPT and self._parser:
@@ -252,9 +253,7 @@ class IngestionJobProcessor:
             return receipt
 
         try:
-            parsed = datetime.fromisoformat(
-                purchased_at.strip().replace("Z", "+00:00")
-            )
+            parsed = datetime.fromisoformat(purchased_at.strip().replace("Z", "+00:00"))
         except ValueError:
             return receipt
 
@@ -270,18 +269,19 @@ class IngestionJobProcessor:
 
     @contextmanager
     def _prepared_input(self, job: IngestionJob) -> Iterator[str]:
-        source = Path(job.storage_path)
-        if job.file_type != "image" or source.suffix.lower() not in HEIC_EXTENSIONS:
-            yield job.storage_path
-            return
+        with self._object_storage.download(job.storage_key) as downloaded_path:
+            source = Path(downloaded_path)
+            if job.file_type != "image" or source.suffix.lower() not in HEIC_EXTENSIONS:
+                yield downloaded_path
+                return
 
-        logger.info("Converting HEIC to temporary JPEG: %s", source)
-        with TemporaryDirectory(prefix="ingestion-image-") as directory:
-            jpeg_path = Path(directory) / f"{source.stem}.jpg"
-            with Image.open(source) as image:
-                rgb_image = ImageOps.exif_transpose(image).convert("RGB")
-                try:
-                    rgb_image.save(jpeg_path, "JPEG")
-                finally:
-                    rgb_image.close()
-            yield str(jpeg_path)
+            logger.info("Converting HEIC to temporary JPEG: %s", source)
+            with TemporaryDirectory(prefix="ingestion-image-") as directory:
+                jpeg_path = Path(directory) / f"{source.stem}.jpg"
+                with Image.open(source) as image:
+                    rgb_image = ImageOps.exif_transpose(image).convert("RGB")
+                    try:
+                        rgb_image.save(jpeg_path, "JPEG")
+                    finally:
+                        rgb_image.close()
+                yield str(jpeg_path)

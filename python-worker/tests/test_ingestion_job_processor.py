@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import contextmanager
 from unittest.mock import Mock
 
 import pytest
@@ -8,11 +9,11 @@ from src.constants.event_types import EventType
 from src.processing.ingestion_job_processor import IngestionJob, IngestionJobProcessor
 
 
-def _job(file_type="pdf", storage_path="/path/to/file.pdf") -> IngestionJob:
+def _job(file_type="pdf", storage_key="/path/to/file.pdf") -> IngestionJob:
     return IngestionJob(
         job_id="job-123",
         user_id="user-456",
-        storage_path=storage_path,
+        storage_key=storage_key,
         file_type=file_type,
     )
 
@@ -28,6 +29,23 @@ def test_returns_extracted_text_when_classification_is_disabled():
         "jobId": "job-123",
         "extractedText": "Extracted text",
     }
+
+
+def test_downloads_object_key_to_ephemeral_worker_storage():
+    extractor = Mock()
+    extractor.extract.return_value = "Extracted text"
+
+    class ObjectStorage:
+        @contextmanager
+        def download(self, key: str):
+            assert key == "raw/remote-source.pdf"
+            yield "/tmp/worker-download.pdf"
+
+    IngestionJobProcessor(extractor, object_storage=ObjectStorage()).process(
+        _job(storage_key="raw/remote-source.pdf")
+    )
+
+    extractor.extract.assert_called_once_with("/tmp/worker-download.pdf")
 
 
 def test_parses_receipt_and_returns_receipt_event():
@@ -114,7 +132,7 @@ def test_payment_event_includes_user_id():
     }
 
     result = IngestionJobProcessor(extractor, classifier).process(
-        _job(file_type="image", storage_path="/path/to/payment.jpg")
+        _job(file_type="image", storage_key="/path/to/payment.jpg")
     )
 
     assert result.event_type == EventType.PAYMENT_DETECTED
@@ -146,7 +164,7 @@ def test_uses_better_vision_result_for_uncertain_image_receipt():
     }
 
     result = IngestionJobProcessor(extractor, classifier, parser).process(
-        _job(file_type="image", storage_path="/path/to/receipt.jpg")
+        _job(file_type="image", storage_key="/path/to/receipt.jpg")
     )
 
     parser.parse_with_vision.assert_called_once_with("/path/to/receipt.jpg")
@@ -173,7 +191,7 @@ def test_vision_fallback_can_be_disabled_for_uncertain_receipts():
         classifier,
         parser,
         vision_fallback_confidence_threshold=0,
-    ).process(_job(file_type="image", storage_path="/path/to/receipt.jpg"))
+    ).process(_job(file_type="image", storage_key="/path/to/receipt.jpg"))
 
     parser.parse_with_vision.assert_not_called()
     assert result.payload["receipt"] == parser.parse.return_value
@@ -195,7 +213,7 @@ def test_heic_conversion_preserves_source_and_cleans_temporary_jpeg(tmp_path):
     extractor.extract.side_effect = extract
 
     IngestionJobProcessor(extractor).process(
-        _job(file_type="image", storage_path=str(source))
+        _job(file_type="image", storage_key=str(source))
     )
 
     assert source.exists()
@@ -208,7 +226,7 @@ def test_heic_conversion_preserves_source_and_cleans_temporary_jpeg(tmp_path):
     [
         ({}, "payload.jobId must be a non-empty string"),
         (
-            {"jobId": "job-1", "storagePath": "/file", "fileType": "text"},
+            {"jobId": "job-1", "storageKey": "/file", "fileType": "text"},
             "payload.fileType must be 'pdf' or 'image'",
         ),
     ],

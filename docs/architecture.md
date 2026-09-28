@@ -80,8 +80,10 @@ The protected application endpoints are:
 - `POST /chat/sessions/:sessionId/messages` continues an owned session.
 - `DELETE /chat/sessions/:sessionId` deletes an owned session and its LangGraph
   checkpoint history.
-- `POST /ingest/file` accepts a PDF or supported image in the `file` multipart
-  field.
+- `POST /storage/upload-targets` creates a signed direct-upload URL for an
+  object owned by the authenticated user.
+- `POST /ingest` accepts a previously uploaded `storageKey` plus file metadata
+  and queues supported PDFs or images for processing.
 - `GET /ingest/jobs/:id` returns an ingestion job only to its owner.
 
 ## Chat and financial-agent flow
@@ -161,9 +163,10 @@ memory per Telegram user but do not create a `chat_sessions` row.
 
 ```text
 Authenticated upload
-  → POST /ingest/file
-  → Multer writes storage/uploads/<uuid>.<extension>
-  → IngestionService hashes the file and creates or reuses ingestion_jobs
+  → POST /storage/upload-targets returns a signed upload URL and a raw/<userId>/<uuid> key
+  → client uploads directly to object storage
+  → POST /ingest submits the storage key for validation and processing
+  → IngestionService creates or reuses ingestion_jobs with that object key
   → MessageQueueService publishes a persistent event to ingest.topic
       ├── doc.pdf.parse.requested → external PDF worker queue
       └── image.classify.requested → external image worker queue
@@ -176,13 +179,15 @@ External worker result
 ```
 
 Upload deduplication is per user and file checksum. When a duplicate is found,
-the newly written upload is removed and the existing job is returned; no new
-worker event is published.
+the newly uploaded object is removed and the existing job is returned; no new
+worker event is published. Queue messages carry `storageKey`, not a filesystem
+path, so API and worker containers can scale independently.
 
 The following incoming events have registered application handlers:
 
-- `doc.pdf.parse.completed` and `image.classify.completed` mark the ingestion
-  job complete and save extracted text.
+- `doc.pdf.parse.completed` marks a document ingestion job complete and saves
+  extracted text. This is the worker's fallback outcome for a file that is not
+  classified as a receipt or payment.
 - `job.failed` marks the job failed and stores the worker's error message.
 - `receipt.parsed` persists a normalized receipt and its line items, marks the
   job complete, and publishes `receipt.items.categorize` for newly created
@@ -192,11 +197,10 @@ The following incoming events have registered application handlers:
 - `payment.detected` and `receipt.needs_review` update job state and send a
   Telegram follow-up or review prompt.
 
-`doc.chunks.embed.requested` and `job.processing.started` are bound to app
-queues, but no `MessageRouter` handler is currently registered for either. The
-consumer treats them as non-retryable unknown events and dead-letters them. A
-`VectorStoreConsumer` class exists, but it is not registered with the router at
-present.
+Document chunking and embedding are intentionally outside the current worker
+pipeline. No `doc.chunks.embed.requested` event, vector-store queue consumer,
+or `job.processing.started` event is declared. Add those together in a future
+change only when document indexing is implemented end-to-end.
 
 ## RabbitMQ topology
 
@@ -216,8 +220,8 @@ flowchart LR
 
     EX -->|doc.pdf.parse.requested| PDF
     EX -->|image.classify.requested| IMAGE
-    EX -->|status events| STATUS
-    EX -->|receipt and result events| RESULTS
+    EX -->|doc.pdf.parse.completed · job.failed| STATUS
+    EX -->|receipt.parsed · receipt.needs_review<br/>payment.detected · receipt.items.categorize| RESULTS
     STATUS -. rejected or expired .-> DLX
     RESULTS -. rejected or expired .-> DLX
     DLX -->|#| DLQ

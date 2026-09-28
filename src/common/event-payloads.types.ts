@@ -50,24 +50,9 @@ export type ParseCompletedPayload = {
   extractedText: string;
 };
 
-export type ClassifyCompletedPayload = {
-  jobId: string;
-  extractedText: string;
-  classification: string;
-};
-
 export type JobFailedPayload = {
   jobId: string;
   error: string;
-};
-
-export type EmbedRequestPayload = {
-  jobId: string;
-  userId: string;
-  chunks: Array<{
-    content: string;
-    metadata: Record<string, unknown>;
-  }>;
 };
 
 export type ReceiptCategorizationRequestedPayload = {

@@ -44,7 +44,7 @@ def test_publishes_processor_result_then_acknowledges_delivery():
             {
                 "jobId": "job-123",
                 "userId": "user-456",
-                "storagePath": "/path/to/file.pdf",
+                "storageKey": "raw/file.pdf",
                 "fileType": "pdf",
             }
         ),
@@ -54,7 +54,7 @@ def test_publishes_processor_result_then_acknowledges_delivery():
         IngestionJob(
             job_id="job-123",
             user_id="user-456",
-            storage_path="/path/to/file.pdf",
+            storage_key="raw/file.pdf",
             file_type="pdf",
         )
     )
@@ -97,7 +97,7 @@ def test_invalid_job_payload_preserves_job_id_in_failure_event():
         _body(
             {
                 "jobId": "job-invalid",
-                "storagePath": "/path/to/file.txt",
+                "storageKey": "raw/file.txt",
                 "fileType": "text",
             }
         ),
@@ -125,7 +125,7 @@ def test_processing_error_publishes_job_failed_and_acknowledges():
         _body(
             {
                 "jobId": "job-error",
-                "storagePath": "/path/to/bad.pdf",
+                "storageKey": "raw/bad.pdf",
                 "fileType": "pdf",
             }
         ),
@@ -156,7 +156,7 @@ def test_result_publish_failure_leaves_delivery_unacknowledged():
         _body(
             {
                 "jobId": "job-123",
-                "storagePath": "/path/to/file.pdf",
+                "storageKey": "raw/file.pdf",
                 "fileType": "pdf",
             }
         ),
@@ -180,7 +180,7 @@ def test_job_failed_publish_failure_leaves_delivery_unacknowledged():
         _body(
             {
                 "jobId": "job-error",
-                "storagePath": "/path/to/file.pdf",
+                "storageKey": "raw/file.pdf",
                 "fileType": "pdf",
             }
         ),

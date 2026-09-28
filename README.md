@@ -18,13 +18,13 @@ Agent (LangGraph ReAct)
 Ingestion Pipeline:
   NestJS                                    Python Worker
   ──────────────────────────────────        ──────────────────────────────
-  POST /ingest/file
-    → save upload to disk
-    → create ingestion_jobs row
+  POST /ingest
+    → accept a client-provided S3-compatible storage key
+    → validate the stored object and create ingestion_jobs row
     → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
                                                → extract text (PDF/OCR)
-                                               → classify (receipt/payment/doc)
-                                               → parse receipts / chunk docs
+                                               → classify (receipt/payment; all other files are documents)
+                                               → parse receipts when applicable
                                                → publish result events
 
   ← handle receipt.parsed                   receipt.parsed ──→
@@ -37,8 +37,6 @@ Ingestion Pipeline:
        → send Telegram confirmation prompt
   ← handle payment.detected                  payment.detected ──→
        → send Telegram "what did you buy?"
-  ← handle doc.chunks.embed.requested        doc.chunks.embed.requested ──→
-       → embed chunks into PGVector
   ← handle job.failed / parse.completed      job.failed / parse.completed ──→
        → update ingestion_jobs status
 
@@ -213,19 +211,26 @@ npm run migration:revert
 
 ## API
 
-### Upload a file
+### Queue an uploaded object
 
 ```
-POST /ingest/file
-Content-Type: multipart/form-data
+POST /ingest
+Content-Type: application/json
 Authorization: Bearer <access-token>
-
-file: <pdf or image file>
 ```
 
 ```json
-{ "id": "job-id", "status": "pending" }
+{
+  "storageKey": "raw/<user-id>/<file-id>.pdf",
+  "originalFilename": "statement.pdf",
+  "mimeType": "application/pdf"
+}
 ```
+
+Create an upload target first with `POST /storage/upload-targets`, upload the
+file bytes directly to its signed URL, then submit the returned `storageKey`.
+See [the full client upload walkthrough](docs/api.md#ingestion) for browser,
+curl, and Postman examples.
 
 ### Get ingestion job status
 

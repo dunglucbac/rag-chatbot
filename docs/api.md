@@ -24,37 +24,200 @@ Authorization: Bearer <access-token>
 
 ## Ingestion
 
-### Upload file
+Files use a three-request, direct-to-object-storage flow. The API never proxies
+the file bytes:
 
-Queues an uploaded document for ingestion. The file is stored on disk and a background job is created to process it.
+```text
+1. POST /storage/upload-targets  → obtain a 15-minute signed upload URL and storage key
+2. PUT  <uploadUrl>              → upload the file bytes directly to R2/S3
+3. POST /ingest                  → validate the uploaded object and queue processing
+```
+
+Keep the `storageKey`, `originalFilename`, and `mimeType` from step 1 until
+step 3. Uploading the object alone does **not** start processing.
+
+### 1. Create an upload target
+
+Creates a short-lived, direct upload URL. Uploading an object does not queue it
+for ingestion.
 
 ```
-POST /ingest/file
-Content-Type: multipart/form-data
+POST /storage/upload-targets
+Content-Type: application/json
 Authorization: Bearer <access-token>
 ```
 
-**Form fields**
+```json
+{
+  "originalFilename": "statement.pdf",
+  "mimeType": "application/pdf"
+}
+```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| file | file | yes | Uploaded file |
-
-**Response 201**
+Example response:
 
 ```json
 {
-  "message": "File queued for ingestion",
-  "job": {
-    "id": "uuid",
-    "status": "pending"
+  "status": "success",
+  "message": "Upload target created",
+  "data": {
+    "storageKey": "raw/google-user-id/4a3c8d8a-7b20-4d3a-8cc0-91a7c5c70c5a.pdf",
+    "uploadUrl": "https://<object-storage-endpoint>/...?X-Amz-Signature=...",
+    "expiresInSeconds": 900
   }
 }
 ```
 
-**Notes**
-- The file is written to `storage/uploads` under the project root
-- Use `GET /ingest/jobs/:id` to inspect ingestion status
+`uploadUrl` is a short-lived bearer credential. Do not store it in a database,
+commit it, or expose it in logs. Request a new target if it expires.
+
+### 2. Upload the bytes to the signed URL
+
+Send an HTTP `PUT` directly to `data.uploadUrl`. Do not add the API bearer
+token to this request. The URL itself authorizes a specific object operation.
+
+The `Content-Type` header **must exactly match** the `mimeType` provided in
+step 1 because it is part of the signed request.
+
+```bash
+curl --request PUT "$UPLOAD_URL" \
+  --header 'Content-Type: application/pdf' \
+  --upload-file './statement.pdf'
+```
+
+For a HEIC image, use `image/heic` in both places:
+
+```text
+POST /storage/upload-targets body: { "originalFilename": "IMG_0961.HEIC", "mimeType": "image/heic" }
+PUT header:                       Content-Type: image/heic
+```
+
+### 3. Queue the uploaded object for ingestion
+
+Queues a previously uploaded object. The key must belong to the authenticated
+user (`raw/{userId}/…`), and the API checks that the object exists before
+publishing worker work.
+
+```
+POST /ingest
+Content-Type: application/json
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "storageKey": "raw/user-123/file-123.pdf",
+  "originalFilename": "statement.pdf",
+  "mimeType": "application/pdf",
+  "checksumSha256": "optional 64-character SHA-256 hex"
+}
+```
+
+The response contains `data.job.id`. Use that ID to inspect processing status:
+
+```text
+GET /ingest/jobs/:id
+Authorization: Bearer <access-token>
+```
+
+### Browser client example
+
+```ts
+async function uploadAndQueueFile(
+  file: File,
+  accessToken: string,
+  mimeType = file.type,
+) {
+  const apiHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
+
+  const targetResponse = await fetch('/storage/upload-targets', {
+    method: 'POST',
+    headers: apiHeaders,
+    body: JSON.stringify({ originalFilename: file.name, mimeType }),
+  });
+  if (!targetResponse.ok) throw new Error('Could not create upload target');
+
+  const target = (await targetResponse.json()).data;
+  const uploadResponse = await fetch(target.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': mimeType },
+    body: file,
+  });
+  if (!uploadResponse.ok) throw new Error('File upload failed');
+
+  const ingestionResponse = await fetch('/ingest', {
+    method: 'POST',
+    headers: apiHeaders,
+    body: JSON.stringify({
+      storageKey: target.storageKey,
+      originalFilename: file.name,
+      mimeType,
+    }),
+  });
+  if (!ingestionResponse.ok) throw new Error('Could not queue ingestion');
+
+  return (await ingestionResponse.json()).data.job;
+}
+```
+
+Some browsers report an empty `File.type` for HEIC files. In that case, pass
+`'image/heic'` explicitly as `mimeType`.
+
+### Postman setup
+
+Use collection variables for the values that cross the three requests. In the
+**Pre-request Script** of `POST /storage/upload-targets`:
+
+```javascript
+pm.collectionVariables.set('originalFilename', 'IMG_0961.HEIC');
+pm.collectionVariables.set('mimeType', 'image/heic');
+```
+
+Use this request body:
+
+```json
+{
+  "originalFilename": "{{originalFilename}}",
+  "mimeType": "{{mimeType}}"
+}
+```
+
+In its **Tests** script, save the API response values:
+
+```javascript
+const response = pm.response.json();
+
+pm.test('Upload target was created', () => {
+  pm.expect(response.status).to.eql('success');
+  pm.expect(response.data.uploadUrl).to.be.a('string');
+});
+
+pm.collectionVariables.set('uploadUrl', response.data.uploadUrl);
+pm.collectionVariables.set('storageKey', response.data.storageKey);
+```
+
+For the second request, choose `PUT`, set the URL to `{{uploadUrl}}`, set
+`Content-Type` to `{{mimeType}}`, and choose the file under **Body → binary**.
+For the final `POST /ingest` request, use:
+
+```json
+{
+  "storageKey": "{{storageKey}}",
+  "originalFilename": "{{originalFilename}}",
+  "mimeType": "{{mimeType}}"
+}
+```
+
+### Client requirements
+
+- Configure object-storage CORS to permit your browser origin to send `PUT`
+  requests with the `Content-Type` header.
+- Use a new signed URL when a request has expired (the default is 900 seconds).
+- For large files, the current API uses a single signed `PUT`; multipart upload
+  support is a future enhancement.
 
 ---
 

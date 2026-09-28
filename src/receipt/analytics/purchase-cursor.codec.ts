@@ -178,7 +178,9 @@ export class PurchaseCursorCodec {
   }
 
   private isValidPayload(
-    payload: Partial<PricePurchaseCursorPayload | DatePurchaseCursorPayload> | null,
+    payload: Partial<
+      PricePurchaseCursorPayload | DatePurchaseCursorPayload
+    > | null,
   ): payload is SignedPurchaseCursorPayload {
     return (
       payload !== null &&

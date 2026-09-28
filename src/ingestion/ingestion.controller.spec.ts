@@ -3,7 +3,7 @@ import { IngestionController } from '@modules/ingestion/ingestion.controller';
 import { IngestionService } from '@modules/ingestion/ingestion.service';
 
 describe('IngestionController', () => {
-  it('returns a standardized accepted response for uploaded files', async () => {
+  it('returns a standardized accepted response for an object ingestion request', async () => {
     const job = {
       id: 'job-123',
       fileId: 'file-123',
@@ -18,7 +18,7 @@ describe('IngestionController', () => {
       updatedAt: new Date('2026-04-30T00:00:00.000Z'),
       completedAt: null,
       metadata: null,
-      storagePath: '/tmp/statement.pdf',
+      storageKey: 'raw/statement.pdf',
       fileType: 'pdf',
       classification: 'unknown',
       checksumSha256: 'abc123',
@@ -26,7 +26,7 @@ describe('IngestionController', () => {
     };
 
     const ingestionService = {
-      createJobFromUpload: jest
+      createJobFromObject: jest
         .fn()
         .mockResolvedValue({ job, event: null, deduplicated: false }),
       getJob: jest.fn(),
@@ -34,20 +34,19 @@ describe('IngestionController', () => {
 
     const controller = new IngestionController(ingestionService);
 
-    const result = await controller.uploadFile(
+    const result = await controller.createJob(
       {
-        originalname: 'statement.pdf',
-        mimetype: 'application/pdf',
-        path: '/tmp/statement.pdf',
-        size: 1234,
-      } as Express.Multer.File,
+        storageKey: 'raw/user-123/statement.pdf',
+        originalFilename: 'statement.pdf',
+        mimeType: 'application/pdf',
+      },
       { id: 'user-123', email: 'user@example.com' },
       'corr-123',
     );
 
     expect(result).toMatchObject({
       status: 'success',
-      message: 'File accepted for ingestion',
+      message: 'Object accepted for ingestion',
       data: {
         job: {
           id: 'job-123',
@@ -65,7 +64,7 @@ describe('IngestionController', () => {
 
   it('wraps job lookups in the standard api error', async () => {
     const ingestionService = {
-      createJobFromUpload: jest.fn(),
+      createJobFromObject: jest.fn(),
       getJob: jest.fn().mockRejectedValue(new NotFoundException()),
     } as unknown as IngestionService;
 

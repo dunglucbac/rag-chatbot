@@ -20,7 +20,7 @@ erDiagram
         varchar file_id
         varchar user_id
         varchar original_filename
-        varchar storage_path
+        varchar storage_key
         varchar mime_type
         enum file_type
         enum classification

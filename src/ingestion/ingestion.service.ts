@@ -1,11 +1,9 @@
 import {
   Injectable,
   BadRequestException,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
 import { MessageQueueService } from '@modules/message-queue';
 import { IngestionJobRepository } from '@repositories/ingestion-job.repository';
@@ -16,10 +14,11 @@ import {
 } from '@modules/ingestion/ingestion.types';
 import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { EventEnvelope } from '@modules/common/common.types';
+import { ObjectStorageService } from '../storage/object-storage.service';
+import { CreateIngestionJobDto } from './dto/create-ingestion-job.dto';
 
 @Injectable()
 export class IngestionService {
-  private readonly logger = new Logger(IngestionService.name);
   private static readonly imageExtensions: ReadonlyArray<string> = [
     '.png',
     '.jpg',
@@ -45,10 +44,11 @@ export class IngestionService {
   constructor(
     private readonly jobRepository: IngestionJobRepository,
     private readonly messageQueueService: MessageQueueService,
+    private readonly objectStorageService: ObjectStorageService,
   ) {}
 
-  async createJobFromUpload(
-    file: Express.Multer.File,
+  async createJobFromObject(
+    input: CreateIngestionJobDto,
     userId: string,
     correlationId?: string | null,
     sourceContext?: Record<string, unknown> | null,
@@ -58,32 +58,45 @@ export class IngestionService {
     deduplicated: boolean;
   }> {
     const normalizedCorrelationId = this.normalizeCorrelationId(correlationId);
-    const fileType = this.detectFileType(file.mimetype, file.originalname);
-    const fileId = this.deriveFileId(file.path);
-    const checksumSha256 = await this.computeChecksum(file.path);
+    this.assertObjectOwnership(input.storageKey, userId);
+    const storedObject = await this.objectStorageService.getObjectMetadata(
+      input.storageKey,
+    );
+    if (
+      storedObject.contentType &&
+      storedObject.contentType !== input.mimeType
+    ) {
+      throw new BadRequestException(
+        'Object content type does not match the ingestion request',
+      );
+    }
+
+    const fileType = this.detectFileType(
+      input.mimeType,
+      input.originalFilename,
+    );
+    const fileId = this.deriveFileId(input.storageKey);
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
-
     const { job, created } = await this.jobRepository.createOrGetByChecksum({
       fileId,
       userId,
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
+      originalFilename: input.originalFilename,
+      storageKey: input.storageKey,
+      mimeType: input.mimeType,
       fileType,
       classification,
       status: IngestionJobStatus.PENDING,
-      checksumSha256,
+      checksumSha256: input.checksumSha256 ?? null,
       correlationId: normalizedCorrelationId,
       metadata: {
-        size: file.size,
-        mimetype: file.mimetype,
-        originalExtension: path.extname(file.originalname).toLowerCase(),
+        size: storedObject.size ?? null,
+        mimetype: input.mimeType,
+        originalExtension: path.extname(input.originalFilename).toLowerCase(),
         sourceContext: sourceContext ?? null,
       },
     });
     if (!created) {
-      await this.removeDuplicateUpload(file.path);
       return { job, deduplicated: true };
     }
 
@@ -91,24 +104,23 @@ export class IngestionService {
       jobId: job.id,
       fileId,
       userId,
-      originalFilename: file.originalname,
-      storagePath: file.path,
-      mimeType: file.mimetype,
+      originalFilename: input.originalFilename,
+      storageKey: input.storageKey,
+      mimeType: input.mimeType,
       fileType,
       classification,
-      fileExtension: path.extname(file.originalname).toLowerCase(),
-      fileSize: file.size,
-      checksumSha256,
+      fileExtension: path.extname(input.originalFilename).toLowerCase(),
+      fileSize: storedObject.size ?? 0,
+      checksumSha256: input.checksumSha256 ?? '',
       sourceContext: sourceContext ?? null,
       correlationId: normalizedCorrelationId,
     };
-    // for now we can fire and forget the event, we will add a retry mechanism later
     const dispatched = await this.messageQueueService.publish(
       eventType,
       payload,
       normalizedCorrelationId,
-      1, // schema version now it is being hardcoded but later can be use to version the event
-      1, // number attempt we first start with 1
+      1,
+      1,
     );
     return { job, event: dispatched, deduplicated: false };
   }
@@ -165,19 +177,11 @@ export class IngestionService {
     return path.basename(filePath, path.extname(filePath));
   }
 
-  private async computeChecksum(filePath: string): Promise<string> {
-    const content = await fs.readFile(filePath);
-    return crypto.createHash('sha256').update(content).digest('hex');
-  }
-
-  private async removeDuplicateUpload(filePath: string): Promise<void> {
-    try {
-      await fs.unlink(filePath);
-    } catch (error: unknown) {
-      this.logger.warn(
-        `Could not remove duplicate upload at ${filePath}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+  private assertObjectOwnership(storageKey: string, userId: string): void {
+    const prefix = `raw/${encodeURIComponent(userId)}/`;
+    if (!storageKey.startsWith(prefix)) {
+      throw new BadRequestException(
+        'Object does not belong to the current user',
       );
     }
   }

@@ -36,8 +36,8 @@ export class IngestionJob extends BaseEntity {
   @Column({ name: 'original_filename' })
   declare originalFilename: string;
 
-  @Column({ name: 'storage_path' })
-  declare storagePath: string;
+  @Column({ name: 'storage_key' })
+  declare storageKey: string;
 
   @Column({ name: 'mime_type' })
   declare mimeType: string;

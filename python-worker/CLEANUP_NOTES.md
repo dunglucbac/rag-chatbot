@@ -52,7 +52,8 @@ separate changes:
 - Enable publisher confirms before acknowledging an input delivery.
 - Keep RabbitMQ I/O active during long Docling and LLM calls, not only between
   processing stages.
-- Reconcile the unused `image.classify.completed` event with the actual Receipt,
-  Payment, and Document result events.
+- Keep the RabbitMQ contract limited to the active Receipt, Payment, Document,
+  and failure result events. Add a new event only with its producer, binding,
+  payload schema, and consumer in the same change.
 - Mark Document ingestion jobs complete after vector-store embedding succeeds.
 - Make the no-`ANTHROPIC_API_KEY` extraction-only behavior explicit in configuration.

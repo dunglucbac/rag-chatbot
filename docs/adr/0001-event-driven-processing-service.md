@@ -7,7 +7,7 @@
 ## Context
 
 Users upload receipts, payment screenshots, and knowledge documents via Telegram. These files need to be:
-- Classified (receipt vs payment vs document)
+- Classified (receipt vs payment; all other files follow the document path)
 - Extracted (OCR or text extraction)
 - Parsed (line items for receipts, metadata for documents)
 - Stored (relational data for receipts, embeddings for documents)
@@ -29,17 +29,22 @@ We will build a separate **Python Worker** that:
 
 3. **Classifies using LLM:**
    - Claude Haiku for classification (cheap, fast)
-   - Structured output: receipt, payment, or document
+   - The current classifier returns JSON manually parsed as `receipt` or
+     `payment`; other values use the document fallback
 
 4. **Routes based on classification:**
    - **Receipt:** Claude Sonnet parses line items → emit `receipt.parsed` event
-   - **Payment:** Extract amount/date → emit `payment.detected` event → Telegram bot prompts user
-   - **Document:** Chunk text (1000 chars, 200 overlap) → emit `doc.chunks.embed.requested` event
+   - **Payment:** Emit `payment.detected` with extracted text → Telegram bot
+     prompts the user and derives the purchase details
+   - **Document:** Emit `doc.pdf.parse.completed` with extracted text
 
 5. **Publishes completion events:**
-   - `doc.pdf.parse.completed`
-   - `image.classify.completed`
+   - `doc.pdf.parse.completed` for document/fallback processing
    - `job.failed` (with error details)
+
+`image.classify.completed`, `job.processing.started`, and
+`doc.chunks.embed.requested` are not part of the current contract. They were
+removed rather than left as bindings with no producer or consumer.
 
 ## Consequences
 
@@ -59,7 +64,9 @@ We will build a separate **Python Worker** that:
 
 ### Neutral
 
-- **Shared filesystem required (initially):** Python Worker reads files from `storage/uploads/` via volume mount. Migration to S3 planned for production.
+- **Object storage required:** The API writes originals to S3-compatible object
+  storage and the worker downloads the `storageKey` to ephemeral local storage.
+  This removes the shared-filesystem requirement and permits independent scaling.
 
 ## Alternatives Considered
 
@@ -71,4 +78,3 @@ We will build a separate **Python Worker** that:
 
 ### Alternative 3: Use AWS Textract instead of Tesseract
 **Deferred:** Start with free Tesseract. If accuracy becomes a problem, swap to Textract using strategy pattern. LLM structured parsing will catch most OCR errors anyway.
-

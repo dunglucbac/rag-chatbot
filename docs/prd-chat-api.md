@@ -8,7 +8,10 @@ The only way to interact with the LangGraph ReAct agent today is through the Tel
 
 A new REST chat endpoint under `/api/v1/chat` that accepts text messages, runs the LangGraph agent, and returns the reply. Sessions are created implicitly on the first message and continued via a `sessionId`. The endpoint follows the same `ApiResponse` envelope convention as the ingestion API, with an interceptor for successes and an exception filter for errors.
 
-Users upload files through the existing `POST /ingest/file` endpoint. Once ingested and embedded into the vector store, the chat agent can retrieve that content through its knowledge base tool. Upload and chat are fully decoupled.
+Users create a direct upload target with `POST /storage/upload-targets`, upload
+the object, then submit its key to `POST /ingest`. Once ingested and embedded
+into the vector store, the chat agent can retrieve that content through its
+knowledge base tool. Upload and chat are fully decoupled.
 
 ## User Stories
 
@@ -92,7 +95,8 @@ The unused `src/conversation/` directory (containing `MessageEntity` and `Messag
 ### What stays unchanged
 
 - `AgentService.invoke()` continues to work as-is. It gains a `checkpointSaver` in its `createReactAgent` call so that LangGraph persists state across invocations for the same `thread_id`.
-- The ingestion pipeline is untouched. Files are uploaded via `POST /ingest/file` and embedded into the vector store through the existing RabbitMQ flow.
+- The ingestion pipeline remains event-driven. Uploaded object keys are
+  submitted via `POST /ingest` and embedded through the existing RabbitMQ flow.
 - The Telegram webhook continues to call `AgentService` directly until a future PR adds the adapter.
 
 ## Testing Decisions

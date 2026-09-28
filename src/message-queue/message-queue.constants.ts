@@ -27,15 +27,7 @@ export const MESSAGE_QUEUE_BROKER_BINDINGS = [
   },
   {
     queue: MESSAGE_QUEUE_STATUS_QUEUE,
-    routingKey: 'job.processing.started',
-  },
-  {
-    queue: MESSAGE_QUEUE_STATUS_QUEUE,
     routingKey: 'doc.pdf.parse.completed',
-  },
-  {
-    queue: MESSAGE_QUEUE_STATUS_QUEUE,
-    routingKey: 'image.classify.completed',
   },
   {
     queue: MESSAGE_QUEUE_STATUS_QUEUE,
@@ -48,10 +40,6 @@ export const MESSAGE_QUEUE_BROKER_BINDINGS = [
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
     routingKey: 'payment.detected',
-  },
-  {
-    queue: MESSAGE_QUEUE_RESULTS_QUEUE,
-    routingKey: 'doc.chunks.embed.requested',
   },
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,

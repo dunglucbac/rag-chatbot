@@ -91,6 +91,14 @@ Before deploying, confirm:
 - [ ] `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set (matching `LLM_PROVIDER`)
 - [ ] `OPENAI_API_KEY` is always set — required for embeddings regardless of LLM provider
 - [ ] `TAVILY_API_KEY` is set
+- [ ] `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`, and
+  `OBJECT_STORAGE_BUCKET` identify the private S3-compatible bucket
+- [ ] `OBJECT_STORAGE_ACCESS_KEY` and `OBJECT_STORAGE_SECRET_KEY` can read and
+  write that bucket (for DigitalOcean Spaces, use its Spaces access keys)
+- [ ] Set `OBJECT_STORAGE_FORCE_PATH_STYLE=true` only for providers such as
+  MinIO that require path-style S3 addressing
+- [ ] Configure bucket CORS to allow your client origin to `PUT` directly to
+  the signed upload URL with the `Content-Type` header
 - [ ] `DB_*` variables match your production database credentials
 - [ ] PostgreSQL has the pgvector extension enabled (`init.sql` handles this on first run)
 
@@ -101,4 +109,8 @@ Before deploying, confirm:
 - `TypeORM synchronize: true` is enabled — fine for development, but replace with migrations before going to production to avoid accidental schema changes on deploy.
 - The background scraper cron runs inside the app process. If you scale to multiple instances, each will run the scraper independently and may scrape the same URLs concurrently. Use a single scraper instance or add a distributed lock if you scale horizontally.
 - Failed scrape attempts are logged and skipped with no retry. Permanently unreachable URLs will remain `scraped: false` indefinitely.
-- PDF uploads are written to `/tmp` and deleted immediately after ingestion — no persistent file storage needed.
+- Uploads are staged in `/tmp`, then persisted to S3-compatible object storage.
+  Configure a bucket lifecycle policy to delete raw originals after the required
+  retention period.
+- Drain or explicitly fail any pending jobs created before this migration: their
+  former local filesystem paths are not valid object storage keys.
