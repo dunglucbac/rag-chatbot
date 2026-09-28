@@ -229,6 +229,8 @@ Authorization: Bearer <access-token>
 
 Create an upload target first with `POST /storage/upload-targets`, upload the
 file bytes directly to its signed URL, then submit the returned `storageKey`.
+See [the full client upload walkthrough](docs/api.md#ingestion) for browser,
+curl, and Postman examples.
 
 ### Get ingestion job status
 
