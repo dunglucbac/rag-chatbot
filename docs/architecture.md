@@ -6,7 +6,6 @@ This repository is a NestJS monolith for receipt ingestion and read-only
 personal spending analysis. It has three entry points:
 
 - Authenticated HTTP endpoints for uploads, ingestion-job status, and chat.
-- A Telegram webhook for receipt-related conversation and notifications.
 - RabbitMQ consumers for results produced by external PDF and image workers.
 
 PostgreSQL stores the application data. The same database also backs the
@@ -35,7 +34,6 @@ AppModule
 ├── MessageQueueModule       RabbitMQ publisher, consumer, and event router
 ├── VectorStoreModule        pgvector document storage
 ├── WebSearchModule          Tavily search-log persistence
-├── TelegramModule           Telegraf webhook integration
 └── ScraperModule            periodic scraping of logged web-search URLs
 ```
 
@@ -128,7 +126,7 @@ current turn produced receipt evidence. If not, it runs one policy-retry agent
 invocation with a stricter prompt. If evidence still is unavailable, it returns
 a safe unavailable-data response. Failures during financial requests are also
 converted to a safe unavailable-data response; non-financial failures propagate
-to the HTTP or Telegram error boundary.
+to the HTTP error boundary.
 
 The currently registered tools are:
 
@@ -151,14 +149,6 @@ arguments, including model-supplied user identifiers.
 are not passed to the current `createReactAgent` call. Consequently the current
 financial chat path does not run vector retrieval or Tavily search.
 
-### Telegram
-
-Telegram calls `POST /telegram/webhook`, which passes the update to Telegraf.
-For text messages, `TelegramUpdate` calls `AgentService.invoke` using the
-Telegram sender ID as both the user identity and default LangGraph thread ID,
-then replies through Telegraf. Telegram conversations therefore have checkpoint
-memory per Telegram user but do not create a `chat_sessions` row.
-
 ## Receipt ingestion and event processing
 
 ```text
@@ -174,8 +164,8 @@ Authenticated upload
 External worker result
   → ingest.status.queue or ingest.results.queue
   → MessageQueueConsumer validates and routes the envelope
-  → registered feature consumer updates the job, persists a receipt,
-    sends a Telegram review prompt, or queues categorization
+  → registered feature consumer updates the job, persists a receipt, or queues
+    categorization
 ```
 
 Upload deduplication is per user and file checksum. When a duplicate is found,
@@ -194,8 +184,8 @@ The following incoming events have registered application handlers:
   receipts.
 - `receipt.items.categorize` uses the configured LLM with structured output to
   classify pending or failed receipt items against the v1 taxonomy.
-- `payment.detected` and `receipt.needs_review` update job state and send a
-  Telegram follow-up or review prompt.
+- `payment.detected` and `receipt.needs_review` update the associated job to
+  `needs_review` for later handling through the API.
 
 Document chunking and embedding are intentionally outside the current worker
 pipeline. No `doc.chunks.embed.requested` event, vector-store queue consumer,

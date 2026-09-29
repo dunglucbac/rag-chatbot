@@ -7,7 +7,7 @@ Guidance for working in this repository.
 This is a NestJS monolith focused on receipt intelligence and chat-based spending analysis.
 
 Core flow:
-- Telegram receives user messages
+- Authenticated HTTP APIs receive user requests
 - Agent service routes requests through LangGraph / LangChain
 - Ingestion processes uploaded receipts and documents
 - PostgreSQL + TypeORM store relational data
@@ -27,7 +27,6 @@ Current modules:
 - `IngestionModule` for file ingestion and parsing
 - `ReceiptModule` for receipt analytics and summaries
 - `AgentModule` for the LangGraph ReAct agent
-- `TelegramModule` for the Telegraf bot and webhook
 - `ScraperModule` for background web scraping
 
 When adding new functionality, follow the same modular NestJS approach.

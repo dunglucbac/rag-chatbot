@@ -8,23 +8,11 @@
 docker-compose up -d
 ```
 
-### 2. Expose a public webhook URL
-
-Telegram requires a public HTTPS URL to deliver updates. Use ngrok:
-
-```bash
-ngrok http 3000
-```
-
-Copy the `https://` URL and set it as `TELEGRAM_WEBHOOK_URL` in `.env`.
-
-### 3. Run the app
+### 2. Run the app
 
 ```bash
 npm run start:dev
 ```
-
-On startup, `TelegramService.onModuleInit` calls `bot.telegram.setWebhook(`${TELEGRAM_WEBHOOK_URL}/telegram/webhook`)` automatically.
 
 ---
 
@@ -87,7 +75,6 @@ volumes:
 
 Before deploying, confirm:
 
-- [ ] `TELEGRAM_WEBHOOK_URL` is a valid public HTTPS URL pointing to your server
 - [ ] `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set (matching `LLM_PROVIDER`)
 - [ ] `OPENAI_API_KEY` is always set — required for embeddings regardless of LLM provider
 - [ ] `TAVILY_API_KEY` is set

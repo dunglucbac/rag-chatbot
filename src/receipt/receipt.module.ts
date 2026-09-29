@@ -7,7 +7,6 @@ import { ReceiptService } from './receipt.service';
 import { ReceiptPaymentConsumer } from './receipt-payment.consumer';
 import { ReceiptReviewConsumer } from './receipt-review.consumer';
 import { ReceiptParsedConsumer } from './receipt-parsed.consumer';
-import { TelegramModule } from '../telegram/telegram.module';
 import { MessageQueueModule } from '../message-queue/message-queue.module';
 import { IngestionModule } from '../ingestion/ingestion.module';
 import { LlmModule } from '../llm/llm.module';
@@ -17,7 +16,6 @@ import { ReceiptCategorizationConsumer } from './receipt-categorization.consumer
 @Module({
   imports: [
     TypeOrmModule.forFeature([Receipt, ReceiptItem]),
-    TelegramModule,
     MessageQueueModule,
     IngestionModule,
     LlmModule,

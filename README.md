@@ -1,13 +1,13 @@
 # RAG Chatbot
 
-A Retrieval-Augmented Generation (RAG) chatbot built with NestJS, LangChain, and PostgreSQL + pgvector. It exposes a Telegram bot interface and lets users chat with an AI agent that can search a knowledge base of uploaded PDFs and perform live web searches.
+A Retrieval-Augmented Generation (RAG) chatbot built with NestJS, LangChain, and PostgreSQL + pgvector. It exposes authenticated HTTP APIs for chat and ingestion, letting users work with an AI agent that can search a knowledge base of uploaded PDFs and perform live web searches.
 
 ---
 
 ## Architecture
 
 ```
-Telegram Bot
+Authenticated HTTP API
     ↓
 Agent (LangGraph ReAct)
     ├── search_knowledge_base  →  PGVector (uploaded PDFs + scraped web content)
@@ -34,9 +34,9 @@ Ingestion Pipeline:
        → classify items against the receipt taxonomy
        → save category, subcategory, confidence, and status
   ← handle receipt.needs_review              receipt.needs_review ──→
-       → send Telegram confirmation prompt
+       → mark the job for review
   ← handle payment.detected                  payment.detected ──→
-       → send Telegram "what did you buy?"
+       → mark the job for review
   ← handle job.failed / parse.completed      job.failed / parse.completed ──→
        → update ingestion_jobs status
 
@@ -59,7 +59,7 @@ Background Scraper (every 6h):
 | ORM | TypeORM |
 | Agent | LangChain / LangGraph ReAct |
 | Web Search | Tavily API |
-| Chat Interface | Telegram (Telegraf) |
+| Chat Interface | Authenticated HTTP API |
 | Scraping | Cheerio + axios |
 | Queue | RabbitMQ |
 | Parsing Worker | Python (PyPDF2, Tesseract, Anthropic) |
@@ -71,11 +71,9 @@ Background Scraper (every 6h):
 - Node.js 20+
 - Python 3.12+ (for the Python worker)
 - Docker & Docker Compose
-- Telegram bot token (from [@BotFather](https://t.me/BotFather))
 - Anthropic or OpenAI API key
 - OpenAI API key (always required for embeddings)
 - Tavily API key
-- Public HTTPS URL for the Telegram webhook (ngrok or VS Code port forwarding)
 - Google OAuth client credentials (for the HTTP API)
 
 ---
@@ -155,37 +153,14 @@ This will create the app schema using TypeORM migrations.
 
 ### 7. Run the app
 
-Get a public HTTPS URL for the Telegram webhook using one of these options:
-
-**Option A — ngrok:**
-```bash
-ngrok http 3000
-```
-
-**Option B — VS Code port forwarding:**
-1. Open the **Ports** panel in VS Code
-2. Forward port `3000`
-3. Right-click → set visibility to **Public**
-4. Copy the HTTPS URL
-
-Set the URL in `.env`:
-```env
-TELEGRAM_WEBHOOK_URL=https://your-public-url
-```
-
-**Option C — cloudfare tunnel:**
-```bash
-cloudflared tunnel --url http://localhost:3000
-```
-
-Then start the app:
+Start the app:
 
 ```bash
 npm run start:dev   # development
 npm run start:prod  # production
 ```
 
-The server starts on `http://localhost:3000` and registers the Telegram webhook at `TELEGRAM_WEBHOOK_URL/telegram/webhook`.
+The server starts on `http://localhost:3000`.
 
 ---
 
@@ -242,7 +217,7 @@ GET /ingest/jobs/:id
 
 ## How the Agent Works
 
-1. User sends a message to the Telegram bot.
+1. An authenticated user sends a message to the chat API.
 2. The ReAct agent decides which tools to call.
 3. `search_knowledge_base` — vector similarity search over stored PDFs and scraped web pages. Always tried first.
 4. `search_web` — queries Tavily for up-to-date information. Used only if the knowledge base has no relevant results. Result URLs are logged for later scraping.
@@ -295,7 +270,6 @@ src/
 ├── message-queue/      # RabbitMQ broker and publisher
 ├── receipt/            # Receipt parsing, categorization, analytics, and summaries
 ├── scraper/            # Background web scraper (cron, every 6h)
-├── telegram/           # Telegram bot handler + webhook
 ├── vector-store/       # PGVector service
 └── web-search/         # Tavily service + search log entity
 

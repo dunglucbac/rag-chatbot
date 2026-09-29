@@ -30,10 +30,6 @@ export default () => ({
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingProvider: process.env.EMBEDDING_PROVIDER ?? 'openai',
   },
-  telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN,
-    webhookUrl: process.env.TELEGRAM_WEBHOOK_URL,
-  },
   tavily: {
     apiKey: process.env.TAVILY_API_KEY,
   },

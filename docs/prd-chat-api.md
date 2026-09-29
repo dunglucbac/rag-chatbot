@@ -2,7 +2,8 @@
 
 ## Problem Statement
 
-The only way to interact with the LangGraph ReAct agent today is through the Telegram bot webhook. There is no REST API for chat. The ingestion pipeline (file upload → parse/classify → embed) has a clean REST interface, but chat is locked inside the Telegram update handler. Teams building web or mobile clients, or wanting to decouple the chat interface from Telegram, have no API to call.
+The LangGraph ReAct agent needs a stable REST interface so web and mobile
+clients can create and continue authenticated conversations.
 
 ## Solution
 
@@ -15,14 +16,13 @@ knowledge base tool. Upload and chat are fully decoupled.
 
 ## User Stories
 
-1. As an API consumer, I want to send a chat message via REST, so that I can build web or mobile chat interfaces that use the same agent as the Telegram bot.
+1. As an API consumer, I want to send a chat message via REST, so that I can build web or mobile chat interfaces.
 2. As an API consumer, I want the first message to auto-create a session, so that I don't need a separate session-creation step.
 3. As an API consumer, I want to continue a conversation by referencing a session ID, so that the agent maintains context across multiple messages.
 4. As an API consumer, I want responses wrapped in a consistent `ApiResponse` envelope, so that my client can parse successes and errors uniformly.
 5. As an API consumer, I want validation errors (like empty messages) to return a standardized error shape, so that I can handle errors predictably.
 6. As an API consumer, I want to pass an optional user identifier via headers, so that chat sessions can be associated with a user without requiring full authentication.
 7. As a developer, I want the chat endpoint to support streaming in the future, so that users get a better UX as the agent runs its tool loop.
-8. As a Telegram user, I want the chat endpoint to eventually replace the inline agent call in the webhook, so that all chat goes through a single code path.
 
 ## Implementation Decisions
 
@@ -97,7 +97,6 @@ The unused `src/conversation/` directory (containing `MessageEntity` and `Messag
 - `AgentService.invoke()` continues to work as-is. It gains a `checkpointSaver` in its `createReactAgent` call so that LangGraph persists state across invocations for the same `thread_id`.
 - The ingestion pipeline remains event-driven. Uploaded object keys are
   submitted via `POST /ingest` and embedded through the existing RabbitMQ flow.
-- The Telegram webhook continues to call `AgentService` directly until a future PR adds the adapter.
 
 ## Testing Decisions
 
@@ -125,7 +124,6 @@ Deferred. The agent's behavior depends on the LLM, vector store, and web search 
 - **Streaming (SSE)** — v1 is request-response only. The interface is designed to add streaming later.
 - **Postgres checkpointer** — v1 uses in-memory `MemorySaver`. Postgres-backed checkpointing is a follow-up.
 - **Agent tool for user documents** — The agent cannot yet query ingestion jobs by user ID. It only has knowledge base and web search tools. Adding a `get_user_documents` tool is a separate task.
-- **Telegram webhook adapter** — The Telegram webhook continues to call `AgentService` directly. Moving it to call through `ChatModule` is future work.
 - **Authentication** — `x-user-id` header is optional, same as the ingestion controller. No JWT, API key, or session auth.
 - **Global interceptor / exception filter** — The response interceptor and exception filter are scoped to `ChatModule` for v1. Promoting them to global is a separate decision.
 - **Message history API** — No endpoint to retrieve past messages. LangGraph stores them internally for agent context, but there is no public history endpoint.

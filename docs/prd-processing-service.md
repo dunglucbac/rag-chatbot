@@ -2,7 +2,11 @@
 
 ## Problem Statement
 
-Users upload receipts, payment screenshots, and knowledge documents via Telegram, but the system cannot automatically extract spending data or enrich the knowledge base. Files sit in storage without being processed, forcing users to manually enter expense information or wait for manual document review.
+Users upload receipts, payment screenshots, and knowledge documents through the
+authenticated HTTP API, but the system cannot automatically extract spending
+data or enrich the knowledge base. Files sit in storage without being processed,
+forcing users to manually enter expense information or wait for manual document
+review.
 
 The existing NestJS monolith creates ingestion jobs but has no mechanism to:
 
@@ -26,18 +30,18 @@ Build a separate Python Worker that consumes file processing events from RabbitM
 - Classify files as receipts, payments, or knowledge documents using LLM
 - Parse receipts into structured line items for spending analytics
 - Chunk documents and prepare them for vector embedding
-- Route ambiguous cases to users via Telegram for confirmation
+- Mark ambiguous cases for later review
 - Publish results as events for downstream consumers
 
 This enables automatic spending tracking from receipts, user-assisted expense entry from payment screenshots, and continuous knowledge base enrichment from uploaded documents.
 
 ## User Stories
 
-1. As a user, I want to upload a receipt photo via Telegram, so that my spending is automatically tracked without manual entry
+1. As a user, I want to upload a receipt photo through the API, so that my spending is automatically tracked without manual entry
 2. As a user, I want the system to extract merchant name, date, total, and line items from my receipts, so that I can analyze spending patterns
 3. As a user, I want to upload a payment screenshot, so that the system can help me record what I purchased
-4. As a user, I want to be prompted via Telegram to describe what I bought with a payment, so that I can provide context when needed
-5. As a user, I want to skip payment confirmation prompts, so that I'm not forced to respond if I don't care about tracking that expense
+4. As a user, I want payment uploads marked for review, so that I can provide context through a future review experience when needed
+5. As a user, I want payment processing to complete without a required interaction, so that I can decide later whether to track that expense
 6. As a user, I want to upload financial strategy books as PDFs, so that the chatbot can answer questions using that knowledge
 7. As a user, I want the system to handle both text-based and scanned PDFs, so that I don't need to worry about file format
 8. As a user, I want duplicate receipts to be detected, so that I don't accidentally track the same expense twice
@@ -88,12 +92,9 @@ This enables automatic spending tracking from receipts, user-assisted expense en
    - Document chunking, embedding, and storage are not wired to RabbitMQ yet
    - When introduced, this must be delivered with a producer, binding, payload
      schema, and registered consumer in one change
-9. **TelegramModule** (modify):
-   - Consumes `payment.detected` events
-   - Sends immediate prompt: "What did you buy with this $X payment?"
-   - Parses user response into line items
-   - Emits `receipt.parsed` event with user-provided details
-   - Auto-skips after 24 hours if no response
+9. **ReceiptModule** (modify):
+   - Consumes `payment.detected` and `receipt.needs_review` events
+   - Marks the associated ingestion job as `needs_review`
 10. **IngestionModule** (modify):
 
 - Consumes completion events (`doc.pdf.parse.completed`, `job.failed`)
@@ -106,7 +107,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 ```json
 {
   "jobId": "uuid",
-  "userId": "telegram-123",
+  "userId": "google-user-123",
   "receipt": {
     "merchant": "Starbucks",
     "purchasedAt": "2026-05-05T10:30:00Z",
@@ -128,7 +129,7 @@ This enables automatic spending tracking from receipts, user-assisted expense en
 ```json
 {
   "jobId": "uuid",
-  "userId": "telegram-123",
+  "userId": "google-user-123",
   "payment": {
     "amount": 50.0,
     "date": "2026-05-05T14:20:00Z",
@@ -175,22 +176,8 @@ Document indexing is deferred until the entire flow can be introduced together.
 
 - **Transient failures** (LLM timeout, network errors): Retry with exponential backoff (3 attempts)
 - **Permanent failures** (corrupted file, unsupported format): Move to dead letter queue, update job status to `failed` with error message
-- **Low confidence classification** (< 0.7): Update job status to `needs_review`, emit event for Telegram bot to prompt user
-
-### Human-in-the-Loop via Telegram
-
-**For payments:**
-
-- Immediate prompt when `payment.detected` event received
-- User provides item descriptions in free text format
-- Bot parses response and emits `receipt.parsed` event
-- Auto-skip after 24 hours if no response
-
-**For low-confidence receipts:**
-
-- Bot sends parsed receipt with inline keyboard: [✅ Looks good] [✏️ Edit] [❌ Reject]
-- User confirms, edits, or rejects
-- Auto-approve after 24 hours if no response
+- **Low confidence classification** (< 0.7): Update job status to
+  `needs_review` for later handling
 
 ## Testing Decisions
 
@@ -234,7 +221,7 @@ Document indexing is deferred until the entire flow can be introduced together.
 - LLM rate limit handling with exponential backoff (add if needed)
 - S3 file storage (start with local filesystem)
 - Multi-language receipt support (English only initially)
-- Receipt editing UI (Telegram-only for MVP)
+- Receipt editing UI
 - Analytics dashboard for spending trends
 - Automatic categorization of line items beyond what LLM provides
 - Receipt photo quality validation (blur detection, orientation correction)
@@ -245,5 +232,6 @@ Document indexing is deferred until the entire flow can be introduced together.
 - Correlation IDs from ingestion jobs should flow through all events for distributed tracing
 - The `needs_review` status creates a human-in-the-loop workflow that can be expanded later (e.g., batch review UI, confidence thresholds per user)
 - Document chunking strategy (1000 chars, 200 overlap) is a starting point and should be tuned based on RAG retrieval quality
-- Payment workflow assumes 1 item by default unless user specifies multiple items
+- Payment jobs remain in `needs_review` until a dedicated review workflow is
+  implemented
 - The event-driven architecture allows future consumers (notifications, audit logs, analytics) without changing the Python Worker
