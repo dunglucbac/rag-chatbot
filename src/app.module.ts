@@ -10,7 +10,6 @@ import { MessageQueueModule } from '@modules/message-queue/message-queue.module'
 import { IngestionModule } from '@modules/ingestion/ingestion.module';
 import { WebSearchModule } from '@modules/web-search/web-search.module';
 import { AgentModule } from './agent/agent.module';
-import { TelegramModule } from './telegram/telegram.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { ReceiptModule } from './receipt/receipt.module';
 import { ChatModule } from './chat/chat.module';
@@ -31,7 +30,6 @@ import { AppService } from './app.service';
     IngestionModule,
     WebSearchModule,
     AgentModule,
-    TelegramModule,
     ScraperModule,
     ReceiptModule,
     ChatModule,

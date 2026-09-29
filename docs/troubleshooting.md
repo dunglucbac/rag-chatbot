@@ -1,26 +1,5 @@
 # Troubleshooting
 
-## Telegram
-
-### Bot not receiving messages
-
-1. Confirm the webhook is registered:
-   ```bash
-   curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo
-   ```
-   Check that `url` matches your `TELEGRAM_WEBHOOK_URL/telegram/webhook` and `last_error_message` is empty.
-
-2. Ensure your server is reachable from the internet over HTTPS. Telegram rejects HTTP and self-signed certificates.
-
-3. If running locally, confirm ngrok is still running — ngrok URLs expire when the process stops.
-
-### Webhook registration fails on startup
-
-- Check `TELEGRAM_BOT_TOKEN` is correct.
-- Check `TELEGRAM_WEBHOOK_URL` does not have a trailing slash.
-
----
-
 ## Database
 
 ### `relation "document_embeddings" does not exist`

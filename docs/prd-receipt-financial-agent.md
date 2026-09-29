@@ -6,7 +6,7 @@ Users can upload receipts and the system can parse and persist itemized purchase
 
 The current chat session flow also returns a new session identifier while using a different identifier for the first LangGraph thread, does not persist conversation state across restarts, and does not verify session ownership. These gaps make multi-turn financial conversations unreliable and unsafe.
 
-Users need a receipt-focused agent that decides when to call predefined, user-scoped functions; calculates financial results in code and SQL; and uses the LLM only to choose tools and explain structured results. The first release must focus on parsed receipts accessed through the Google-authenticated REST API. General document retrieval, web search, Telegram, and account-transaction analysis are later capabilities.
+Users need a receipt-focused agent that decides when to call predefined, user-scoped functions; calculates financial results in code and SQL; and uses the LLM only to choose tools and explain structured results. The first release must focus on parsed receipts accessed through the Google-authenticated REST API. General document retrieval, web search, and account-transaction analysis are later capabilities.
 
 ## Solution
 
@@ -88,7 +88,6 @@ Each slice must leave the existing REST chat contract usable and independently t
 
 - The first financial agent is receipt-focused. Its tools will not include knowledge-base search or web search.
 - The Google-authenticated user ID is the canonical identity for chat, ingestion, receipt ownership, sessions, preferences, and pending actions.
-- Telegram integration will be removed from the target architecture. Telegram user IDs will not be used by the financial agent.
 - The agent will continue using a LangGraph ReAct pattern so that the model chooses among predefined functions.
 - Tools will be constructed per invocation and will capture the authenticated user ID in server-side closures. `userId` will never appear in a tool schema exposed to the model.
 - Tool inputs will use Zod validation and tool outputs will be structured JSON rather than prose.
@@ -288,7 +287,6 @@ Good tests exercise public behavior and stable contracts rather than private imp
 - Account transactions, bank transfers, card/e-wallet transaction ingestion, and receipt/transaction matching. These are explicitly planned for the next stage.
 - General PDF/document RAG and `search_knowledge_base` in the receipt-focused agent.
 - Web search and price comparison.
-- Telegram chat, Telegram review prompts, Telegram identity linking, and Telegram as a source of canonical user identity.
 - A dedicated UI or settings screen.
 - Streaming responses, SSE, and exposure of intermediate agent steps.
 - Currency conversion or exchange-rate lookup.
@@ -307,7 +305,7 @@ Good tests exercise public behavior and stable contracts rather than private imp
 - The existing relational receipt tables remain the source of truth for receipt analytics. Vector similarity search is not suitable for exhaustive counts, sums, date filtering, or user-scoped financial calculations.
 - The existing code already creates a ReAct agent and LangChain tools per invocation. The first implementation should preserve that shape while replacing general search tools with user-scoped receipt functions.
 - The current first-message session/thread mismatch must be corrected before relying on persistent checkpoints.
-- The existing repository documentation contains forward-looking references to receipt-search tooling and Telegram flows that do not match the current implementation or this agreed direction. Architecture and glossary documentation should be reconciled as implementation slices land.
+- The existing repository documentation contains forward-looking references to receipt-search tooling that do not match the current implementation or this agreed direction. Architecture and glossary documentation should be reconciled as implementation slices land.
 - PostgreSQL server-side cursors are intentionally not used because they are connection- and transaction-bound. "Cursor pagination" in this PRD means stateless keyset pagination with signed application tokens.
 - HMAC cursor signing provides integrity, not confidentiality. Cursor payloads must remain non-sensitive.
 - The categorization model's output is inferred metadata, not OCR-extracted fact. Provenance, confidence, and taxonomy version preserve that distinction.

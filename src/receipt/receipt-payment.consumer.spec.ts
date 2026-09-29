@@ -1,19 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReceiptPaymentConsumer } from './receipt-payment.consumer';
-import { TelegramService } from '../telegram/telegram.service';
-import { MessageQueueService } from '../message-queue/publisher/publisher.service';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
-import type {
-  PaymentDetectedPayload,
-  ReceiptParsedPayload,
-} from '@modules/common/event-payloads.types';
+import type { PaymentDetectedPayload } from '@modules/common/event-payloads.types';
 import type { EventEnvelope } from '@modules/common/common.types';
 
 describe('ReceiptPaymentConsumer', () => {
   let consumer: ReceiptPaymentConsumer;
-  let telegramService: TelegramService;
-  let messageQueueService: MessageQueueService;
   let jobRepo: IngestionJobRepository;
 
   beforeEach(async () => {
@@ -23,30 +16,12 @@ describe('ReceiptPaymentConsumer', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReceiptPaymentConsumer,
-        {
-          provide: TelegramService,
-          useValue: {
-            bot: {
-              telegram: {
-                sendMessage: jest.fn(),
-              },
-            },
-          },
-        },
-        {
-          provide: MessageQueueService,
-          useValue: {
-            publish: jest.fn(),
-          },
-        },
         { provide: MessageRouter, useValue: mockRouter },
         { provide: IngestionJobRepository, useValue: mockJobRepo },
       ],
     }).compile();
 
     consumer = module.get<ReceiptPaymentConsumer>(ReceiptPaymentConsumer);
-    telegramService = module.get<TelegramService>(TelegramService);
-    messageQueueService = module.get<MessageQueueService>(MessageQueueService);
     jobRepo = module.get<IngestionJobRepository>(IngestionJobRepository);
   });
 
@@ -59,7 +34,7 @@ describe('ReceiptPaymentConsumer', () => {
     );
   });
 
-  it('prompts user with payment amount and marks job needs_review', async () => {
+  it('marks payment jobs as needs_review', async () => {
     (jobRepo.findById as jest.Mock).mockResolvedValue({
       id: 'job-123',
       status: 'pending',
@@ -80,54 +55,12 @@ describe('ReceiptPaymentConsumer', () => {
     };
     await consumer.handlePaymentDetected(envelope);
 
-    expect(telegramService.bot.telegram.sendMessage).toHaveBeenCalledWith(
-      '12345',
-      expect.stringContaining('$50.00'),
-    );
     expect(jobRepo.findById).toHaveBeenCalledWith('job-123');
     expect(jobRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'needs_review',
         classification: 'payment',
       }),
-    );
-  });
-
-  it('handles user response and publishes receipt.parsed event', async () => {
-    const paymentContext = {
-      jobId: 'job-123',
-      userId: '12345',
-      paymentAmount: 50.0,
-      paymentDate: '2026-05-05T14:20:00Z',
-    };
-
-    await consumer.handleUserResponse(
-      paymentContext,
-      'Bought groceries and detergent at Walmart',
-    );
-
-    expect(messageQueueService.publish).toHaveBeenCalledWith(
-      'receipt.parsed',
-      expect.objectContaining({
-        jobId: 'job-123',
-        userId: '12345',
-        receipt: expect.objectContaining({
-          merchant: expect.any(String) as string,
-          total: expect.any(Number) as number,
-          currency: expect.any(String) as string,
-          lineItems: [
-            expect.objectContaining({
-              name: 'Bought groceries and detergent at Walmart',
-              totalPrice: 50,
-            }),
-          ],
-          confidence: 1,
-          discrepancy: null,
-        }) as ReceiptParsedPayload['receipt'],
-      }),
-      'job-123',
-      1,
-      1,
     );
   });
 });

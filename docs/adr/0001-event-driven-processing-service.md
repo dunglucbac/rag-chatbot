@@ -6,7 +6,8 @@
 
 ## Context
 
-Users upload receipts, payment screenshots, and knowledge documents via Telegram. These files need to be:
+Users upload receipts, payment screenshots, and knowledge documents through the
+authenticated HTTP API. These files need to be:
 - Classified (receipt vs payment; all other files follow the document path)
 - Extracted (OCR or text extraction)
 - Parsed (line items for receipts, metadata for documents)
@@ -34,8 +35,8 @@ We will build a separate **Python Worker** that:
 
 4. **Routes based on classification:**
    - **Receipt:** Claude Sonnet parses line items → emit `receipt.parsed` event
-   - **Payment:** Emit `payment.detected` with extracted text → Telegram bot
-     prompts the user and derives the purchase details
+   - **Payment:** Emit `payment.detected` with extracted text → mark the
+     ingestion job for review
    - **Document:** Emit `doc.pdf.parse.completed` with extracted text
 
 5. **Publishes completion events:**

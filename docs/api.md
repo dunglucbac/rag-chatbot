@@ -221,25 +221,6 @@ For the final `POST /ingest` request, use:
 
 ---
 
-## Telegram Webhook
-
-### Receive update
-
-Called by Telegram's servers when a user sends a message to the bot. You should not call this manually — it is registered automatically on startup via `TELEGRAM_WEBHOOK_URL`.
-
-```
-POST /telegram/webhook
-Content-Type: application/json
-```
-
-**Body** — standard [Telegram Update object](https://core.telegram.org/bots/api#update)
-
-**Response** — delegated to Telegraf
-
-> Note: the application also exposes `/health` for basic health checks.
-
----
-
 ## Health
 
 NestJS exposes no dedicated health endpoint by default. You can verify the app is running with:

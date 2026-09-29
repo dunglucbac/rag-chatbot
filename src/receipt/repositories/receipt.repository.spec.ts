@@ -36,7 +36,7 @@ describe('ReceiptRepository', () => {
       total: 12.5,
       tax: 1.15,
       currency: 'USD',
-      source: 'telegram',
+      source: 'ingestion',
       checksumSha256: 'abc123',
     });
 
@@ -56,7 +56,7 @@ describe('ReceiptRepository', () => {
       purchasedAt: new Date('2026-05-05T10:30:00Z'),
       total: 12.5,
       currency: 'USD',
-      source: 'telegram',
+      source: 'ingestion',
       checksumSha256: 'abc123',
     });
 
@@ -88,7 +88,7 @@ describe('ReceiptRepository', () => {
       purchasedAt: new Date('2026-05-06T14:00:00Z'),
       total: 50.0,
       currency: 'USD',
-      source: 'telegram',
+      source: 'ingestion',
       checksumSha256: 'xyz789',
     };
 
