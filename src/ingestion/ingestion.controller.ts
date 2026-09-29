@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { GoogleAuthGuard } from '../auth/google-auth.guard';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CreateIngestionJobDto } from './dto/create-ingestion-job.dto';
+import type { NeedsReviewRecord } from './needs-review.types';
 
 @Controller('ingest')
 @UseGuards(GoogleAuthGuard)
@@ -63,6 +64,43 @@ export class IngestionController {
       data: {
         job: IngestionJobDto.fromEntity(job),
       },
+    };
+  }
+
+  @Get('jobs/:id/review')
+  async getNeedsReview(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ApiResponse<{ job: IngestionJobDto; review: NeedsReviewRecord }>> {
+    const { job, review } = await this.ingestionService.getNeedsReview(
+      id,
+      user.id,
+    );
+    return {
+      status: 'success',
+      message: 'Receipt review fetched',
+      data: { job: IngestionJobDto.fromEntity(job), review },
+    };
+  }
+
+  @Post('jobs/:id/review')
+  async resolveNeedsReview(
+    @Param('id') id: string,
+    @Body() input: unknown,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ApiResponse<{ job: IngestionJobDto; review: NeedsReviewRecord }>> {
+    const { job, review } = await this.ingestionService.resolveNeedsReview(
+      id,
+      user.id,
+      input,
+    );
+    return {
+      status: 'success',
+      message:
+        review.status === 'approved'
+          ? 'Receipt review approved and queued for processing'
+          : 'Receipt review rejected',
+      data: { job: IngestionJobDto.fromEntity(job), review },
     };
   }
 }

@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import * as path from 'path';
@@ -16,6 +17,14 @@ import { IngestionJob } from '@modules/ingestion/entities/ingestion-job.entity';
 import { EventEnvelope } from '@modules/common/common.types';
 import { ObjectStorageService } from '../storage/object-storage.service';
 import { CreateIngestionJobDto } from './dto/create-ingestion-job.dto';
+import { EventType } from '../common/event-types';
+import {
+  NEEDS_REVIEW_METADATA_KEY,
+  NeedsReviewRecord,
+  needsReviewRecordSchema,
+  parseResolveNeedsReviewInput,
+  ResolveNeedsReviewInput,
+} from './needs-review.types';
 
 @Injectable()
 export class IngestionService {
@@ -132,6 +141,132 @@ export class IngestionService {
     }
 
     return job;
+  }
+
+  async getNeedsReview(
+    id: string,
+    userId: string,
+  ): Promise<{ job: IngestionJob; review: NeedsReviewRecord }> {
+    const job = await this.getJob(id, userId);
+    const review = this.getStoredReview(job);
+    if (!review) {
+      throw new NotFoundException(
+        'No receipt review found for this ingestion job',
+      );
+    }
+
+    return { job, review };
+  }
+
+  async resolveNeedsReview(
+    id: string,
+    userId: string,
+    input: unknown,
+  ): Promise<{ job: IngestionJob; review: NeedsReviewRecord }> {
+    const decision = parseResolveNeedsReviewInput(input);
+    if (!decision) {
+      throw new BadRequestException('Invalid receipt review decision');
+    }
+
+    const job = await this.getJob(id, userId);
+    const review = this.getStoredReview(job);
+    if (!review) {
+      throw new NotFoundException(
+        'No receipt review found for this ingestion job',
+      );
+    }
+    if (
+      job.status !== IngestionJobStatus.NEEDS_REVIEW ||
+      review.status !== 'pending'
+    ) {
+      throw new ConflictException(
+        'This receipt review has already been resolved',
+      );
+    }
+
+    return decision.action === 'approve'
+      ? this.approveNeedsReview(job, review, decision)
+      : this.rejectNeedsReview(job, review);
+  }
+
+  private async approveNeedsReview(
+    job: IngestionJob,
+    review: NeedsReviewRecord,
+    decision: ResolveNeedsReviewInput,
+  ): Promise<{ job: IngestionJob; review: NeedsReviewRecord }> {
+    const resolvedAt = new Date().toISOString();
+    const approvedReview: NeedsReviewRecord = {
+      ...review,
+      receipt: decision.receipt ?? review.receipt,
+      status: 'approved',
+      resolvedAt,
+    };
+    job.status = IngestionJobStatus.PROCESSING;
+    job.metadata = this.withReview(job, approvedReview);
+    await this.jobRepository.save(job);
+
+    try {
+      await this.messageQueueService.publish(
+        EventType.RECEIPT_PARSED,
+        {
+          jobId: job.id,
+          userId: job.userId,
+          receipt: approvedReview.receipt,
+          ...(approvedReview.rawText
+            ? { rawText: approvedReview.rawText }
+            : {}),
+        },
+        job.correlationId ?? job.id,
+        1,
+        1,
+      );
+    } catch (error) {
+      job.status = IngestionJobStatus.NEEDS_REVIEW;
+      job.metadata = this.withReview(job, review);
+      await this.jobRepository.save(job);
+      throw error;
+    }
+
+    return { job, review: approvedReview };
+  }
+
+  private async rejectNeedsReview(
+    job: IngestionJob,
+    review: NeedsReviewRecord,
+  ): Promise<{ job: IngestionJob; review: NeedsReviewRecord }> {
+    const rejectedReview: NeedsReviewRecord = {
+      ...review,
+      status: 'rejected',
+      resolvedAt: new Date().toISOString(),
+    };
+    job.status = IngestionJobStatus.REJECTED;
+    job.completedAt = new Date();
+    job.metadata = this.withReview(job, rejectedReview);
+    await this.jobRepository.save(job);
+
+    return { job, review: rejectedReview };
+  }
+
+  private getStoredReview(job: IngestionJob): NeedsReviewRecord | null {
+    const candidate = job.metadata?.[NEEDS_REVIEW_METADATA_KEY];
+    const parsed =
+      typeof candidate === 'object' && candidate !== null ? candidate : null;
+    if (!parsed) {
+      return null;
+    }
+
+    const review = needsReviewRecordSchema.safeParse(parsed);
+    return review.success ? review.data : null;
+  }
+
+  private withReview(
+    job: IngestionJob,
+    review: NeedsReviewRecord,
+  ): Record<string, unknown> {
+    return {
+      ...(job.metadata ?? {}),
+      [NEEDS_REVIEW_METADATA_KEY]: review,
+    };
   }
 
   private normalizeCorrelationId(correlationId?: string | null): string {

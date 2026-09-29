@@ -221,6 +221,36 @@ For the final `POST /ingest` request, use:
 
 ---
 
+## Receipt reviews
+
+Low-confidence receipt results are retained for the authenticated owner instead
+of being persisted immediately. Fetch the proposed receipt with:
+
+```text
+GET /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+```
+
+Approve the proposed receipt, optionally replacing it with a complete corrected
+receipt object that follows the returned `review.receipt` shape:
+
+```text
+POST /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{ "action": "approve" }
+```
+
+Approval queues `receipt.parsed` and sets the job to `processing`; the existing
+receipt consumer persists it and marks the job complete. To discard the proposed
+receipt instead, submit `{ "action": "reject" }`. Rejected jobs are terminal.
+
+Only the user who owns the ingestion job may fetch or resolve its review. A
+review can be resolved once; a second request returns `409 Conflict`.
+
+---
+
 ## Health
 
 NestJS exposes no dedicated health endpoint by default. You can verify the app is running with:

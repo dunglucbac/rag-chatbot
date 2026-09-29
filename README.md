@@ -213,6 +213,11 @@ curl, and Postman examples.
 GET /ingest/jobs/:id
 ```
 
+Low-confidence receipt jobs can be reviewed with `GET` and `POST`
+`/ingest/jobs/:id/review`. Approving queues the proposed (or corrected) receipt
+for persistence; rejecting marks the job as rejected. See the
+[review API reference](docs/api.md#receipt-reviews).
+
 ---
 
 ## How the Agent Works

@@ -109,4 +109,62 @@ describe('IngestionController', () => {
       },
     });
   });
+
+  it('returns an owned receipt review', async () => {
+    const job = {
+      id: 'job-123',
+      userId: 'user-123',
+      status: 'needs_review',
+    } as const;
+    const review = { status: 'pending', confidence: 0.55 };
+    const ingestionService = {
+      getNeedsReview: jest.fn().mockResolvedValue({ job, review }),
+    } as unknown as IngestionService;
+    const controller = new IngestionController(ingestionService);
+
+    const result = await controller.getNeedsReview('job-123', {
+      id: 'user-123',
+      email: 'user@example.com',
+    });
+
+    expect(ingestionService.getNeedsReview).toHaveBeenCalledWith(
+      'job-123',
+      'user-123',
+    );
+    expect(result).toMatchObject({
+      status: 'success',
+      message: 'Receipt review fetched',
+      data: { job: { id: 'job-123' }, review },
+    });
+  });
+
+  it('resolves a receipt review for its owner', async () => {
+    const job = {
+      id: 'job-123',
+      userId: 'user-123',
+      status: 'processing',
+    } as const;
+    const review = { status: 'approved', confidence: 0.55 };
+    const ingestionService = {
+      resolveNeedsReview: jest.fn().mockResolvedValue({ job, review }),
+    } as unknown as IngestionService;
+    const controller = new IngestionController(ingestionService);
+
+    const result = await controller.resolveNeedsReview(
+      'job-123',
+      { action: 'approve' },
+      { id: 'user-123', email: 'user@example.com' },
+    );
+
+    expect(ingestionService.resolveNeedsReview).toHaveBeenCalledWith(
+      'job-123',
+      'user-123',
+      { action: 'approve' },
+    );
+    expect(result).toMatchObject({
+      status: 'success',
+      message: 'Receipt review approved and queued for processing',
+      data: { job: { id: 'job-123' }, review },
+    });
+  });
 });
