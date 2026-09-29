@@ -19,34 +19,35 @@ export const MESSAGE_QUEUE_WORKER_QUEUES = [
 export const MESSAGE_QUEUE_BROKER_BINDINGS = [
   {
     queue: MESSAGE_QUEUE_PDF_QUEUE,
-    routingKey: 'doc.pdf.parse.requested',
+    routingKey: EventType.DOC_PDF_PARSE_REQUESTED,
   },
   {
     queue: MESSAGE_QUEUE_IMAGE_QUEUE,
-    routingKey: 'image.classify.requested',
+    routingKey: EventType.IMAGE_CLASSIFY_REQUESTED,
   },
   {
     queue: MESSAGE_QUEUE_STATUS_QUEUE,
-    routingKey: 'doc.pdf.parse.completed',
+    routingKey: EventType.DOC_PDF_PARSE_COMPLETED,
   },
   {
     queue: MESSAGE_QUEUE_STATUS_QUEUE,
-    routingKey: 'job.failed',
+    routingKey: EventType.JOB_FAILED,
   },
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
-    routingKey: 'receipt.parsed',
+    routingKey: EventType.RECEIPT_PARSED,
   },
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
-    routingKey: 'payment.detected',
+    routingKey: EventType.PAYMENT_DETECTED,
   },
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
-    routingKey: 'receipt.needs_review',
+    routingKey: EventType.RECEIPT_NEEDS_REVIEW,
   },
   {
     queue: MESSAGE_QUEUE_RESULTS_QUEUE,
-    routingKey: 'receipt.items.categorize',
+    routingKey: EventType.RECEIPT_ITEMS_CATEGORIZE,
   },
 ] as const;
+import { EventType } from '@modules/common/event-types';

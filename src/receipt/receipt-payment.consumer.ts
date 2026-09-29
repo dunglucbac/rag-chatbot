@@ -1,8 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
-import {
-  PaymentDetectedPayload,
-} from '../common/event-payloads.types';
+import { EventType } from '@modules/common/event-types';
+import { PaymentDetectedPayload } from '../common/event-payloads.types';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 import { EventHandler } from '../message-queue/message-queue.types';
@@ -22,7 +21,7 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
 
   onModuleInit() {
     this.router.register(
-      'payment.detected',
+      EventType.PAYMENT_DETECTED,
       this.handlePaymentDetected.bind(this) as EventHandler,
     );
   }
@@ -40,6 +39,5 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
       job.classification = IngestionClassification.PAYMENT;
       await this.jobRepository.save(job);
     }
-
   }
 }

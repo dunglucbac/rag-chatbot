@@ -4,6 +4,7 @@ import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 import type { PaymentDetectedPayload } from '@modules/common/event-payloads.types';
 import type { EventEnvelope } from '@modules/common/common.types';
+import { EventType } from '@modules/common/event-types';
 
 describe('ReceiptPaymentConsumer', () => {
   let consumer: ReceiptPaymentConsumer;
@@ -29,7 +30,7 @@ describe('ReceiptPaymentConsumer', () => {
     (consumer as unknown as { onModuleInit: () => void }).onModuleInit();
     const router = (consumer as unknown as { router: MessageRouter }).router;
     expect(router.register).toHaveBeenCalledWith(
-      'payment.detected',
+      EventType.PAYMENT_DETECTED,
       expect.any(Function),
     );
   });
@@ -46,7 +47,7 @@ describe('ReceiptPaymentConsumer', () => {
     };
     const envelope: EventEnvelope<PaymentDetectedPayload> = {
       eventId: 'evt-1',
-      eventType: 'payment.detected',
+      eventType: EventType.PAYMENT_DETECTED,
       correlationId: 'corr-123',
       schemaVersion: 1,
       attempt: 1,

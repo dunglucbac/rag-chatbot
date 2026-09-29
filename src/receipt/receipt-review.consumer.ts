@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EventEnvelope } from '@modules/common/common.types';
+import { EventType } from '@modules/common/event-types';
 import { NeedsReviewPayload } from '../common/event-payloads.types';
 import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
@@ -20,7 +21,7 @@ export class ReceiptReviewConsumer implements OnModuleInit {
 
   onModuleInit() {
     this.router.register(
-      'receipt.needs_review',
+      EventType.RECEIPT_NEEDS_REVIEW,
       this.handleNeedsReview.bind(this) as EventHandler,
     );
   }

@@ -4,6 +4,7 @@ import { MessageRouter } from '../message-queue/router/message-router.service';
 import { IngestionJobRepository } from '../repositories/ingestion-job.repository';
 import { NeedsReviewPayload } from '@modules/common/event-payloads.types';
 import { EventEnvelope } from '@modules/common/common.types';
+import { EventType } from '@modules/common/event-types';
 
 describe('ReceiptReviewConsumer', () => {
   let consumer: ReceiptReviewConsumer;
@@ -29,7 +30,7 @@ describe('ReceiptReviewConsumer', () => {
     consumer.onModuleInit();
     const router = (consumer as unknown as { router: MessageRouter }).router;
     expect(router.register).toHaveBeenCalledWith(
-      'receipt.needs_review',
+      EventType.RECEIPT_NEEDS_REVIEW,
       expect.any(Function),
     );
   });
@@ -54,7 +55,7 @@ describe('ReceiptReviewConsumer', () => {
     };
     const envelope: EventEnvelope<NeedsReviewPayload> = {
       eventId: 'evt-1',
-      eventType: 'receipt.needs_review',
+      eventType: EventType.RECEIPT_NEEDS_REVIEW,
       correlationId: 'corr-123',
       schemaVersion: 1,
       attempt: 1,
