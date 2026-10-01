@@ -287,6 +287,31 @@ to the authenticated user, selected job, and supplied action. Correcting
 receipt fields through chat is intentionally not supported; use the existing
 review endpoint for a corrected receipt object.
 
+### Bank-transfer reviews
+
+When the worker detects a bank-transfer confirmation, it extracts the
+recipient, timestamp, amount, currency, and confidence from the uploaded image
+and puts the job in `needs_review`. Chat shows those document-derived facts and
+asks the user what the transfer paid for. A transfer does not have receipt line
+items until the user supplies one.
+
+To confirm the transfer, send the user-provided item name with the explicit UI
+action:
+
+```json
+{
+  "message": "This transfer paid my electricity bill. Save it.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve",
+  "paymentItemName": "Electricity bill"
+}
+```
+
+The server publishes a normal `receipt.parsed` event using the detected amount
+and currency. It creates one receipt with one item named `paymentItemName`, so
+the existing categorization and spending-analysis flow applies. The user cannot
+provide the amount through chat; it comes from the transfer document.
+
 ---
 
 ## Health

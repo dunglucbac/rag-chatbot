@@ -21,6 +21,7 @@ import { IngestionService } from '../ingestion/ingestion.service';
 import {
   createIngestionReviewTool,
   createResolveIngestionReviewTool,
+  createResolvePaymentReviewTool,
 } from './tools/ingestion-review.tool';
 
 @Injectable()
@@ -39,6 +40,7 @@ export class AgentService {
     threadId?: string,
     ingestionJobId?: string,
     reviewAction?: 'approve' | 'reject',
+    paymentItemName?: string,
   ): Promise<string> {
     const financialClaim = requiresReceiptEvidence(message);
     const now = new Date();
@@ -76,6 +78,17 @@ export class AgentService {
               reviewAction,
             ),
           );
+          if (reviewAction === 'reject' || paymentItemName) {
+            tools.push(
+              createResolvePaymentReviewTool(
+                this.ingestionService,
+                userId,
+                ingestionJobId,
+                reviewAction,
+                paymentItemName,
+              ),
+            );
+          }
         }
       }
       const agent = createReactAgent({
@@ -85,7 +98,9 @@ export class AgentService {
         prompt: createFinancialAgentPrompt(
           now,
           policyRetry,
-          ingestionJobId ? { jobId: ingestionJobId, reviewAction } : undefined,
+          ingestionJobId
+            ? { jobId: ingestionJobId, reviewAction, paymentItemName }
+            : undefined,
         ),
         postModelHook: enforceToolCallBudget,
       });

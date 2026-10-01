@@ -8,6 +8,7 @@ const APPROVED_RECEIPT_TOOLS = new Set([
   'search_purchase_items',
   'get_ingestion_review',
   'resolve_ingestion_review',
+  'resolve_payment_review',
 ]);
 
 export const RECEIPT_EVIDENCE_UNAVAILABLE_RESPONSE =

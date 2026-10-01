@@ -44,6 +44,27 @@ export function createIngestionReviewTool(
         };
       }
 
+      if (job.classification === 'payment') {
+        try {
+          const { review } = await ingestion.getPaymentReview(jobId, userId);
+          return {
+            status: 'success' as const,
+            data: {
+              job: jobSummary(job),
+              review: {
+                payment: review.payment,
+                requestedAt: review.requestedAt,
+              },
+            },
+          };
+        } catch (error: unknown) {
+          if (!(error instanceof NotFoundException)) {
+            throw error;
+          }
+          return missingReviewData(job);
+        }
+      }
+
       try {
         const { review } = await ingestion.getNeedsReview(jobId, userId);
         return {
@@ -61,19 +82,7 @@ export function createIngestionReviewTool(
         if (!(error instanceof NotFoundException)) {
           throw error;
         }
-        // Payment documents also use needs_review, but they do not contain a
-        // proposed receipt record to display or approve.
-        return {
-          status: 'success' as const,
-          data: { job: jobSummary(job), review: null },
-          warnings: [
-            {
-              code: 'NO_RECEIPT_REVIEW_DATA',
-              message:
-                'This job requires attention but has no proposed receipt data to approve.',
-            },
-          ],
-        };
+        return missingReviewData(job);
       }
     },
     {
@@ -83,6 +92,20 @@ export function createIngestionReviewTool(
       schema: noArgumentsSchema,
     },
   );
+}
+
+function missingReviewData(job: Parameters<typeof jobSummary>[0]) {
+  return {
+    status: 'success' as const,
+    data: { job: jobSummary(job), review: null },
+    warnings: [
+      {
+        code: 'NO_REVIEW_DATA',
+        message:
+          'This job requires attention but has no proposed data to review.',
+      },
+    ],
+  };
 }
 
 export function createResolveIngestionReviewTool(
@@ -115,6 +138,43 @@ export function createResolveIngestionReviewTool(
       name: 'resolve_ingestion_review',
       description:
         'Apply the explicit approve or reject decision supplied by the UI to the selected pending receipt review. This action cannot alter the proposed receipt fields.',
+      schema: noArgumentsSchema,
+    },
+  );
+}
+
+export function createResolvePaymentReviewTool(
+  ingestion: IngestionService,
+  userId: string,
+  jobId: string,
+  action: 'approve' | 'reject',
+  itemName?: string,
+) {
+  return tool(
+    async () => {
+      const { job, review } = await ingestion.resolvePaymentReview(
+        jobId,
+        userId,
+        {
+          action,
+          ...(itemName ? { itemName } : {}),
+        },
+      );
+      return {
+        status: 'success' as const,
+        data: {
+          job: jobSummary(job),
+          review: {
+            status: review.status,
+            resolvedAt: review.resolvedAt,
+          },
+        },
+      };
+    },
+    {
+      name: 'resolve_payment_review',
+      description:
+        'Apply the explicit UI decision to the selected pending bank-transfer review. An approval creates a receipt with one user-supplied item and the detected transfer amount.',
       schema: noArgumentsSchema,
     },
   );

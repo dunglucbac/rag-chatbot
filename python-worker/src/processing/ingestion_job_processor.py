@@ -31,6 +31,8 @@ class ReceiptParser(Protocol):
 
     def parse_with_vision(self, image_path: str, /) -> dict[str, Any]: ...
 
+    def parse_payment(self, text: str, /) -> dict[str, Any]: ...
+
 
 @dataclass(frozen=True)
 class IngestionJob:
@@ -134,12 +136,18 @@ class IngestionJobProcessor:
                 )
 
             if classification == ClassificationType.PAYMENT:
+                payment = (
+                    self._normalize_purchased_at(self._parser.parse_payment(text))
+                    if self._parser
+                    else None
+                )
                 return ProcessingResult(
                     EventType.PAYMENT_DETECTED,
                     {
                         "jobId": job.job_id,
                         "userId": job.user_id,
                         "extractedText": text,
+                        **({"payment": payment} if payment else {}),
                     },
                 )
 

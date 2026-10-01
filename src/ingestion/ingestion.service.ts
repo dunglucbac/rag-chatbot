@@ -25,6 +25,14 @@ import {
   parseResolveNeedsReviewInput,
   ResolveNeedsReviewInput,
 } from './needs-review.types';
+import {
+  PAYMENT_REVIEW_METADATA_KEY,
+  parseResolvePaymentReviewInput,
+  PaymentReviewRecord,
+  paymentReviewRecordSchema,
+  receiptDataFromConfirmedPayment,
+  ResolvePaymentReviewInput,
+} from './payment-review.types';
 
 @Injectable()
 export class IngestionService {
@@ -189,6 +197,52 @@ export class IngestionService {
       : this.rejectNeedsReview(job, review);
   }
 
+  async getPaymentReview(
+    id: string,
+    userId: string,
+  ): Promise<{ job: IngestionJob; review: PaymentReviewRecord }> {
+    const job = await this.getJob(id, userId);
+    const review = this.getStoredPaymentReview(job);
+    if (!review) {
+      throw new NotFoundException(
+        'No payment review found for this ingestion job',
+      );
+    }
+
+    return { job, review };
+  }
+
+  async resolvePaymentReview(
+    id: string,
+    userId: string,
+    input: unknown,
+  ): Promise<{ job: IngestionJob; review: PaymentReviewRecord }> {
+    const decision = parseResolvePaymentReviewInput(input);
+    if (!decision) {
+      throw new BadRequestException('Invalid payment review decision');
+    }
+
+    const job = await this.getJob(id, userId);
+    const review = this.getStoredPaymentReview(job);
+    if (!review) {
+      throw new NotFoundException(
+        'No payment review found for this ingestion job',
+      );
+    }
+    if (
+      job.status !== IngestionJobStatus.NEEDS_REVIEW ||
+      review.status !== 'pending'
+    ) {
+      throw new ConflictException(
+        'This payment review has already been resolved',
+      );
+    }
+
+    return decision.action === 'approve'
+      ? this.approvePaymentReview(job, review, decision)
+      : this.rejectPaymentReview(job, review);
+  }
+
   private async approveNeedsReview(
     job: IngestionJob,
     review: NeedsReviewRecord,
@@ -247,6 +301,66 @@ export class IngestionService {
     return { job, review: rejectedReview };
   }
 
+  private async approvePaymentReview(
+    job: IngestionJob,
+    review: PaymentReviewRecord,
+    decision: ResolvePaymentReviewInput,
+  ): Promise<{ job: IngestionJob; review: PaymentReviewRecord }> {
+    const itemName = decision.itemName;
+    if (!itemName) {
+      throw new BadRequestException('A payment item name is required');
+    }
+
+    const resolvedAt = new Date().toISOString();
+    const approvedReview: PaymentReviewRecord = {
+      ...review,
+      status: 'approved',
+      resolvedAt,
+    };
+    job.status = IngestionJobStatus.PROCESSING;
+    job.metadata = this.withPaymentReview(job, approvedReview);
+    await this.jobRepository.save(job);
+
+    try {
+      await this.messageQueueService.publish(
+        EventType.RECEIPT_PARSED,
+        {
+          jobId: job.id,
+          userId: job.userId,
+          receipt: receiptDataFromConfirmedPayment(review.payment, itemName),
+          ...(review.rawText ? { rawText: review.rawText } : {}),
+        },
+        job.correlationId ?? job.id,
+        1,
+        1,
+      );
+    } catch (error) {
+      job.status = IngestionJobStatus.NEEDS_REVIEW;
+      job.metadata = this.withPaymentReview(job, review);
+      await this.jobRepository.save(job);
+      throw error;
+    }
+
+    return { job, review: approvedReview };
+  }
+
+  private async rejectPaymentReview(
+    job: IngestionJob,
+    review: PaymentReviewRecord,
+  ): Promise<{ job: IngestionJob; review: PaymentReviewRecord }> {
+    const rejectedReview: PaymentReviewRecord = {
+      ...review,
+      status: 'rejected',
+      resolvedAt: new Date().toISOString(),
+    };
+    job.status = IngestionJobStatus.REJECTED;
+    job.completedAt = new Date();
+    job.metadata = this.withPaymentReview(job, rejectedReview);
+    await this.jobRepository.save(job);
+
+    return { job, review: rejectedReview };
+  }
+
   private getStoredReview(job: IngestionJob): NeedsReviewRecord | null {
     const candidate = job.metadata?.[NEEDS_REVIEW_METADATA_KEY];
     const parsed =
@@ -259,6 +373,20 @@ export class IngestionService {
     return review.success ? review.data : null;
   }
 
+  private getStoredPaymentReview(
+    job: IngestionJob,
+  ): PaymentReviewRecord | null {
+    const candidate = job.metadata?.[PAYMENT_REVIEW_METADATA_KEY];
+    const parsed =
+      typeof candidate === 'object' && candidate !== null ? candidate : null;
+    if (!parsed) {
+      return null;
+    }
+
+    const review = paymentReviewRecordSchema.safeParse(parsed);
+    return review.success ? review.data : null;
+  }
+
   private withReview(
     job: IngestionJob,
     review: NeedsReviewRecord,
@@ -266,6 +394,16 @@ export class IngestionService {
     return {
       ...(job.metadata ?? {}),
       [NEEDS_REVIEW_METADATA_KEY]: review,
+    };
+  }
+
+  private withPaymentReview(
+    job: IngestionJob,
+    review: PaymentReviewRecord,
+  ): Record<string, unknown> {
+    return {
+      ...(job.metadata ?? {}),
+      [PAYMENT_REVIEW_METADATA_KEY]: review,
     };
   }
 

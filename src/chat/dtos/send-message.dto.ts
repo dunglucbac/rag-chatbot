@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   ValidateIf,
 } from 'class-validator';
 
@@ -18,7 +19,9 @@ export class SendMessageDto {
    */
   @ValidateIf(
     (dto: SendMessageDto) =>
-      dto.ingestionJobId !== undefined || dto.reviewAction !== undefined,
+      dto.ingestionJobId !== undefined ||
+      dto.reviewAction !== undefined ||
+      dto.paymentItemName !== undefined,
   )
   @IsUUID()
   ingestionJobId?: string;
@@ -30,4 +33,11 @@ export class SendMessageDto {
   @IsOptional()
   @IsIn(['approve', 'reject'])
   reviewAction?: 'approve' | 'reject';
+
+  /** The one receipt-item label the user supplies for an approved transfer. */
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  paymentItemName?: string;
 }

@@ -23,6 +23,7 @@ export function createFinancialAgentPrompt(
   ingestionReviewContext?: {
     jobId: string;
     reviewAction?: 'approve' | 'reject';
+    paymentItemName?: string;
   },
 ): string {
   const instructions = [
@@ -41,8 +42,15 @@ export function createFinancialAgentPrompt(
     );
     if (ingestionReviewContext.reviewAction) {
       instructions.push(
-        `The UI has explicitly confirmed the ${ingestionReviewContext.reviewAction} action for this job. Use resolve_ingestion_review exactly once, then report its outcome. Do not invent or alter receipt fields.`,
+        `The UI has explicitly confirmed the ${ingestionReviewContext.reviewAction} action for this job. After inspecting the job, use the resolver that matches its review type exactly once, then report its outcome. Do not invent or alter receipt fields.`,
       );
+      if (ingestionReviewContext.reviewAction === 'approve') {
+        instructions.push(
+          ingestionReviewContext.paymentItemName
+            ? `For a bank-transfer review, use the UI-supplied item name "${ingestionReviewContext.paymentItemName}" exactly; do not invent or alter it.`
+            : 'A bank-transfer approval requires a user-supplied item name. If the selected job is a payment review and no item name is supplied, ask the user for it instead of resolving the review.',
+        );
+      }
     }
   }
   if (policyRetry) {

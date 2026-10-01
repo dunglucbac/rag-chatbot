@@ -32,6 +32,9 @@ export class ChatController {
         ? {
             ingestionJobId: dto.ingestionJobId,
             ...(dto.reviewAction ? { reviewAction: dto.reviewAction } : {}),
+            ...(dto.paymentItemName
+              ? { paymentItemName: dto.paymentItemName }
+              : {}),
           }
         : {}),
     });
@@ -52,6 +55,9 @@ export class ChatController {
         ? {
             ingestionJobId: dto.ingestionJobId,
             ...(dto.reviewAction ? { reviewAction: dto.reviewAction } : {}),
+            ...(dto.paymentItemName
+              ? { paymentItemName: dto.paymentItemName }
+              : {}),
           }
         : {}),
     });

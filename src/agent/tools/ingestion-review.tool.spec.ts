@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import { IngestionService } from '../../ingestion/ingestion.service';
 import {
   IngestionClassification,
@@ -7,6 +6,7 @@ import {
 import {
   createIngestionReviewTool,
   createResolveIngestionReviewTool,
+  createResolvePaymentReviewTool,
 } from './ingestion-review.tool';
 
 const job = {
@@ -53,13 +53,24 @@ describe('ingestion review tools', () => {
     });
   });
 
-  it('reports a payment-style review without pretending it has receipt data', async () => {
+  it('returns the proposed transfer facts for a payment review', async () => {
     const ingestion = {
       getJob: jest.fn().mockResolvedValue({
         ...job,
         classification: IngestionClassification.PAYMENT,
       }),
-      getNeedsReview: jest.fn().mockRejectedValue(new NotFoundException()),
+      getPaymentReview: jest.fn().mockResolvedValue({
+        review: {
+          payment: {
+            merchant: 'Power Company',
+            purchasedAt: '2026-09-20T03:00:00.000Z',
+            total: 50_000,
+            currency: 'VND',
+            confidence: 0.9,
+          },
+          requestedAt: '2026-09-20T03:01:00.000Z',
+        },
+      }),
     } as unknown as IngestionService;
 
     const result = await createIngestionReviewTool(
@@ -70,9 +81,33 @@ describe('ingestion review tools', () => {
 
     expect(result).toMatchObject({
       status: 'success',
-      data: { review: null },
-      warnings: [{ code: 'NO_RECEIPT_REVIEW_DATA' }],
+      data: {
+        review: { payment: { merchant: 'Power Company', total: 50_000 } },
+      },
     });
+  });
+
+  it('creates a one-item receipt only with the UI-supplied transfer label', async () => {
+    const ingestion = {
+      resolvePaymentReview: jest.fn().mockResolvedValue({
+        job: { ...job, status: IngestionJobStatus.PROCESSING },
+        review: { status: 'approved', resolvedAt: '2026-09-20T03:02:00.000Z' },
+      }),
+    } as unknown as IngestionService;
+
+    await createResolvePaymentReviewTool(
+      ingestion,
+      'user-1',
+      'job-1',
+      'approve',
+      'Electricity bill',
+    ).invoke({});
+
+    expect(ingestion.resolvePaymentReview).toHaveBeenCalledWith(
+      'job-1',
+      'user-1',
+      { action: 'approve', itemName: 'Electricity bill' },
+    );
   });
 
   it('uses the UI-confirmed action and never accepts an action from model input', async () => {

@@ -145,6 +145,30 @@ describe('IngestionService', () => {
     };
   }
 
+  function pendingPaymentReviewJob() {
+    return {
+      id: 'payment-job-123',
+      userId: 'user-123',
+      status: IngestionJobStatus.NEEDS_REVIEW,
+      correlationId: 'payment-corr-123',
+      completedAt: null,
+      metadata: {
+        paymentReview: {
+          payment: {
+            merchant: 'Power Company',
+            purchasedAt: '2026-05-05T10:30:00Z',
+            total: 125_000,
+            currency: 'VND',
+            confidence: 0.92,
+          },
+          rawText: 'Bank transfer 125000 VND to Power Company',
+          status: 'pending',
+          requestedAt: '2026-05-05T10:35:00.000Z',
+        },
+      },
+    };
+  }
+
   it('returns the pending receipt review to its owner', async () => {
     const job = pendingReviewJob();
     const service = new IngestionService(
@@ -325,5 +349,69 @@ describe('IngestionService', () => {
     await expect(
       service.resolveNeedsReview('job-123', 'user-123', { action: 'approve' }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('turns an approved bank transfer into a one-item receipt', async () => {
+    const job = pendingPaymentReviewJob();
+    const save = jest.fn().mockResolvedValue(job);
+    const publish = jest.fn().mockResolvedValue({ eventId: 'evt-payment-123' });
+    const service = new IngestionService(
+      { findById: jest.fn().mockResolvedValue(job), save } as never,
+      { publish } as unknown as MessageQueueService,
+      {} as ObjectStorageService,
+    );
+
+    const result = await service.resolvePaymentReview(
+      'payment-job-123',
+      'user-123',
+      { action: 'approve', itemName: 'Electricity bill' },
+    );
+
+    expect(result.job.status).toBe(IngestionJobStatus.PROCESSING);
+    expect(result.review.status).toBe('approved');
+    expect(publish).toHaveBeenCalledWith(
+      EventType.RECEIPT_PARSED,
+      expect.objectContaining({
+        jobId: 'payment-job-123',
+        userId: 'user-123',
+        rawText: 'Bank transfer 125000 VND to Power Company',
+        receipt: {
+          merchant: 'Power Company',
+          purchasedAt: '2026-05-05T10:30:00Z',
+          total: 125_000,
+          tax: null,
+          currency: 'VND',
+          lineItems: [
+            {
+              name: 'Electricity bill',
+              quantity: 1,
+              unitPrice: 125_000,
+              totalPrice: 125_000,
+            },
+          ],
+          confidence: 0.92,
+          discrepancy: null,
+        },
+      }),
+      'payment-corr-123',
+      1,
+      1,
+    );
+  });
+
+  it('requires an item name to approve a bank transfer', async () => {
+    const service = new IngestionService(
+      {
+        findById: jest.fn().mockResolvedValue(pendingPaymentReviewJob()),
+      } as never,
+      {} as MessageQueueService,
+      {} as ObjectStorageService,
+    );
+
+    await expect(
+      service.resolvePaymentReview('payment-job-123', 'user-123', {
+        action: 'approve',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

@@ -107,4 +107,25 @@ describe('ChatService', () => {
       'approve',
     );
   });
+
+  it('passes the transfer item name only when the UI explicitly supplies it', async () => {
+    mockInvoke.mockResolvedValue('Transfer saved as a receipt.');
+
+    await chatService.sendMessage({
+      message: 'Approve this transfer as my electricity bill',
+      userId: 'user-1',
+      ingestionJobId: '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      reviewAction: 'approve',
+      paymentItemName: 'Electricity bill',
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'user-1',
+      'Approve this transfer as my electricity bill',
+      expect.any(String),
+      '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      'approve',
+      'Electricity bill',
+    );
+  });
 });
