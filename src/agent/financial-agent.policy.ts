@@ -6,6 +6,8 @@ const RECEIPT_FINANCIAL_LANGUAGE =
 const APPROVED_RECEIPT_TOOLS = new Set([
   'get_purchase_summary',
   'search_purchase_items',
+  'get_ingestion_review',
+  'resolve_ingestion_review',
 ]);
 
 export const RECEIPT_EVIDENCE_UNAVAILABLE_RESPONSE =

@@ -249,6 +249,44 @@ receipt instead, submit `{ "action": "reject" }`. Rejected jobs are terminal.
 Only the user who owns the ingestion job may fetch or resolve its review. A
 review can be resolved once; a second request returns `409 Conflict`.
 
+### Reviewing through chat
+
+The chat endpoints can present and resolve a review after the UI supplies the
+ingestion job ID returned by `POST /ingest`:
+
+```text
+POST /chat/messages
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "message": "Please show me the extracted receipt data for this upload.",
+  "ingestionJobId": "<job UUID>"
+}
+```
+
+The LangGraph agent is given a read tool bound to that job and the authenticated
+user. It can report the processing status and, for a pending receipt review,
+the proposed receipt fields. It cannot select another job from the model's
+output.
+
+After showing the data, the UI must collect an explicit approval or rejection.
+Send it separately from free-form text:
+
+```json
+{
+  "message": "I approve the proposed receipt data.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve"
+}
+```
+
+`reviewAction` accepts `approve` or `reject`. The agent receives a write tool
+only when this explicit UI value is present, and that tool is permanently bound
+to the authenticated user, selected job, and supplied action. Correcting
+receipt fields through chat is intentionally not supported; use the existing
+review endpoint for a corrected receipt object.
+
 ---
 
 ## Health

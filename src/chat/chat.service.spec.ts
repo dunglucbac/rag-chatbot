@@ -88,4 +88,23 @@ describe('ChatService', () => {
       result.sessionId,
     );
   });
+
+  it('passes a UI-selected ingestion review context to the agent', async () => {
+    mockInvoke.mockResolvedValue('I found a receipt that needs your review.');
+
+    await chatService.sendMessage({
+      message: 'Show this upload',
+      userId: 'user-1',
+      ingestionJobId: '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      reviewAction: 'approve',
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'user-1',
+      'Show this upload',
+      expect.any(String),
+      '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      'approve',
+    );
+  });
 });
