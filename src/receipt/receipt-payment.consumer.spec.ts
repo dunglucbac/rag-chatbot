@@ -69,13 +69,25 @@ describe('ReceiptPaymentConsumer', () => {
         status: 'needs_review',
         classification: 'payment',
         extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
-        metadata: expect.objectContaining({
-          paymentReview: expect.objectContaining({
-            payment: expect.objectContaining({ total: 50, currency: 'USD' }),
-            status: 'pending',
-          }),
-        }),
       }),
     );
+    const saveCalls = (jobRepo.save as jest.Mock).mock
+      .calls as unknown as Array<
+      [
+        {
+          metadata: {
+            paymentReview: {
+              payment: { total: number; currency: string };
+              status: string;
+            };
+          };
+        },
+      ]
+    >;
+    const savedJob = saveCalls[0]?.[0];
+    expect(savedJob?.metadata.paymentReview).toMatchObject({
+      payment: { total: 50, currency: 'USD' },
+      status: 'pending',
+    });
   });
 });

@@ -2,7 +2,10 @@ import { tool } from '@langchain/core/tools';
 import { NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { IngestionService } from '../../ingestion/ingestion.service';
-import { IngestionJobStatus } from '../../ingestion/ingestion.types';
+import {
+  IngestionClassification,
+  IngestionJobStatus,
+} from '../../ingestion/ingestion.types';
 
 const noArgumentsSchema = z.object({}).strict();
 
@@ -44,7 +47,7 @@ export function createIngestionReviewTool(
         };
       }
 
-      if (job.classification === 'payment') {
+      if (job.classification === IngestionClassification.PAYMENT) {
         try {
           const { review } = await ingestion.getPaymentReview(jobId, userId);
           return {
