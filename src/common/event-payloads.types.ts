@@ -31,10 +31,19 @@ export type ReceiptParsedPayload = {
   rawText?: string;
 };
 
+export type PaymentData = {
+  merchant: string;
+  purchasedAt: string;
+  total: number;
+  currency: string;
+  confidence: number;
+};
+
 export type PaymentDetectedPayload = {
   jobId: string;
   userId?: string;
   extractedText: string;
+  payment?: PaymentData;
 };
 
 export type NeedsReviewPayload = {

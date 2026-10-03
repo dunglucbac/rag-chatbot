@@ -28,6 +28,15 @@ export class ChatController {
     return this.chatService.sendMessage({
       message: dto.message,
       userId: user.id,
+      ...(dto.ingestionJobId
+        ? {
+            ingestionJobId: dto.ingestionJobId,
+            ...(dto.reviewAction ? { reviewAction: dto.reviewAction } : {}),
+            ...(dto.paymentItemName
+              ? { paymentItemName: dto.paymentItemName }
+              : {}),
+          }
+        : {}),
     });
   }
 
@@ -42,6 +51,15 @@ export class ChatController {
       message: dto.message,
       sessionId,
       userId: user.id,
+      ...(dto.ingestionJobId
+        ? {
+            ingestionJobId: dto.ingestionJobId,
+            ...(dto.reviewAction ? { reviewAction: dto.reviewAction } : {}),
+            ...(dto.paymentItemName
+              ? { paymentItemName: dto.paymentItemName }
+              : {}),
+          }
+        : {}),
     });
   }
 

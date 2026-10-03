@@ -7,6 +7,9 @@ export interface SendMessageParams {
   message: string;
   sessionId?: string;
   userId?: string;
+  ingestionJobId?: string;
+  reviewAction?: 'approve' | 'reject';
+  paymentItemName?: string;
 }
 
 export interface SendMessageResult {
@@ -37,11 +40,24 @@ export class ChatService {
       await this.sessionRepository.createForUser(sessionId, userId);
     }
 
-    const reply = await this.agentService.invoke(
-      userId,
-      params.message,
-      sessionId,
-    );
+    const reply = params.ingestionJobId
+      ? params.paymentItemName
+        ? await this.agentService.invoke(
+            userId,
+            params.message,
+            sessionId,
+            params.ingestionJobId,
+            params.reviewAction,
+            params.paymentItemName,
+          )
+        : await this.agentService.invoke(
+            userId,
+            params.message,
+            sessionId,
+            params.ingestionJobId,
+            params.reviewAction,
+          )
+      : await this.agentService.invoke(userId, params.message, sessionId);
     await this.sessionRepository.touchOwnedById(sessionId, userId);
 
     return { sessionId, reply };

@@ -122,7 +122,7 @@ def test_high_receipt_parser_confidence_returns_parsed_event():
     assert result.payload["rawText"] == "Clear receipt"
 
 
-def test_payment_event_includes_user_id():
+def test_payment_event_includes_user_id_when_structured_parsing_is_unavailable():
     extractor = Mock()
     extractor.extract.return_value = "Transfer 50.00"
     classifier = Mock()
@@ -140,6 +140,35 @@ def test_payment_event_includes_user_id():
         "jobId": "job-123",
         "userId": "user-456",
         "extractedText": "Transfer 50.00",
+    }
+
+
+def test_payment_event_includes_document_derived_transfer_facts():
+    extractor = Mock()
+    extractor.extract.return_value = "Transfer 50.00 VND to Power Company"
+    classifier = Mock()
+    classifier.classify.return_value = {
+        "classification": "payment",
+        "confidence": 0.9,
+    }
+    parser = Mock()
+    parser.parse_payment.return_value = {
+        "merchant": "Power Company",
+        "purchasedAt": "2026-09-20",
+        "total": 50.0,
+        "currency": "VND",
+        "confidence": 0.91,
+    }
+
+    result = IngestionJobProcessor(extractor, classifier, parser).process(_job())
+
+    assert result.event_type == EventType.PAYMENT_DETECTED
+    assert result.payload["payment"] == {
+        "merchant": "Power Company",
+        "purchasedAt": "2026-09-20T00:00:00Z",
+        "total": 50.0,
+        "currency": "VND",
+        "confidence": 0.91,
     }
 
 

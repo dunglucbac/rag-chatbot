@@ -9,10 +9,6 @@ export class CreateIngestionJobDto {
   @IsNotEmpty()
   originalFilename: string;
 
-  @IsString()
-  @IsNotEmpty()
-  mimeType: string;
-
   @IsOptional()
   @IsString()
   @Matches(/^[a-fA-F0-9]{64}$/)

@@ -14,6 +14,7 @@ export enum IngestionJobStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
   NEEDS_REVIEW = 'needs_review',
+  REJECTED = 'rejected',
   COMPLETED = 'completed',
   FAILED = 'failed',
 }

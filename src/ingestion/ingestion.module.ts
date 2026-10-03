@@ -18,6 +18,6 @@ import { ObjectStorageModule } from '../storage/object-storage.module';
   ],
   controllers: [IngestionController],
   providers: [IngestionService, IngestionJobRepository, IngestionEventConsumer],
-  exports: [IngestionJobRepository],
+  exports: [IngestionService, IngestionJobRepository],
 })
 export class IngestionModule {}

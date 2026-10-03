@@ -44,6 +44,13 @@ describe('ReceiptPaymentConsumer', () => {
       jobId: 'job-123',
       userId: '12345',
       extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
+      payment: {
+        merchant: 'ABC Store',
+        purchasedAt: '2026-09-20T03:00:00.000Z',
+        total: 50,
+        currency: 'USD',
+        confidence: 0.9,
+      },
     };
     const envelope: EventEnvelope<PaymentDetectedPayload> = {
       eventId: 'evt-1',
@@ -61,7 +68,26 @@ describe('ReceiptPaymentConsumer', () => {
       expect.objectContaining({
         status: 'needs_review',
         classification: 'payment',
+        extractedText: 'Bank Transfer\nAmount: $50.00\nTo: ABC Store',
       }),
     );
+    const saveCalls = (jobRepo.save as jest.Mock).mock
+      .calls as unknown as Array<
+      [
+        {
+          metadata: {
+            paymentReview: {
+              payment: { total: number; currency: string };
+              status: string;
+            };
+          };
+        },
+      ]
+    >;
+    const savedJob = saveCalls[0]?.[0];
+    expect(savedJob?.metadata.paymentReview).toMatchObject({
+      payment: { total: 50, currency: 'USD' },
+      status: 'pending',
+    });
   });
 });

@@ -4,9 +4,10 @@ import { LlmModule } from '../llm/llm.module';
 import { AGENT_CHECKPOINTER } from './agent.constants';
 import { AgentCheckpointerService } from './agent-checkpointer.service';
 import { ReceiptAnalyticsModule } from '../receipt/receipt-analytics.module';
+import { IngestionModule } from '../ingestion/ingestion.module';
 
 @Module({
-  imports: [LlmModule, ReceiptAnalyticsModule],
+  imports: [LlmModule, ReceiptAnalyticsModule, IngestionModule],
   providers: [
     AgentService,
     AgentCheckpointerService,

@@ -33,8 +33,10 @@ the file bytes:
 3. POST /ingest                  → validate the uploaded object and queue processing
 ```
 
-Keep the `storageKey`, `originalFilename`, and `mimeType` from step 1 until
-step 3. Uploading the object alone does **not** start processing.
+Keep the `storageKey` and `originalFilename` from step 1 until step 3. Use
+the upload target's `mimeType` for the step 2 `Content-Type` header; ingestion
+reads that type from the stored object. Uploading the object alone does **not**
+start processing.
 
 ### 1. Create an upload target
 
@@ -98,6 +100,11 @@ Queues a previously uploaded object. The key must belong to the authenticated
 user (`raw/{userId}/…`), and the API checks that the object exists before
 publishing worker work.
 
+The API reads the MIME type from object-storage metadata and uses it for the
+job and worker event. Do not send `mimeType` in this request. Objects without a
+content type or with a multipart content type are rejected; upload raw file
+bytes with the correct `Content-Type` header.
+
 ```
 POST /ingest
 Content-Type: application/json
@@ -108,7 +115,6 @@ Authorization: Bearer <access-token>
 {
   "storageKey": "raw/user-123/file-123.pdf",
   "originalFilename": "statement.pdf",
-  "mimeType": "application/pdf",
   "checksumSha256": "optional 64-character SHA-256 hex"
 }
 ```
@@ -154,7 +160,6 @@ async function uploadAndQueueFile(
     body: JSON.stringify({
       storageKey: target.storageKey,
       originalFilename: file.name,
-      mimeType,
     }),
   });
   if (!ingestionResponse.ok) throw new Error('Could not queue ingestion');
@@ -201,13 +206,22 @@ pm.collectionVariables.set('storageKey', response.data.storageKey);
 
 For the second request, choose `PUT`, set the URL to `{{uploadUrl}}`, set
 `Content-Type` to `{{mimeType}}`, and choose the file under **Body → binary**.
+The repository's `rag-chatbot.postman_collection.json` configures this request
+as **R2 Upload**. After importing it, select your local file in the binary body;
+the file selection is not bundled with the collection.
+
+Do not use **Body → form-data**. Object storage saves that entire multipart
+request body, including the wrapper, and records its multipart content type.
+If an object was uploaded this way, create a fresh upload target and upload the
+file again as binary with the correct `Content-Type`, then use the new
+`storageKey` for ingestion.
+
 For the final `POST /ingest` request, use:
 
 ```json
 {
   "storageKey": "{{storageKey}}",
-  "originalFilename": "{{originalFilename}}",
-  "mimeType": "{{mimeType}}"
+  "originalFilename": "{{originalFilename}}"
 }
 ```
 
@@ -218,6 +232,99 @@ For the final `POST /ingest` request, use:
 - Use a new signed URL when a request has expired (the default is 900 seconds).
 - For large files, the current API uses a single signed `PUT`; multipart upload
   support is a future enhancement.
+
+---
+
+## Receipt reviews
+
+Low-confidence receipt results are retained for the authenticated owner instead
+of being persisted immediately. Fetch the proposed receipt with:
+
+```text
+GET /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+```
+
+Approve the proposed receipt, optionally replacing it with a complete corrected
+receipt object that follows the returned `review.receipt` shape:
+
+```text
+POST /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{ "action": "approve" }
+```
+
+Approval queues `receipt.parsed` and sets the job to `processing`; the existing
+receipt consumer persists it and marks the job complete. To discard the proposed
+receipt instead, submit `{ "action": "reject" }`. Rejected jobs are terminal.
+
+Only the user who owns the ingestion job may fetch or resolve its review. A
+review can be resolved once; a second request returns `409 Conflict`.
+
+### Reviewing through chat
+
+The chat endpoints can present and resolve a review after the UI supplies the
+ingestion job ID returned by `POST /ingest`:
+
+```text
+POST /chat/messages
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "message": "Please show me the extracted receipt data for this upload.",
+  "ingestionJobId": "<job UUID>"
+}
+```
+
+The LangGraph agent is given a read tool bound to that job and the authenticated
+user. It can report the processing status and, for a pending receipt review,
+the proposed receipt fields. It cannot select another job from the model's
+output.
+
+After showing the data, the UI must collect an explicit approval or rejection.
+Send it separately from free-form text:
+
+```json
+{
+  "message": "I approve the proposed receipt data.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve"
+}
+```
+
+`reviewAction` accepts `approve` or `reject`. The agent receives a write tool
+only when this explicit UI value is present, and that tool is permanently bound
+to the authenticated user, selected job, and supplied action. Correcting
+receipt fields through chat is intentionally not supported; use the existing
+review endpoint for a corrected receipt object.
+
+### Bank-transfer reviews
+
+When the worker detects a bank-transfer confirmation, it extracts the
+recipient, timestamp, amount, currency, and confidence from the uploaded image
+and puts the job in `needs_review`. Chat shows those document-derived facts and
+asks the user what the transfer paid for. A transfer does not have receipt line
+items until the user supplies one.
+
+To confirm the transfer, send the user-provided item name with the explicit UI
+action:
+
+```json
+{
+  "message": "This transfer paid my electricity bill. Save it.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve",
+  "paymentItemName": "Electricity bill"
+}
+```
+
+The server publishes a normal `receipt.parsed` event using the detected amount
+and currency. It creates one receipt with one item named `paymentItemName`, so
+the existing categorization and spending-analysis flow applies. The user cannot
+provide the amount through chat; it comes from the transfer document.
 
 ---
 

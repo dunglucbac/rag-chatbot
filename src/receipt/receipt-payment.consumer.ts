@@ -9,6 +9,10 @@ import {
   IngestionClassification,
   IngestionJobStatus,
 } from '../ingestion/ingestion.types';
+import {
+  PAYMENT_REVIEW_METADATA_KEY,
+  PaymentReviewRecord,
+} from '../ingestion/payment-review.types';
 
 @Injectable()
 export class ReceiptPaymentConsumer implements OnModuleInit {
@@ -28,7 +32,7 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
 
   async handlePaymentDetected(envelope: EventEnvelope<PaymentDetectedPayload>) {
     if (!envelope.payload) return;
-    const { jobId } = envelope.payload;
+    const { jobId, extractedText, payment } = envelope.payload;
     this.logger.log(
       `handlePaymentDetected [correlationId=${envelope.correlationId} jobId=${jobId}]`,
     );
@@ -37,6 +41,19 @@ export class ReceiptPaymentConsumer implements OnModuleInit {
     if (job) {
       job.status = IngestionJobStatus.NEEDS_REVIEW;
       job.classification = IngestionClassification.PAYMENT;
+      job.extractedText = extractedText;
+      if (payment) {
+        const review: PaymentReviewRecord = {
+          payment,
+          rawText: extractedText,
+          status: 'pending',
+          requestedAt: new Date().toISOString(),
+        };
+        job.metadata = {
+          ...(job.metadata ?? {}),
+          [PAYMENT_REVIEW_METADATA_KEY]: review,
+        };
+      }
       await this.jobRepository.save(job);
     }
   }
