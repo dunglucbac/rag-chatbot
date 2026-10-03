@@ -201,6 +201,16 @@ pm.collectionVariables.set('storageKey', response.data.storageKey);
 
 For the second request, choose `PUT`, set the URL to `{{uploadUrl}}`, set
 `Content-Type` to `{{mimeType}}`, and choose the file under **Body → binary**.
+The repository's `rag-chatbot.postman_collection.json` configures this request
+as **R2 Upload**. After importing it, select your local file in the binary body;
+the file selection is not bundled with the collection.
+
+Do not use **Body → form-data**. Object storage saves that entire multipart
+request body, including the wrapper, and records its multipart content type.
+If an object was uploaded this way, create a fresh upload target and upload the
+file again as binary with the correct `Content-Type`, then use the new
+`storageKey` for ingestion.
+
 For the final `POST /ingest` request, use:
 
 ```json

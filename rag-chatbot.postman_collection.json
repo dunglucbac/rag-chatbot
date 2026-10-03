@@ -11,7 +11,7 @@
       "name": "Ingestion",
       "item": [
         {
-          "name": "Ingest PDF",
+          "name": "Queue Uploaded File",
           "event": [
             {
               "listen": "test",
@@ -41,16 +41,15 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/ingest/file",
+              "raw": "{{baseUrl}}/ingest",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "ingest",
-                "file"
+                "ingest"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Run after R2 Upload succeeds. Queue the uploaded object using the storageKey, originalFilename, and mimeType from Request Pre-sign URL."
           },
           "response": []
         },
@@ -70,7 +69,7 @@
                 "{{jobId}}"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Fetch the status of an ingestion job."
           },
           "response": []
         }
@@ -241,21 +240,36 @@
                 "upload-targets"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Create a signed upload URL and storageKey. Set originalFilename and mimeType in the pre-request script to match the file you will select in R2 Upload."
           },
           "response": []
         },
         {
           "name": "R2 Upload",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "PUT",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "{{mimeType}}"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            },
             "url": {
               "raw": "{{uploadUrl}}",
               "host": [
                 "{{uploadUrl}}"
               ]
-            }
+            },
+            "description": "After importing, select your file under Body > binary. Send raw file bytes with Content-Type: {{mimeType}}; do not use form-data. Run Request Pre-sign URL first, then this request, then Queue Uploaded File."
           },
           "response": []
         }
