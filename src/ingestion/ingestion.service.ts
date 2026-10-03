@@ -79,19 +79,19 @@ export class IngestionService {
     const storedObject = await this.objectStorageService.getObjectMetadata(
       input.storageKey,
     );
-    if (
-      storedObject.contentType &&
-      storedObject.contentType !== input.mimeType
-    ) {
+    const mimeType = storedObject.contentType?.trim();
+    if (!mimeType) {
       throw new BadRequestException(
-        'Object content type does not match the ingestion request',
+        'Uploaded object is missing a content type',
+      );
+    }
+    if (/^multipart\//i.test(mimeType)) {
+      throw new BadRequestException(
+        'Uploaded object contains multipart data; upload raw file bytes with the file Content-Type',
       );
     }
 
-    const fileType = this.detectFileType(
-      input.mimeType,
-      input.originalFilename,
-    );
+    const fileType = this.detectFileType(mimeType, input.originalFilename);
     const fileId = this.deriveFileId(input.storageKey);
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
@@ -100,7 +100,7 @@ export class IngestionService {
       userId,
       originalFilename: input.originalFilename,
       storageKey: input.storageKey,
-      mimeType: input.mimeType,
+      mimeType,
       fileType,
       classification,
       status: IngestionJobStatus.PENDING,
@@ -108,7 +108,7 @@ export class IngestionService {
       correlationId: normalizedCorrelationId,
       metadata: {
         size: storedObject.size ?? null,
-        mimetype: input.mimeType,
+        mimetype: mimeType,
         originalExtension: path.extname(input.originalFilename).toLowerCase(),
         sourceContext: sourceContext ?? null,
       },
@@ -123,7 +123,7 @@ export class IngestionService {
       userId,
       originalFilename: input.originalFilename,
       storageKey: input.storageKey,
-      mimeType: input.mimeType,
+      mimeType,
       fileType,
       classification,
       fileExtension: path.extname(input.originalFilename).toLowerCase(),

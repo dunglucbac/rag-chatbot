@@ -14,7 +14,6 @@ describe('IngestionService', () => {
   const input = {
     storageKey: 'raw/user-123/file-123.pdf',
     originalFilename: 'statement.pdf',
-    mimeType: 'application/pdf',
     checksumSha256: 'a'.repeat(64),
   };
 
@@ -45,6 +44,13 @@ describe('IngestionService', () => {
         fileId: 'file-123',
         userId: 'user-123',
         storageKey: input.storageKey,
+        mimeType: 'application/pdf',
+        metadata: {
+          size: 1234,
+          mimetype: 'application/pdf',
+          originalExtension: '.pdf',
+          sourceContext: null,
+        },
         checksumSha256: input.checksumSha256,
       }),
     );
@@ -54,6 +60,7 @@ describe('IngestionService', () => {
         jobId: 'job-123',
         storageKey: input.storageKey,
         fileSize: 1234,
+        mimeType: 'application/pdf',
       }),
       'corr-123',
       1,
@@ -99,23 +106,78 @@ describe('IngestionService', () => {
     expect(getObjectMetadata).not.toHaveBeenCalled();
   });
 
-  it('rejects object content whose type differs from the request', async () => {
+  it('uses the stored HEIC content type and ignores a legacy request MIME type', async () => {
+    const createOrGetByChecksum = jest.fn().mockResolvedValue({
+      job: { id: 'heic-job' },
+      created: true,
+    });
+    const publish = jest.fn().mockResolvedValue({ eventId: 'heic-event' });
     const service = new IngestionService(
-      {} as IngestionJobRepository,
-      {} as MessageQueueService,
+      { createOrGetByChecksum } as unknown as IngestionJobRepository,
+      { publish } as unknown as MessageQueueService,
       {
         getObjectMetadata: jest.fn().mockResolvedValue({
-          contentType: 'image/png',
+          contentType: 'image/heic',
+          size: 1234,
         }),
       } as unknown as ObjectStorageService,
     );
 
-    await expect(
-      service.createJobFromObject(input, 'user-123'),
-    ).rejects.toThrow(
-      'Object content type does not match the ingestion request',
+    const legacyInput = {
+      storageKey: 'raw/user-123/photo.heic',
+      originalFilename: 'photo.HEIC',
+      mimeType: 'application/pdf',
+    };
+    await service.createJobFromObject(legacyInput, 'user-123');
+
+    expect(createOrGetByChecksum).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mimeType: 'image/heic',
+        fileType: 'image',
+        metadata: {
+          size: 1234,
+          mimetype: 'image/heic',
+          originalExtension: '.heic',
+          sourceContext: null,
+        },
+      }),
+    );
+    expect(publish).toHaveBeenCalledWith(
+      'image.classify.requested',
+      expect.objectContaining({ mimeType: 'image/heic', fileType: 'image' }),
+      expect.any(String),
+      1,
+      1,
     );
   });
+
+  it.each([
+    [undefined, 'Uploaded object is missing a content type'],
+    ['', 'Uploaded object is missing a content type'],
+    [
+      'multipart/form-data; boundary=example',
+      'Uploaded object contains multipart data; upload raw file bytes with the file Content-Type',
+    ],
+  ])(
+    'rejects invalid stored content type %s before creating a job',
+    async (contentType, message) => {
+      const createOrGetByChecksum = jest.fn();
+      const publish = jest.fn();
+      const service = new IngestionService(
+        { createOrGetByChecksum } as unknown as IngestionJobRepository,
+        { publish } as unknown as MessageQueueService,
+        {
+          getObjectMetadata: jest.fn().mockResolvedValue({ contentType }),
+        } as unknown as ObjectStorageService,
+      );
+
+      await expect(
+        service.createJobFromObject(input, 'user-123'),
+      ).rejects.toThrow(message);
+      expect(createOrGetByChecksum).not.toHaveBeenCalled();
+      expect(publish).not.toHaveBeenCalled();
+    },
+  );
 
   function pendingReviewJob() {
     return {

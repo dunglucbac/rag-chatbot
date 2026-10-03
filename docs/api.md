@@ -33,8 +33,10 @@ the file bytes:
 3. POST /ingest                  → validate the uploaded object and queue processing
 ```
 
-Keep the `storageKey`, `originalFilename`, and `mimeType` from step 1 until
-step 3. Uploading the object alone does **not** start processing.
+Keep the `storageKey` and `originalFilename` from step 1 until step 3. Use
+the upload target's `mimeType` for the step 2 `Content-Type` header; ingestion
+reads that type from the stored object. Uploading the object alone does **not**
+start processing.
 
 ### 1. Create an upload target
 
@@ -98,6 +100,11 @@ Queues a previously uploaded object. The key must belong to the authenticated
 user (`raw/{userId}/…`), and the API checks that the object exists before
 publishing worker work.
 
+The API reads the MIME type from object-storage metadata and uses it for the
+job and worker event. Do not send `mimeType` in this request. Objects without a
+content type or with a multipart content type are rejected; upload raw file
+bytes with the correct `Content-Type` header.
+
 ```
 POST /ingest
 Content-Type: application/json
@@ -108,7 +115,6 @@ Authorization: Bearer <access-token>
 {
   "storageKey": "raw/user-123/file-123.pdf",
   "originalFilename": "statement.pdf",
-  "mimeType": "application/pdf",
   "checksumSha256": "optional 64-character SHA-256 hex"
 }
 ```
@@ -154,7 +160,6 @@ async function uploadAndQueueFile(
     body: JSON.stringify({
       storageKey: target.storageKey,
       originalFilename: file.name,
-      mimeType,
     }),
   });
   if (!ingestionResponse.ok) throw new Error('Could not queue ingestion');
@@ -216,8 +221,7 @@ For the final `POST /ingest` request, use:
 ```json
 {
   "storageKey": "{{storageKey}}",
-  "originalFilename": "{{originalFilename}}",
-  "mimeType": "{{mimeType}}"
+  "originalFilename": "{{originalFilename}}"
 }
 ```
 

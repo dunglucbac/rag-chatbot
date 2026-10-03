@@ -33,7 +33,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storageKey\": \"{{storageKey}}\",\n  \"originalFilename\": \"{{originalFilename}}\",\n  \"mimeType\": \"{{mimeType}}\"\n}",
+              "raw": "{\n  \"storageKey\": \"{{storageKey}}\",\n  \"originalFilename\": \"{{originalFilename}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -49,7 +49,7 @@
                 "ingest"
               ]
             },
-            "description": "Run after R2 Upload succeeds. Queue the uploaded object using the storageKey, originalFilename, and mimeType from Request Pre-sign URL."
+            "description": "Run after R2 Upload succeeds. Queue the uploaded object using storageKey and originalFilename from Request Pre-sign URL. The API reads the MIME type from the stored object's Content-Type metadata."
           },
           "response": []
         },

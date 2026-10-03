@@ -38,9 +38,17 @@ describe('IngestionController', () => {
       {
         storageKey: 'raw/user-123/statement.pdf',
         originalFilename: 'statement.pdf',
-        mimeType: 'application/pdf',
       },
       { id: 'user-123', email: 'user@example.com' },
+      'corr-123',
+    );
+
+    expect(ingestionService.createJobFromObject).toHaveBeenCalledWith(
+      {
+        storageKey: 'raw/user-123/statement.pdf',
+        originalFilename: 'statement.pdf',
+      },
+      'user-123',
       'corr-123',
     );
 
