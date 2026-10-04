@@ -187,12 +187,18 @@ Some browsers report an empty `File.type` for HEIC files. In that case, pass
 
 ### Postman setup
 
-Use collection variables for the values that cross the three requests. In the
-**Pre-request Script** of `POST /storage/upload-targets`:
+Set the `originalFilename` and `mimeType` collection variables to match the file
+you will select in **R2 Upload**. For example, use `IMG_0961.HEIC` and
+`image/heic` for that specific file. The pre-request script validates the
+variables without overwriting them:
 
 ```javascript
-pm.collectionVariables.set('originalFilename', 'IMG_0961.HEIC');
-pm.collectionVariables.set('mimeType', 'image/heic');
+for (const name of ['originalFilename', 'mimeType']) {
+  const value = pm.variables.get(name);
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('Set the ' + name + ' variable to match the file selected in R2 Upload.');
+  }
+}
 ```
 
 Use this request body:
@@ -203,6 +209,12 @@ Use this request body:
   "mimeType": "{{mimeType}}"
 }
 ```
+
+The original filename comes from this upload-target request. Selecting a file
+in the binary PUT does not update its name in metadata: the PUT body contains
+only file bytes, and its metadata header is already signed. To correct a name,
+set the variable, request a fresh upload target, upload the file, and ingest
+the new `storageKey`.
 
 In its **Tests** script, save the API response values:
 

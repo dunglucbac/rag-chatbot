@@ -208,7 +208,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set(\"originalFilename\", \"IMG_0961.HEIC\");\npm.collectionVariables.set(\"mimeType\", \"image/heic\");"
+                  "for (const name of [\"originalFilename\", \"mimeType\"]) {\n  const value = pm.variables.get(name);\n  if (typeof value !== \"string\" || !value.trim()) {\n    throw new Error(\"Set the \" + name + \" variable to match the file selected in R2 Upload.\");\n  }\n}"
                 ]
               }
             }
@@ -240,7 +240,7 @@
                 "upload-targets"
               ]
             },
-            "description": "Create a signed upload URL and storageKey. Set originalFilename and mimeType in the pre-request script to match the file you will select in R2 Upload."
+            "description": "Create a signed upload URL and storageKey. Set the originalFilename and mimeType variables to match the file selected in R2 Upload. The pre-request script validates these values without overwriting them. The original filename is sent in the signed metadata header; a binary PUT cannot infer it from your local file path."
           },
           "response": []
         },
