@@ -33,7 +33,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storageKey\": \"{{storageKey}}\",\n  \"originalFilename\": \"{{originalFilename}}\"\n}",
+              "raw": "{\n  \"storageKey\": \"{{storageKey}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -49,7 +49,7 @@
                 "ingest"
               ]
             },
-            "description": "Run after R2 Upload succeeds. Queue the uploaded object using storageKey and originalFilename from Request Pre-sign URL. The API reads the MIME type from the stored object's Content-Type metadata."
+            "description": "Run after R2 Upload succeeds. Queue the uploaded object using storageKey from Request Pre-sign URL. The API reads the original filename and MIME type from object metadata. Older objects without filename metadata need a fresh upload."
           },
           "response": []
         },
@@ -199,7 +199,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const response = pm.response.json();\n\npm.test(\"Upload target was created\", () => {\n  pm.expect(response.status).to.eql(\"success\");\n  pm.expect(response.data.uploadUrl).to.be.a(\"string\");\n  pm.expect(response.data.storageKey).to.be.a(\"string\");\n});\n\npm.collectionVariables.set(\"uploadUrl\", response.data.uploadUrl);\npm.collectionVariables.set(\"storageKey\", response.data.storageKey);"
+                  "const response = pm.response.json();\n\npm.test(\"Upload target was created\", () => {\n  pm.expect(response.status).to.eql(\"success\");\n  pm.expect(response.data.uploadUrl).to.be.a(\"string\");\n  pm.expect(response.data.storageKey).to.be.a(\"string\");\n  pm.expect(response.data.uploadHeaders[\"Content-Type\"]).to.be.a(\"string\");\n  pm.expect(response.data.uploadHeaders[\"x-amz-meta-original-filename\"]).to.be.a(\"string\");\n});\n\npm.collectionVariables.set(\"uploadUrl\", response.data.uploadUrl);\npm.collectionVariables.set(\"storageKey\", response.data.storageKey);\npm.collectionVariables.set(\"uploadContentType\", response.data.uploadHeaders[\"Content-Type\"]);\npm.collectionVariables.set(\"uploadOriginalFilename\", response.data.uploadHeaders[\"x-amz-meta-original-filename\"]);"
                 ]
               }
             },
@@ -254,7 +254,11 @@
             "header": [
               {
                 "key": "Content-Type",
-                "value": "{{mimeType}}"
+                "value": "{{uploadContentType}}"
+              },
+              {
+                "key": "x-amz-meta-original-filename",
+                "value": "{{uploadOriginalFilename}}"
               }
             ],
             "body": {
@@ -269,7 +273,7 @@
                 "{{uploadUrl}}"
               ]
             },
-            "description": "After importing, select your file under Body > binary. Send raw file bytes with Content-Type: {{mimeType}}; do not use form-data. Run Request Pre-sign URL first, then this request, then Queue Uploaded File."
+            "description": "After importing, select your file under Body > binary. Send the Content-Type and x-amz-meta-original-filename headers returned by Request Pre-sign URL exactly as provided. Do not use form-data. Run Request Pre-sign URL first, then this request, then Queue Uploaded File."
           },
           "response": []
         }
@@ -305,6 +309,14 @@
     },
     {
       "key": "uploadUrl",
+      "value": ""
+    },
+    {
+      "key": "uploadContentType",
+      "value": ""
+    },
+    {
+      "key": "uploadOriginalFilename",
       "value": ""
     },
     {

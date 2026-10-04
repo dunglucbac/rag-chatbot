@@ -91,14 +91,21 @@ export class IngestionService {
       );
     }
 
-    const fileType = this.detectFileType(mimeType, input.originalFilename);
+    const originalFilename = storedObject.originalFilename;
+    if (!originalFilename?.trim()) {
+      throw new BadRequestException(
+        'Uploaded object is missing its original filename; create a new upload target and upload the file again',
+      );
+    }
+
+    const fileType = this.detectFileType(mimeType, originalFilename);
     const fileId = this.deriveFileId(input.storageKey);
     const classification = IngestionClassification.UNKNOWN;
     const eventType = this.resolveEventType(fileType);
     const { job, created } = await this.jobRepository.createOrGetByChecksum({
       fileId,
       userId,
-      originalFilename: input.originalFilename,
+      originalFilename,
       storageKey: input.storageKey,
       mimeType,
       fileType,
@@ -109,7 +116,7 @@ export class IngestionService {
       metadata: {
         size: storedObject.size ?? null,
         mimetype: mimeType,
-        originalExtension: path.extname(input.originalFilename).toLowerCase(),
+        originalExtension: path.extname(originalFilename).toLowerCase(),
         sourceContext: sourceContext ?? null,
       },
     });
@@ -121,12 +128,12 @@ export class IngestionService {
       jobId: job.id,
       fileId,
       userId,
-      originalFilename: input.originalFilename,
+      originalFilename,
       storageKey: input.storageKey,
       mimeType,
       fileType,
       classification,
-      fileExtension: path.extname(input.originalFilename).toLowerCase(),
+      fileExtension: path.extname(originalFilename).toLowerCase(),
       fileSize: storedObject.size ?? 0,
       checksumSha256: input.checksumSha256 ?? '',
       sourceContext: sourceContext ?? null,

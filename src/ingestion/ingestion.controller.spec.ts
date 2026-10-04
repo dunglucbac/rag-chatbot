@@ -37,7 +37,6 @@ describe('IngestionController', () => {
     const result = await controller.createJob(
       {
         storageKey: 'raw/user-123/statement.pdf',
-        originalFilename: 'statement.pdf',
       },
       { id: 'user-123', email: 'user@example.com' },
       'corr-123',
@@ -46,7 +45,6 @@ describe('IngestionController', () => {
     expect(ingestionService.createJobFromObject).toHaveBeenCalledWith(
       {
         storageKey: 'raw/user-123/statement.pdf',
-        originalFilename: 'statement.pdf',
       },
       'user-123',
       'corr-123',

@@ -1,13 +1,9 @@
-import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateIngestionJobDto {
   @IsString()
   @Matches(/^raw\/[^/]+\/[^/]+$/)
   storageKey: string;
-
-  @IsString()
-  @IsNotEmpty()
-  originalFilename: string;
 
   @IsOptional()
   @IsString()

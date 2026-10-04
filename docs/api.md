@@ -33,15 +33,20 @@ the file bytes:
 3. POST /ingest                  → validate the uploaded object and queue processing
 ```
 
-Keep the `storageKey` and `originalFilename` from step 1 until step 3. Use
+Keep the `storageKey` from step 1 until step 3. Use
 the upload target's `mimeType` for the step 2 `Content-Type` header; ingestion
 reads that type from the stored object. Uploading the object alone does **not**
 start processing.
 
 ### 1. Create an upload target
 
-Creates a short-lived, direct upload URL. Uploading an object does not queue it
-for ingestion.
+Creates a short-lived, direct upload URL that includes the original filename
+as signed object metadata. The filename is URI-encoded under
+`original-filename` to preserve Unicode and special characters, and decoded
+when the API reads it. Send the returned `uploadHeaders` with the PUT request
+exactly as provided. The content type and filename header are signed; changing
+or omitting them causes the upload to fail signature validation. Uploading an
+object does not queue it for ingestion.
 
 ```
 POST /storage/upload-targets
@@ -65,6 +70,10 @@ Example response:
   "data": {
     "storageKey": "raw/google-user-id/4a3c8d8a-7b20-4d3a-8cc0-91a7c5c70c5a.pdf",
     "uploadUrl": "https://<object-storage-endpoint>/...?X-Amz-Signature=...",
+    "uploadHeaders": {
+      "Content-Type": "application/pdf",
+      "x-amz-meta-original-filename": "statement.pdf"
+    },
     "expiresInSeconds": 900
   }
 }
@@ -78,12 +87,16 @@ commit it, or expose it in logs. Request a new target if it expires.
 Send an HTTP `PUT` directly to `data.uploadUrl`. Do not add the API bearer
 token to this request. The URL itself authorizes a specific object operation.
 
-The `Content-Type` header **must exactly match** the `mimeType` provided in
-step 1 because it is part of the signed request.
+Send both headers from `data.uploadHeaders`: `Content-Type` and
+`x-amz-meta-original-filename`. Their values must exactly match the response
+because they are part of the signed request. Copy the encoded filename value
+without decoding it. R2 maps `x-amz-meta-*` headers to custom object metadata
+([R2 metadata documentation](https://developers.cloudflare.com/r2/api/s3/extensions/)).
 
 ```bash
 curl --request PUT "$UPLOAD_URL" \
   --header 'Content-Type: application/pdf' \
+  --header 'x-amz-meta-original-filename: statement.pdf' \
   --upload-file './statement.pdf'
 ```
 
@@ -92,6 +105,7 @@ For a HEIC image, use `image/heic` in both places:
 ```text
 POST /storage/upload-targets body: { "originalFilename": "IMG_0961.HEIC", "mimeType": "image/heic" }
 PUT header:                       Content-Type: image/heic
+PUT header:                       x-amz-meta-original-filename: IMG_0961.HEIC
 ```
 
 ### 3. Queue the uploaded object for ingestion
@@ -100,10 +114,12 @@ Queues a previously uploaded object. The key must belong to the authenticated
 user (`raw/{userId}/…`), and the API checks that the object exists before
 publishing worker work.
 
-The API reads the MIME type from object-storage metadata and uses it for the
-job and worker event. Do not send `mimeType` in this request. Objects without a
-content type or with a multipart content type are rejected; upload raw file
-bytes with the correct `Content-Type` header.
+The API reads the original filename and MIME type from object-storage metadata
+and uses them for the job and worker event. Do not send `originalFilename` or
+`mimeType` in this request. Older objects without filename metadata must be
+uploaded again using a fresh upload target. Objects without a content type or
+with a multipart content type are rejected; upload raw file bytes with the
+correct `Content-Type` header.
 
 ```
 POST /ingest
@@ -114,7 +130,6 @@ Authorization: Bearer <access-token>
 ```json
 {
   "storageKey": "raw/user-123/file-123.pdf",
-  "originalFilename": "statement.pdf",
   "checksumSha256": "optional 64-character SHA-256 hex"
 }
 ```
@@ -149,7 +164,7 @@ async function uploadAndQueueFile(
   const target = (await targetResponse.json()).data;
   const uploadResponse = await fetch(target.uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': mimeType },
+    headers: target.uploadHeaders,
     body: file,
   });
   if (!uploadResponse.ok) throw new Error('File upload failed');
@@ -159,7 +174,6 @@ async function uploadAndQueueFile(
     headers: apiHeaders,
     body: JSON.stringify({
       storageKey: target.storageKey,
-      originalFilename: file.name,
     }),
   });
   if (!ingestionResponse.ok) throw new Error('Could not queue ingestion');
@@ -202,10 +216,13 @@ pm.test('Upload target was created', () => {
 
 pm.collectionVariables.set('uploadUrl', response.data.uploadUrl);
 pm.collectionVariables.set('storageKey', response.data.storageKey);
+pm.collectionVariables.set('uploadContentType', response.data.uploadHeaders['Content-Type']);
+pm.collectionVariables.set('uploadOriginalFilename', response.data.uploadHeaders['x-amz-meta-original-filename']);
 ```
 
 For the second request, choose `PUT`, set the URL to `{{uploadUrl}}`, set
-`Content-Type` to `{{mimeType}}`, and choose the file under **Body → binary**.
+`Content-Type` to `{{uploadContentType}}` and `x-amz-meta-original-filename` to
+`{{uploadOriginalFilename}}`, and choose the file under **Body → binary**.
 The repository's `rag-chatbot.postman_collection.json` configures this request
 as **R2 Upload**. After importing it, select your local file in the binary body;
 the file selection is not bundled with the collection.
@@ -220,15 +237,14 @@ For the final `POST /ingest` request, use:
 
 ```json
 {
-  "storageKey": "{{storageKey}}",
-  "originalFilename": "{{originalFilename}}"
+  "storageKey": "{{storageKey}}"
 }
 ```
 
 ### Client requirements
 
 - Configure object-storage CORS to permit your browser origin to send `PUT`
-  requests with the `Content-Type` header.
+  requests with the `Content-Type` and `x-amz-meta-original-filename` headers.
 - Use a new signed URL when a request has expired (the default is 900 seconds).
 - For large files, the current API uses a single signed `PUT`; multipart upload
   support is a future enhancement.

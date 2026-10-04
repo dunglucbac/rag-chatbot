@@ -6,6 +6,10 @@ describe('ObjectStorageController', () => {
     const createUploadTarget = jest.fn().mockResolvedValue({
       storageKey: 'raw/user-123/file-123.pdf',
       uploadUrl: 'https://storage.example.test/upload',
+      uploadHeaders: {
+        'Content-Type': 'application/pdf',
+        'x-amz-meta-original-filename': 'statement.pdf',
+      },
       expiresInSeconds: 900,
     });
     const controller = new ObjectStorageController({
@@ -23,5 +27,9 @@ describe('ObjectStorageController', () => {
       'application/pdf',
     );
     expect(result.data.storageKey).toBe('raw/user-123/file-123.pdf');
+    expect(result.data.uploadHeaders).toEqual({
+      'Content-Type': 'application/pdf',
+      'x-amz-meta-original-filename': 'statement.pdf',
+    });
   });
 });

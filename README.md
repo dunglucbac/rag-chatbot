@@ -196,14 +196,16 @@ Authorization: Bearer <access-token>
 
 ```json
 {
-  "storageKey": "raw/<user-id>/<file-id>.pdf",
-  "originalFilename": "statement.pdf"
+  "storageKey": "raw/<user-id>/<file-id>.pdf"
 }
 ```
 
 Create an upload target first with `POST /storage/upload-targets`, upload the
-file bytes directly to its signed URL, then submit the returned `storageKey`.
-Ingestion reads the MIME type from the uploaded object's `Content-Type` metadata.
+file bytes directly to its signed URL with the returned `uploadHeaders`, then
+submit the returned `storageKey`.
+The signed upload saves the original filename in object metadata. Ingestion
+reads that name and the MIME type from the uploaded object. Older objects
+without filename metadata need a fresh upload target and upload.
 See [the full client upload walkthrough](docs/api.md#ingestion) for browser,
 curl, and Postman examples.
 

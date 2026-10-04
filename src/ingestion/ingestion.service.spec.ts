@@ -13,7 +13,6 @@ import { ObjectStorageService } from '../storage/object-storage.service';
 describe('IngestionService', () => {
   const input = {
     storageKey: 'raw/user-123/file-123.pdf',
-    originalFilename: 'statement.pdf',
     checksumSha256: 'a'.repeat(64),
   };
 
@@ -24,6 +23,7 @@ describe('IngestionService', () => {
     });
     const publish = jest.fn().mockResolvedValue({ eventId: 'event-123' });
     const getObjectMetadata = jest.fn().mockResolvedValue({
+      originalFilename: 'statement.pdf',
       contentType: 'application/pdf',
       size: 1234,
     });
@@ -44,6 +44,7 @@ describe('IngestionService', () => {
         fileId: 'file-123',
         userId: 'user-123',
         storageKey: input.storageKey,
+        originalFilename: 'statement.pdf',
         mimeType: 'application/pdf',
         metadata: {
           size: 1234,
@@ -60,6 +61,7 @@ describe('IngestionService', () => {
         jobId: 'job-123',
         storageKey: input.storageKey,
         fileSize: 1234,
+        originalFilename: 'statement.pdf',
         mimeType: 'application/pdf',
       }),
       'corr-123',
@@ -80,6 +82,7 @@ describe('IngestionService', () => {
       { publish } as unknown as MessageQueueService,
       {
         getObjectMetadata: jest.fn().mockResolvedValue({
+          originalFilename: 'statement.pdf',
           contentType: 'application/pdf',
           size: 1234,
         }),
@@ -106,7 +109,7 @@ describe('IngestionService', () => {
     expect(getObjectMetadata).not.toHaveBeenCalled();
   });
 
-  it('uses the stored HEIC content type and ignores a legacy request MIME type', async () => {
+  it('uses the stored HEIC filename and MIME type, ignoring legacy request fields', async () => {
     const createOrGetByChecksum = jest.fn().mockResolvedValue({
       job: { id: 'heic-job' },
       created: true,
@@ -117,6 +120,7 @@ describe('IngestionService', () => {
       { publish } as unknown as MessageQueueService,
       {
         getObjectMetadata: jest.fn().mockResolvedValue({
+          originalFilename: 'photo.HEIC',
           contentType: 'image/heic',
           size: 1234,
         }),
@@ -125,7 +129,7 @@ describe('IngestionService', () => {
 
     const legacyInput = {
       storageKey: 'raw/user-123/photo.heic',
-      originalFilename: 'photo.HEIC',
+      originalFilename: 'wrong.pdf',
       mimeType: 'application/pdf',
     };
     await service.createJobFromObject(legacyInput, 'user-123');
@@ -133,6 +137,7 @@ describe('IngestionService', () => {
     expect(createOrGetByChecksum).toHaveBeenCalledWith(
       expect.objectContaining({
         mimeType: 'image/heic',
+        originalFilename: 'photo.HEIC',
         fileType: 'image',
         metadata: {
           size: 1234,
@@ -144,7 +149,12 @@ describe('IngestionService', () => {
     );
     expect(publish).toHaveBeenCalledWith(
       'image.classify.requested',
-      expect.objectContaining({ mimeType: 'image/heic', fileType: 'image' }),
+      expect.objectContaining({
+        mimeType: 'image/heic',
+        fileType: 'image',
+        originalFilename: 'photo.HEIC',
+        fileExtension: '.heic',
+      }),
       expect.any(String),
       1,
       1,
@@ -174,6 +184,31 @@ describe('IngestionService', () => {
       await expect(
         service.createJobFromObject(input, 'user-123'),
       ).rejects.toThrow(message);
+      expect(createOrGetByChecksum).not.toHaveBeenCalled();
+      expect(publish).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, '', '   '])(
+    'rejects missing filename metadata %s before creating a job',
+    async (originalFilename) => {
+      const createOrGetByChecksum = jest.fn();
+      const publish = jest.fn();
+      const service = new IngestionService(
+        { createOrGetByChecksum } as unknown as IngestionJobRepository,
+        { publish } as unknown as MessageQueueService,
+        {
+          getObjectMetadata: jest.fn().mockResolvedValue({
+            contentType: 'application/pdf',
+            originalFilename,
+          }),
+        } as unknown as ObjectStorageService,
+      );
+      await expect(
+        service.createJobFromObject(input, 'user-123'),
+      ).rejects.toThrow(
+        'Uploaded object is missing its original filename; create a new upload target and upload the file again',
+      );
       expect(createOrGetByChecksum).not.toHaveBeenCalled();
       expect(publish).not.toHaveBeenCalled();
     },
