@@ -172,9 +172,23 @@ def test_payment_event_includes_document_derived_transfer_facts():
     }
 
 
-def test_uses_better_vision_result_for_uncertain_image_receipt():
+@pytest.mark.parametrize("file_type", ["image", "pdf"])
+@pytest.mark.parametrize(
+    "confidence,event_type",
+    [
+        (0.0, EventType.RECEIPT_NEEDS_REVIEW),
+        (0.5, EventType.RECEIPT_NEEDS_REVIEW),
+        (0.7, EventType.RECEIPT_NEEDS_REVIEW),
+        (0.89, EventType.RECEIPT_NEEDS_REVIEW),
+        (0.9, EventType.RECEIPT_PARSED),
+        (0.95, EventType.RECEIPT_PARSED),
+    ],
+)
+def test_receipts_use_text_only_and_route_uncertain_data_to_user_review(
+    file_type, confidence, event_type
+):
     extractor = Mock()
-    extractor.extract.return_value = "Uncertain receipt"
+    extractor.extract.return_value = "OCR receipt text"
     classifier = Mock()
     classifier.classify.return_value = {
         "classification": "receipt",
@@ -183,47 +197,22 @@ def test_uses_better_vision_result_for_uncertain_image_receipt():
     parser = Mock()
     parser.parse.return_value = {
         "merchant": "Store",
-        "confidence": 0.5,
-        "discrepancy": {"difference": 30},
-    }
-    parser.parse_with_vision.return_value = {
-        "merchant": "Store",
-        "confidence": 0.95,
-        "discrepancy": None,
+        "confidence": confidence,
+        "discrepancy": {"difference": 30} if confidence < 0.9 else None,
     }
 
     result = IngestionJobProcessor(extractor, classifier, parser).process(
-        _job(file_type="image", storage_key="/path/to/receipt.jpg")
+        _job(file_type=file_type, storage_key="/path/to/receipt")
     )
 
-    parser.parse_with_vision.assert_called_once_with("/path/to/receipt.jpg")
-    assert result.payload["receipt"] == parser.parse_with_vision.return_value
-
-
-def test_vision_fallback_can_be_disabled_for_uncertain_receipts():
-    extractor = Mock()
-    extractor.extract.return_value = "Uncertain receipt"
-    classifier = Mock()
-    classifier.classify.return_value = {
-        "classification": "receipt",
-        "confidence": 0.95,
-    }
-    parser = Mock()
-    parser.parse.return_value = {
-        "merchant": "Store",
-        "confidence": 0.5,
-        "discrepancy": {"difference": 30},
-    }
-
-    result = IngestionJobProcessor(
-        extractor,
-        classifier,
-        parser,
-        vision_fallback_confidence_threshold=0,
-    ).process(_job(file_type="image", storage_key="/path/to/receipt.jpg"))
-
+    parser.parse.assert_called_once_with("OCR receipt text")
     parser.parse_with_vision.assert_not_called()
+    assert result.event_type == event_type
     assert result.payload["receipt"] == parser.parse.return_value
+    assert result.payload["userId"] == "user-456"
+    assert result.payload["rawText"] == "OCR receipt text"
+    if event_type == EventType.RECEIPT_NEEDS_REVIEW:
+        assert result.payload["confidence"] == confidence
 
 
 def test_heic_conversion_preserves_source_and_cleans_temporary_jpeg(tmp_path):

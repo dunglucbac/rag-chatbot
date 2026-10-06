@@ -40,7 +40,10 @@ poetry run python main.py
 | `OBJECT_STORAGE_FORCE_PATH_STYLE` | `false` | Set to `true` for MinIO or another provider requiring path-style addresses |
 | `DEEPDOC_LAYOUT_THRESHOLD` | `0.5` | Minimum layout-detection confidence used by DeepDoc |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key for LLM classification and parsing (optional; skips LLM services if unset) |
-| `VISION_FALLBACK_CONFIDENCE_THRESHOLD` | `0.9` | Sends an image to the vision model only when text-only receipt parsing confidence is below this value; set to `0` to disable vision fallback. |
+
+Receipt parsing uses extracted text only. Confidence below `0.9` publishes
+`receipt.needs_review` so the user can confirm or correct the proposed fields.
+The worker never sends the source image to an LLM.
 
 ## Test with RabbitMQ
 
@@ -86,7 +89,7 @@ poetry run pytest -v
 ## Debug receipt classification
 
 Use the receipt debugger to inspect the source image, extracted Markdown, exact
-classifier prompt/response, and OCR-versus-vision receipt parsing:
+classifier prompt/response, OCR-derived receipt parsing, and user-review routing:
 
 ```bash
 poetry run jupyter lab notebooks/debug_receipt_classification.ipynb
@@ -139,7 +142,6 @@ sequenceDiagram
     participant DeepDoc as DeepDoc + VietOCR
     participant Classifier as Classification LLM
     participant Parser as Receipt parser LLM
-    participant Vision as Vision LLM
 
     Producer->>RabbitMQ: Publish ingestion request
     RabbitMQ->>Worker: Deliver PDF or image job
@@ -151,14 +153,10 @@ sequenceDiagram
     alt Receipt
         Worker->>Parser: Parse OCR-derived receipt text
         Parser-->>Worker: Receipt fields and confidence
-        opt Image job and confidence < vision fallback threshold (default 0.9)
-            Worker->>Vision: Parse the source image
-            Vision-->>Worker: Receipt fields and confidence
-            Note over Worker: Keep the vision result only if confidence improves
-        end
-        alt Final parser confidence < review threshold (0.7)
+        alt Parser confidence < review threshold (0.9)
             Worker->>RabbitMQ: Publish receipt.needs_review
-        else Final parser confidence >= review threshold
+            Note over Producer: Ask user to confirm or correct the proposed receipt
+        else Parser confidence >= review threshold
             Worker->>RabbitMQ: Publish receipt.parsed
         end
     else Payment

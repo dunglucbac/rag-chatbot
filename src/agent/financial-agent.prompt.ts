@@ -39,6 +39,7 @@ export function createFinancialAgentPrompt(
   if (ingestionReviewContext) {
     instructions.push(
       `The UI has bound this turn to ingestion job ${ingestionReviewContext.jobId}. Use get_ingestion_review before making claims about that upload.`,
+      'For a pending receipt review without a UI-confirmed action, show the proposed receipt fields, explain any discrepancy or uncertain details, and ask the user to confirm or correct them through the receipt review UI before saving.',
     );
     if (ingestionReviewContext.reviewAction) {
       instructions.push(

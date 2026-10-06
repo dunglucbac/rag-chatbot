@@ -29,8 +29,6 @@ class Classifier(Protocol):
 class ReceiptParser(Protocol):
     def parse(self, text: str, /) -> dict[str, Any]: ...
 
-    def parse_with_vision(self, image_path: str, /) -> dict[str, Any]: ...
-
     def parse_payment(self, text: str, /) -> dict[str, Any]: ...
 
 
@@ -80,15 +78,11 @@ class ProcessingResult:
 class IngestionJobProcessor:
     """Process one ingestion job and produce its next event.
 
-    Receipt confidence has two separate cutoffs:
-
-    * ``vision_fallback_confidence_threshold`` (default ``0.9``) controls
-      when an OCR/text-derived receipt is also parsed from its source image.
-    * ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD`` (``0.7``) controls whether the
-      final parsed receipt is accepted automatically or sent for review.
+    OCR/text-derived receipts below ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD``
+    are sent to the user for confirmation or correction without a vision call.
     """
 
-    RECEIPT_REVIEW_CONFIDENCE_THRESHOLD = 0.7
+    RECEIPT_REVIEW_CONFIDENCE_THRESHOLD = 0.9
 
     def __init__(
         self,
@@ -97,23 +91,12 @@ class IngestionJobProcessor:
         parser: ReceiptParser | None = None,
         checkpoint: Callable[[], None] | None = None,
         object_storage: ObjectStorage | None = None,
-        vision_fallback_confidence_threshold: float = 0.9,
     ):
-        if not isinstance(vision_fallback_confidence_threshold, (int, float)) or not (
-            0 <= vision_fallback_confidence_threshold <= 1
-        ):
-            raise ValueError(
-                "vision_fallback_confidence_threshold must be between 0 and 1"
-            )
-
         self._extractor = extractor
         self._classifier = classifier
         self._parser = parser
         self._checkpoint = checkpoint or (lambda: None)
         self._object_storage = object_storage or LocalObjectStorage()
-        self._vision_fallback_confidence_threshold = (
-            vision_fallback_confidence_threshold
-        )
 
     def process(self, job: IngestionJob) -> ProcessingResult:
         with self._prepared_input(job) as input_path:
@@ -128,12 +111,7 @@ class IngestionJobProcessor:
             logger.info("Classified as %s [jobId=%s]", classification, job.job_id)
 
             if classification == ClassificationType.RECEIPT and self._parser:
-                return self._process_receipt(
-                    job,
-                    text,
-                    input_path,
-                    classification_result,
-                )
+                return self._process_receipt(job, text)
 
             if classification == ClassificationType.PAYMENT:
                 payment = (
@@ -157,10 +135,8 @@ class IngestionJobProcessor:
         self,
         job: IngestionJob,
         text: str,
-        input_path: str,
-        classification_result: dict[str, Any],
     ) -> ProcessingResult:
-        """Parse a receipt, optionally improve it with vision, then route it.
+        """Parse OCR-derived text and route uncertain receipts to user review.
 
         The receipt parser's final confidence—not the classifier's
         confidence—determines the outcome. Values below
@@ -171,8 +147,6 @@ class IngestionJobProcessor:
 
         self._checkpoint()
         receipt = self._parser.parse(text)
-        if job.file_type == "image" and self._should_try_vision(receipt):
-            receipt = self._try_vision(input_path, receipt, job.job_id)
         receipt = self._normalize_purchased_at(receipt)
 
         # The classifier determines that this is a receipt; the parser is the
@@ -201,57 +175,12 @@ class IngestionJobProcessor:
             },
         )
 
-    def _try_vision(
-        self,
-        image_path: str,
-        receipt: dict[str, Any],
-        job_id: str,
-    ) -> dict[str, Any]:
-        assert self._parser is not None
-
-        try:
-            self._checkpoint()
-            vision_receipt = self._parser.parse_with_vision(image_path)
-            if self._confidence(vision_receipt) > self._confidence(receipt):
-                logger.info(
-                    "Vision fallback improved confidence %.2f -> %.2f [jobId=%s]",
-                    self._confidence(receipt),
-                    self._confidence(vision_receipt),
-                    job_id,
-                )
-                return vision_receipt
-        except Exception as error:
-            logger.warning(
-                "Vision fallback failed, using OCR result: %s [jobId=%s]",
-                error,
-                job_id,
-            )
-
-        return receipt
-
     @staticmethod
     def _completed(job: IngestionJob, text: str) -> ProcessingResult:
         return ProcessingResult(
             EventType.DOC_PDF_PARSE_COMPLETED,
             {"jobId": job.job_id, "extractedText": text},
         )
-
-    def _should_try_vision(self, receipt: dict[str, Any]) -> bool:
-        """Use vision when text-only parsing is below the fallback threshold.
-
-        This is an improvement step, not an acceptance decision. The final
-        result is separately routed using ``RECEIPT_REVIEW_CONFIDENCE_THRESHOLD``.
-        """
-        confidence = receipt.get("confidence")
-        return (
-            isinstance(confidence, (int, float))
-            and confidence < self._vision_fallback_confidence_threshold
-        )
-
-    @staticmethod
-    def _confidence(receipt: dict[str, Any]) -> float:
-        confidence = receipt.get("confidence")
-        return float(confidence) if isinstance(confidence, (int, float)) else 0.0
 
     @staticmethod
     def _normalize_purchased_at(receipt: dict[str, Any]) -> dict[str, Any]:

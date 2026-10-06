@@ -1,8 +1,4 @@
-import base64
-import io
 import json
-
-from PIL import Image
 
 from .utils import extract_json, get_text_from_response
 
@@ -50,70 +46,6 @@ Reply with ONLY the JSON object, no explanation."""
             model="claude-sonnet-4-6",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
-            thinking={"type": "disabled"},
-        )
-
-        raw = get_text_from_response(response)
-        return json.loads(extract_json(raw))
-
-    def parse_with_vision(self, image_path: str, max_size: int = 2048) -> dict:
-        """Parse a receipt by sending the image directly to a vision-capable LLM.
-
-        Use this as a fallback when OCR-based parsing produces low confidence
-        or discrepancies that cannot be resolved from the extracted text alone.
-        """
-        image = Image.open(image_path)
-
-        if image.mode not in ("RGB", "L"):
-            image = image.convert("RGB")
-
-        if max(image.size) > max_size:
-            w, h = image.size
-            if w > h:
-                new_w = max_size
-                new_h = int(h * max_size / w)
-            else:
-                new_h = max_size
-                new_w = int(w * max_size / h)
-            image = image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
-        buffer = io.BytesIO()
-        image.save(buffer, format="JPEG")
-        encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-        prompt = """You are a receipt processing expert. Extract structured data from this receipt image.
-
-Return JSON with:
-- merchant (string): the store or business name
-- purchasedAt (ISO 8601 datetime string)
-- total (number): the stated total amount on the receipt
-- tax (number or null): tax amount if shown
-- currency (string): ISO 4217 currency code (e.g. USD, VND)
-- lineItems (array of objects): each with name (string), quantity (number), unitPrice (number), totalPrice (number)
-- confidence (0-1): how reliable this extraction is
-- discrepancy (object or null): if line items don't sum to total, include lineItemsSum, statedTotal, difference, likelyExplanation
-
-Reply with ONLY the JSON object, no explanation."""
-
-        response = self.llm_client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2000,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/jpeg",
-                                "data": encoded,
-                            },
-                        },
-                    ],
-                }
-            ],
             thinking={"type": "disabled"},
         )
 

@@ -176,8 +176,9 @@ Document indexing is deferred until the entire flow can be introduced together.
 
 - **Transient failures** (LLM timeout, network errors): Retry with exponential backoff (3 attempts)
 - **Permanent failures** (corrupted file, unsupported format): Move to dead letter queue, update job status to `failed` with error message
-- **Low confidence classification** (< 0.7): Update job status to
-  `needs_review` for later handling
+- **Low receipt parser confidence** (< 0.9): Update job status to
+  `needs_review` and ask the user to confirm or correct the OCR-derived fields.
+  Do not retry parsing with a vision model.
 
 ## Testing Decisions
 
