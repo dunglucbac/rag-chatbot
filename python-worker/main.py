@@ -46,9 +46,6 @@ class Worker:
         self.pdf_queue = os.getenv("RABBITMQ_PDF_QUEUE", "ingest.pdf.queue")
         self.image_queue = os.getenv("RABBITMQ_IMAGE_QUEUE", "ingest.image.queue")
         self.prefetch_count = int(os.getenv("RABBITMQ_PREFETCH_COUNT", "10"))
-        self.vision_fallback_confidence_threshold = (
-            self._read_vision_fallback_confidence_threshold()
-        )
         self.connection = None
         self.channel = None
         self._running = False
@@ -164,26 +161,7 @@ class Worker:
             parser,
             checkpoint=self._keepalive,
             object_storage=object_storage,
-            vision_fallback_confidence_threshold=(
-                self.vision_fallback_confidence_threshold
-            ),
         )
-
-    @staticmethod
-    def _read_vision_fallback_confidence_threshold() -> float:
-        value = os.getenv("VISION_FALLBACK_CONFIDENCE_THRESHOLD", "0.9")
-        try:
-            threshold = float(value)
-        except ValueError as error:
-            raise ValueError(
-                "VISION_FALLBACK_CONFIDENCE_THRESHOLD must be a number between 0 and 1"
-            ) from error
-
-        if not 0 <= threshold <= 1:
-            raise ValueError(
-                "VISION_FALLBACK_CONFIDENCE_THRESHOLD must be between 0 and 1"
-            )
-        return threshold
 
     @staticmethod
     def _read_deepdoc_layout_threshold() -> float:

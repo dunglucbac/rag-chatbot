@@ -265,8 +265,10 @@ For the final `POST /ingest` request, use:
 
 ## Receipt reviews
 
-Low-confidence receipt results are retained for the authenticated owner instead
-of being persisted immediately. Fetch the proposed receipt with:
+Receipt results with parser confidence below `0.9` are retained for the
+authenticated owner to confirm or correct instead of being persisted immediately.
+The worker uses OCR-derived text only and does not fall back to a vision model.
+Fetch the proposed receipt with:
 
 ```text
 GET /ingest/jobs/:id/review
@@ -309,8 +311,9 @@ Content-Type: application/json
 
 The LangGraph agent is given a read tool bound to that job and the authenticated
 user. It can report the processing status and, for a pending receipt review,
-the proposed receipt fields. It cannot select another job from the model's
-output.
+the proposed receipt fields and ask the user to confirm or correct uncertain
+details through the receipt review UI. It cannot select another job from the
+model's output.
 
 After showing the data, the UI must collect an explicit approval or rejection.
 Send it separately from free-form text:
