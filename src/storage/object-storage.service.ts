@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
@@ -39,9 +39,15 @@ export class ObjectStorageService {
   ): Promise<{
     storageKey: string;
     uploadUrl: string;
+    uploadHeaders: Record<string, string>;
     expiresInSeconds: number;
   }> {
     const storageKey = this.createStorageKey(userId, originalFilename);
+    const encodedFilename = encodeURIComponent(originalFilename);
+    const uploadHeaders = {
+      'Content-Type': contentType,
+      'x-amz-meta-original-filename': encodedFilename,
+    };
     const expiresInSeconds = 15 * 60;
     const uploadUrl = await getSignedUrl(
       this.client,
@@ -49,20 +55,43 @@ export class ObjectStorageService {
         Bucket: this.bucket,
         Key: storageKey,
         ContentType: contentType,
+        // Metadata must survive ASCII HTTP headers as well as URL signing.
+        Metadata: { 'original-filename': encodedFilename },
       }),
-      { expiresIn: expiresInSeconds },
+      {
+        expiresIn: expiresInSeconds,
+        signableHeaders: new Set(['content-type']),
+        unhoistableHeaders: new Set(['x-amz-meta-original-filename']),
+      },
     );
 
-    return { storageKey, uploadUrl, expiresInSeconds };
+    return { storageKey, uploadUrl, uploadHeaders, expiresInSeconds };
   }
 
-  async getObjectMetadata(
-    key: string,
-  ): Promise<{ contentType?: string; size?: number }> {
+  async getObjectMetadata(key: string): Promise<{
+    contentType?: string;
+    size?: number;
+    originalFilename?: string;
+  }> {
     const result = await this.client.send(
       new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
     );
-    return { contentType: result.ContentType, size: result.ContentLength };
+    const encodedFilename = result.Metadata?.['original-filename'];
+    let originalFilename: string | undefined;
+    if (encodedFilename !== undefined) {
+      try {
+        originalFilename = decodeURIComponent(encodedFilename);
+      } catch {
+        throw new BadRequestException(
+          'Uploaded object has invalid original filename metadata',
+        );
+      }
+    }
+    return {
+      contentType: result.ContentType,
+      size: result.ContentLength,
+      originalFilename,
+    };
   }
 
   async delete(key: string): Promise<void> {

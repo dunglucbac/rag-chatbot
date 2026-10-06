@@ -249,6 +249,58 @@ describe('AgentService conversation history', () => {
     ]);
   });
 
+  it('adds only user-bound ingestion review tools when the UI selects a job', async () => {
+    const model = new ToolInventoryFakeChatModel({});
+    const service = new AgentService(
+      { getModel: () => model } as unknown as LlmService,
+      new MemorySaver(),
+      {} as ReceiptAnalyticsService,
+      {} as never,
+    );
+
+    await service.invoke(
+      'user-1',
+      'Review this upload',
+      'thread-1',
+      '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      'approve',
+    );
+
+    expect(model.toolNames).toEqual([
+      'get_purchase_summary',
+      'search_purchase_items',
+      'get_ingestion_review',
+      'resolve_ingestion_review',
+    ]);
+  });
+
+  it('adds the payment resolver only when the UI includes its item label', async () => {
+    const model = new ToolInventoryFakeChatModel({});
+    const service = new AgentService(
+      { getModel: () => model } as unknown as LlmService,
+      new MemorySaver(),
+      {} as ReceiptAnalyticsService,
+      {} as never,
+    );
+
+    await service.invoke(
+      'user-1',
+      'Confirm the transfer',
+      'thread-1',
+      '9a43ebc1-a0c3-4213-bd1f-f12c6b12c123',
+      'approve',
+      'Electricity bill',
+    );
+
+    expect(model.toolNames).toEqual([
+      'get_purchase_summary',
+      'search_purchase_items',
+      'get_ingestion_review',
+      'resolve_ingestion_review',
+      'resolve_payment_review',
+    ]);
+  });
+
   it('sends trusted current-time and receipt policy context to the model', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-09-22T05:30:00.000Z'));
     try {

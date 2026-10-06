@@ -185,7 +185,9 @@ The following incoming events have registered application handlers:
 - `receipt.items.categorize` uses the configured LLM with structured output to
   classify pending or failed receipt items against the v1 taxonomy.
 - `payment.detected` and `receipt.needs_review` update the associated job to
-  `needs_review` for later handling through the API.
+  `needs_review`. For receipt reviews, the proposed receipt is retained in job
+  metadata and the authenticated owner can approve (or correct) it through
+  `POST /ingest/jobs/:id/review`; approval republishes `receipt.parsed`.
 
 Document chunking and embedding are intentionally outside the current worker
 pipeline. No `doc.chunks.embed.requested` event, vector-store queue consumer,

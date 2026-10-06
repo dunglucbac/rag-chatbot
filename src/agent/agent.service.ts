@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
+import type { StructuredToolInterface } from '@langchain/core/tools';
 import { LlmService } from '../llm/llm.service';
 import { AGENT_CHECKPOINTER } from './agent.constants';
 import { ReceiptAnalyticsService } from '../receipt/analytics/receipt-analytics.service';
@@ -16,6 +17,12 @@ import {
 } from './financial-agent.policy';
 import { MAX_RECEIPT_TOOL_CALLS, ToolCallBudget } from './tool-call-budget';
 import { enforceToolCallBudget } from './tool-call-budget-hook';
+import { IngestionService } from '../ingestion/ingestion.service';
+import {
+  createIngestionReviewTool,
+  createResolveIngestionReviewTool,
+  createResolvePaymentReviewTool,
+} from './tools/ingestion-review.tool';
 
 @Injectable()
 export class AgentService {
@@ -24,36 +31,77 @@ export class AgentService {
     @Inject(AGENT_CHECKPOINTER)
     private readonly checkpointer: BaseCheckpointSaver,
     private readonly receiptAnalyticsService: ReceiptAnalyticsService,
+    private readonly ingestionService?: IngestionService,
   ) {}
 
   async invoke(
     userId: string,
     message: string,
     threadId?: string,
+    ingestionJobId?: string,
+    reviewAction?: 'approve' | 'reject',
+    paymentItemName?: string,
   ): Promise<string> {
     const financialClaim = requiresReceiptEvidence(message);
     const now = new Date();
     const toolCallBudget = new ToolCallBudget(MAX_RECEIPT_TOOL_CALLS);
     const clock = () => now;
     const invokeAgent = (policyRetry: boolean) => {
+      const tools: StructuredToolInterface[] = [
+        createPurchaseSummaryTool(
+          this.receiptAnalyticsService,
+          userId,
+          clock,
+          toolCallBudget,
+        ),
+        createSearchPurchaseItemsTool(
+          this.receiptAnalyticsService,
+          userId,
+          clock,
+          toolCallBudget,
+        ),
+      ];
+      if (ingestionJobId && this.ingestionService) {
+        tools.push(
+          createIngestionReviewTool(
+            this.ingestionService,
+            userId,
+            ingestionJobId,
+          ),
+        );
+        if (reviewAction) {
+          tools.push(
+            createResolveIngestionReviewTool(
+              this.ingestionService,
+              userId,
+              ingestionJobId,
+              reviewAction,
+            ),
+          );
+          if (reviewAction === 'reject' || paymentItemName) {
+            tools.push(
+              createResolvePaymentReviewTool(
+                this.ingestionService,
+                userId,
+                ingestionJobId,
+                reviewAction,
+                paymentItemName,
+              ),
+            );
+          }
+        }
+      }
       const agent = createReactAgent({
         llm: this.llmService.getModel(),
-        tools: [
-          createPurchaseSummaryTool(
-            this.receiptAnalyticsService,
-            userId,
-            clock,
-            toolCallBudget,
-          ),
-          createSearchPurchaseItemsTool(
-            this.receiptAnalyticsService,
-            userId,
-            clock,
-            toolCallBudget,
-          ),
-        ],
+        tools,
         checkpointSaver: this.checkpointer,
-        prompt: createFinancialAgentPrompt(now, policyRetry),
+        prompt: createFinancialAgentPrompt(
+          now,
+          policyRetry,
+          ingestionJobId
+            ? { jobId: ingestionJobId, reviewAction, paymentItemName }
+            : undefined,
+        ),
         postModelHook: enforceToolCallBudget,
       });
       return agent.invoke(

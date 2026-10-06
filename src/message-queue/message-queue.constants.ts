@@ -1,3 +1,5 @@
+import { EventType } from '@modules/common/event-types';
+
 export const MESSAGE_QUEUE_EXCHANGE = 'ingest.topic';
 export const MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE = 'ingest.dlx';
 export const MESSAGE_QUEUE_DEAD_LETTER_QUEUE = 'ingest.dead-letter.queue';
@@ -50,4 +52,3 @@ export const MESSAGE_QUEUE_BROKER_BINDINGS = [
     routingKey: EventType.RECEIPT_ITEMS_CATEGORIZE,
   },
 ] as const;
-import { EventType } from '@modules/common/event-types';

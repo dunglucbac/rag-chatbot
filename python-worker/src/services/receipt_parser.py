@@ -119,3 +119,37 @@ Reply with ONLY the JSON object, no explanation."""
 
         raw = get_text_from_response(response)
         return json.loads(extract_json(raw))
+
+    def parse_payment(self, text: str) -> dict:
+        """Extract the stable facts needed to review a bank transfer.
+
+        Payment confirmations usually do not name the purchased item. That
+        label is deliberately collected from the user later; this method only
+        extracts facts visible in the uploaded document.
+        """
+        prompt = f"""Extract a bank-transfer/payment confirmation into structured JSON.
+
+Return these fields only:
+- merchant (string): recipient, beneficiary, or counterparty shown in the document
+- purchasedAt (UTC ISO 8601 datetime string; use midnight UTC when only a date is shown)
+- total (number): transferred amount, always positive
+- currency (three-letter ISO 4217 currency code)
+- confidence (number from 0 to 1): confidence in merchant, date, amount, and currency
+
+Do not invent a purchased item, product, tax, or receipt line item. If a field
+cannot be read reliably, use a low confidence value.
+
+Payment text:
+{text}
+
+Reply with ONLY the JSON object, no explanation."""
+
+        response = self.llm_client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+            thinking={"type": "disabled"},
+        )
+
+        raw = get_text_from_response(response)
+        return json.loads(extract_json(raw))

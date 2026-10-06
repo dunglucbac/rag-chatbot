@@ -11,7 +11,7 @@
       "name": "Ingestion",
       "item": [
         {
-          "name": "Ingest PDF",
+          "name": "Queue Uploaded File",
           "event": [
             {
               "listen": "test",
@@ -33,7 +33,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"storageKey\": \"{{storageKey}}\",\n  \"originalFilename\": \"{{originalFilename}}\",\n  \"mimeType\": \"{{mimeType}}\"\n}",
+              "raw": "{\n  \"storageKey\": \"{{storageKey}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -41,16 +41,15 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/ingest/file",
+              "raw": "{{baseUrl}}/ingest",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "ingest",
-                "file"
+                "ingest"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Run after R2 Upload succeeds. Queue the uploaded object using storageKey from Request Pre-sign URL. The API reads the original filename and MIME type from object metadata. Older objects without filename metadata need a fresh upload."
           },
           "response": []
         },
@@ -70,7 +69,7 @@
                 "{{jobId}}"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Fetch the status of an ingestion job."
           },
           "response": []
         }
@@ -200,7 +199,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const response = pm.response.json();\n\npm.test(\"Upload target was created\", () => {\n  pm.expect(response.status).to.eql(\"success\");\n  pm.expect(response.data.uploadUrl).to.be.a(\"string\");\n  pm.expect(response.data.storageKey).to.be.a(\"string\");\n});\n\npm.collectionVariables.set(\"uploadUrl\", response.data.uploadUrl);\npm.collectionVariables.set(\"storageKey\", response.data.storageKey);"
+                  "const response = pm.response.json();\n\npm.test(\"Upload target was created\", () => {\n  pm.expect(response.status).to.eql(\"success\");\n  pm.expect(response.data.uploadUrl).to.be.a(\"string\");\n  pm.expect(response.data.storageKey).to.be.a(\"string\");\n  pm.expect(response.data.uploadHeaders[\"Content-Type\"]).to.be.a(\"string\");\n  pm.expect(response.data.uploadHeaders[\"x-amz-meta-original-filename\"]).to.be.a(\"string\");\n});\n\npm.collectionVariables.set(\"uploadUrl\", response.data.uploadUrl);\npm.collectionVariables.set(\"storageKey\", response.data.storageKey);\npm.collectionVariables.set(\"uploadContentType\", response.data.uploadHeaders[\"Content-Type\"]);\npm.collectionVariables.set(\"uploadOriginalFilename\", response.data.uploadHeaders[\"x-amz-meta-original-filename\"]);"
                 ]
               }
             },
@@ -209,7 +208,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set(\"originalFilename\", \"IMG_0961.HEIC\");\npm.collectionVariables.set(\"mimeType\", \"image/heic\");"
+                  "for (const name of [\"originalFilename\", \"mimeType\"]) {\n  const value = pm.variables.get(name);\n  if (typeof value !== \"string\" || !value.trim()) {\n    throw new Error(\"Set the \" + name + \" variable to match the file selected in R2 Upload.\");\n  }\n}"
                 ]
               }
             }
@@ -241,21 +240,40 @@
                 "upload-targets"
               ]
             },
-            "description": "Upload a PDF file to ingest into the vector store."
+            "description": "Create a signed upload URL and storageKey. Set the originalFilename and mimeType variables to match the file selected in R2 Upload. The pre-request script validates these values without overwriting them. The original filename is sent in the signed metadata header; a binary PUT cannot infer it from your local file path."
           },
           "response": []
         },
         {
           "name": "R2 Upload",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "PUT",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "{{uploadContentType}}"
+              },
+              {
+                "key": "x-amz-meta-original-filename",
+                "value": "{{uploadOriginalFilename}}"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            },
             "url": {
               "raw": "{{uploadUrl}}",
               "host": [
                 "{{uploadUrl}}"
               ]
-            }
+            },
+            "description": "After importing, select your file under Body > binary. Send the Content-Type and x-amz-meta-original-filename headers returned by Request Pre-sign URL exactly as provided. Do not use form-data. Run Request Pre-sign URL first, then this request, then Queue Uploaded File."
           },
           "response": []
         }
@@ -291,6 +309,14 @@
     },
     {
       "key": "uploadUrl",
+      "value": ""
+    },
+    {
+      "key": "uploadContentType",
+      "value": ""
+    },
+    {
+      "key": "uploadOriginalFilename",
       "value": ""
     },
     {

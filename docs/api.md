@@ -33,13 +33,20 @@ the file bytes:
 3. POST /ingest                  → validate the uploaded object and queue processing
 ```
 
-Keep the `storageKey`, `originalFilename`, and `mimeType` from step 1 until
-step 3. Uploading the object alone does **not** start processing.
+Keep the `storageKey` from step 1 until step 3. Use
+the upload target's `mimeType` for the step 2 `Content-Type` header; ingestion
+reads that type from the stored object. Uploading the object alone does **not**
+start processing.
 
 ### 1. Create an upload target
 
-Creates a short-lived, direct upload URL. Uploading an object does not queue it
-for ingestion.
+Creates a short-lived, direct upload URL that includes the original filename
+as signed object metadata. The filename is URI-encoded under
+`original-filename` to preserve Unicode and special characters, and decoded
+when the API reads it. Send the returned `uploadHeaders` with the PUT request
+exactly as provided. The content type and filename header are signed; changing
+or omitting them causes the upload to fail signature validation. Uploading an
+object does not queue it for ingestion.
 
 ```
 POST /storage/upload-targets
@@ -63,6 +70,10 @@ Example response:
   "data": {
     "storageKey": "raw/google-user-id/4a3c8d8a-7b20-4d3a-8cc0-91a7c5c70c5a.pdf",
     "uploadUrl": "https://<object-storage-endpoint>/...?X-Amz-Signature=...",
+    "uploadHeaders": {
+      "Content-Type": "application/pdf",
+      "x-amz-meta-original-filename": "statement.pdf"
+    },
     "expiresInSeconds": 900
   }
 }
@@ -76,12 +87,16 @@ commit it, or expose it in logs. Request a new target if it expires.
 Send an HTTP `PUT` directly to `data.uploadUrl`. Do not add the API bearer
 token to this request. The URL itself authorizes a specific object operation.
 
-The `Content-Type` header **must exactly match** the `mimeType` provided in
-step 1 because it is part of the signed request.
+Send both headers from `data.uploadHeaders`: `Content-Type` and
+`x-amz-meta-original-filename`. Their values must exactly match the response
+because they are part of the signed request. Copy the encoded filename value
+without decoding it. R2 maps `x-amz-meta-*` headers to custom object metadata
+([R2 metadata documentation](https://developers.cloudflare.com/r2/api/s3/extensions/)).
 
 ```bash
 curl --request PUT "$UPLOAD_URL" \
   --header 'Content-Type: application/pdf' \
+  --header 'x-amz-meta-original-filename: statement.pdf' \
   --upload-file './statement.pdf'
 ```
 
@@ -90,6 +105,7 @@ For a HEIC image, use `image/heic` in both places:
 ```text
 POST /storage/upload-targets body: { "originalFilename": "IMG_0961.HEIC", "mimeType": "image/heic" }
 PUT header:                       Content-Type: image/heic
+PUT header:                       x-amz-meta-original-filename: IMG_0961.HEIC
 ```
 
 ### 3. Queue the uploaded object for ingestion
@@ -97,6 +113,13 @@ PUT header:                       Content-Type: image/heic
 Queues a previously uploaded object. The key must belong to the authenticated
 user (`raw/{userId}/…`), and the API checks that the object exists before
 publishing worker work.
+
+The API reads the original filename and MIME type from object-storage metadata
+and uses them for the job and worker event. Do not send `originalFilename` or
+`mimeType` in this request. Older objects without filename metadata must be
+uploaded again using a fresh upload target. Objects without a content type or
+with a multipart content type are rejected; upload raw file bytes with the
+correct `Content-Type` header.
 
 ```
 POST /ingest
@@ -107,8 +130,6 @@ Authorization: Bearer <access-token>
 ```json
 {
   "storageKey": "raw/user-123/file-123.pdf",
-  "originalFilename": "statement.pdf",
-  "mimeType": "application/pdf",
   "checksumSha256": "optional 64-character SHA-256 hex"
 }
 ```
@@ -143,7 +164,7 @@ async function uploadAndQueueFile(
   const target = (await targetResponse.json()).data;
   const uploadResponse = await fetch(target.uploadUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': mimeType },
+    headers: target.uploadHeaders,
     body: file,
   });
   if (!uploadResponse.ok) throw new Error('File upload failed');
@@ -153,8 +174,6 @@ async function uploadAndQueueFile(
     headers: apiHeaders,
     body: JSON.stringify({
       storageKey: target.storageKey,
-      originalFilename: file.name,
-      mimeType,
     }),
   });
   if (!ingestionResponse.ok) throw new Error('Could not queue ingestion');
@@ -168,12 +187,18 @@ Some browsers report an empty `File.type` for HEIC files. In that case, pass
 
 ### Postman setup
 
-Use collection variables for the values that cross the three requests. In the
-**Pre-request Script** of `POST /storage/upload-targets`:
+Set the `originalFilename` and `mimeType` collection variables to match the file
+you will select in **R2 Upload**. For example, use `IMG_0961.HEIC` and
+`image/heic` for that specific file. The pre-request script validates the
+variables without overwriting them:
 
 ```javascript
-pm.collectionVariables.set('originalFilename', 'IMG_0961.HEIC');
-pm.collectionVariables.set('mimeType', 'image/heic');
+for (const name of ['originalFilename', 'mimeType']) {
+  const value = pm.variables.get(name);
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('Set the ' + name + ' variable to match the file selected in R2 Upload.');
+  }
+}
 ```
 
 Use this request body:
@@ -184,6 +209,12 @@ Use this request body:
   "mimeType": "{{mimeType}}"
 }
 ```
+
+The original filename comes from this upload-target request. Selecting a file
+in the binary PUT does not update its name in metadata: the PUT body contains
+only file bytes, and its metadata header is already signed. To correct a name,
+set the variable, request a fresh upload target, upload the file, and ingest
+the new `storageKey`.
 
 In its **Tests** script, save the API response values:
 
@@ -197,27 +228,131 @@ pm.test('Upload target was created', () => {
 
 pm.collectionVariables.set('uploadUrl', response.data.uploadUrl);
 pm.collectionVariables.set('storageKey', response.data.storageKey);
+pm.collectionVariables.set('uploadContentType', response.data.uploadHeaders['Content-Type']);
+pm.collectionVariables.set('uploadOriginalFilename', response.data.uploadHeaders['x-amz-meta-original-filename']);
 ```
 
 For the second request, choose `PUT`, set the URL to `{{uploadUrl}}`, set
-`Content-Type` to `{{mimeType}}`, and choose the file under **Body → binary**.
+`Content-Type` to `{{uploadContentType}}` and `x-amz-meta-original-filename` to
+`{{uploadOriginalFilename}}`, and choose the file under **Body → binary**.
+The repository's `rag-chatbot.postman_collection.json` configures this request
+as **R2 Upload**. After importing it, select your local file in the binary body;
+the file selection is not bundled with the collection.
+
+Do not use **Body → form-data**. Object storage saves that entire multipart
+request body, including the wrapper, and records its multipart content type.
+If an object was uploaded this way, create a fresh upload target and upload the
+file again as binary with the correct `Content-Type`, then use the new
+`storageKey` for ingestion.
+
 For the final `POST /ingest` request, use:
 
 ```json
 {
-  "storageKey": "{{storageKey}}",
-  "originalFilename": "{{originalFilename}}",
-  "mimeType": "{{mimeType}}"
+  "storageKey": "{{storageKey}}"
 }
 ```
 
 ### Client requirements
 
 - Configure object-storage CORS to permit your browser origin to send `PUT`
-  requests with the `Content-Type` header.
+  requests with the `Content-Type` and `x-amz-meta-original-filename` headers.
 - Use a new signed URL when a request has expired (the default is 900 seconds).
 - For large files, the current API uses a single signed `PUT`; multipart upload
   support is a future enhancement.
+
+---
+
+## Receipt reviews
+
+Low-confidence receipt results are retained for the authenticated owner instead
+of being persisted immediately. Fetch the proposed receipt with:
+
+```text
+GET /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+```
+
+Approve the proposed receipt, optionally replacing it with a complete corrected
+receipt object that follows the returned `review.receipt` shape:
+
+```text
+POST /ingest/jobs/:id/review
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{ "action": "approve" }
+```
+
+Approval queues `receipt.parsed` and sets the job to `processing`; the existing
+receipt consumer persists it and marks the job complete. To discard the proposed
+receipt instead, submit `{ "action": "reject" }`. Rejected jobs are terminal.
+
+Only the user who owns the ingestion job may fetch or resolve its review. A
+review can be resolved once; a second request returns `409 Conflict`.
+
+### Reviewing through chat
+
+The chat endpoints can present and resolve a review after the UI supplies the
+ingestion job ID returned by `POST /ingest`:
+
+```text
+POST /chat/messages
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "message": "Please show me the extracted receipt data for this upload.",
+  "ingestionJobId": "<job UUID>"
+}
+```
+
+The LangGraph agent is given a read tool bound to that job and the authenticated
+user. It can report the processing status and, for a pending receipt review,
+the proposed receipt fields. It cannot select another job from the model's
+output.
+
+After showing the data, the UI must collect an explicit approval or rejection.
+Send it separately from free-form text:
+
+```json
+{
+  "message": "I approve the proposed receipt data.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve"
+}
+```
+
+`reviewAction` accepts `approve` or `reject`. The agent receives a write tool
+only when this explicit UI value is present, and that tool is permanently bound
+to the authenticated user, selected job, and supplied action. Correcting
+receipt fields through chat is intentionally not supported; use the existing
+review endpoint for a corrected receipt object.
+
+### Bank-transfer reviews
+
+When the worker detects a bank-transfer confirmation, it extracts the
+recipient, timestamp, amount, currency, and confidence from the uploaded image
+and puts the job in `needs_review`. Chat shows those document-derived facts and
+asks the user what the transfer paid for. A transfer does not have receipt line
+items until the user supplies one.
+
+To confirm the transfer, send the user-provided item name with the explicit UI
+action:
+
+```json
+{
+  "message": "This transfer paid my electricity bill. Save it.",
+  "ingestionJobId": "<job UUID>",
+  "reviewAction": "approve",
+  "paymentItemName": "Electricity bill"
+}
+```
+
+The server publishes a normal `receipt.parsed` event using the detected amount
+and currency. It creates one receipt with one item named `paymentItemName`, so
+the existing categorization and spending-analysis flow applies. The user cannot
+provide the amount through chat; it comes from the transfer document.
 
 ---
 

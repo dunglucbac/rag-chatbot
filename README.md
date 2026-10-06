@@ -196,14 +196,16 @@ Authorization: Bearer <access-token>
 
 ```json
 {
-  "storageKey": "raw/<user-id>/<file-id>.pdf",
-  "originalFilename": "statement.pdf",
-  "mimeType": "application/pdf"
+  "storageKey": "raw/<user-id>/<file-id>.pdf"
 }
 ```
 
 Create an upload target first with `POST /storage/upload-targets`, upload the
-file bytes directly to its signed URL, then submit the returned `storageKey`.
+file bytes directly to its signed URL with the returned `uploadHeaders`, then
+submit the returned `storageKey`.
+The signed upload saves the original filename in object metadata. Ingestion
+reads that name and the MIME type from the uploaded object. Older objects
+without filename metadata need a fresh upload target and upload.
 See [the full client upload walkthrough](docs/api.md#ingestion) for browser,
 curl, and Postman examples.
 
@@ -212,6 +214,11 @@ curl, and Postman examples.
 ```
 GET /ingest/jobs/:id
 ```
+
+Low-confidence receipt jobs can be reviewed with `GET` and `POST`
+`/ingest/jobs/:id/review`. Approving queues the proposed (or corrected) receipt
+for persistence; rejecting marks the job as rejected. See the
+[review API reference](docs/api.md#receipt-reviews).
 
 ---
 

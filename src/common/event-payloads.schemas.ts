@@ -32,6 +32,16 @@ export const receiptDataSchema = z
   })
   .strict();
 
+export const paymentDataSchema = z
+  .object({
+    merchant: z.string().min(1),
+    purchasedAt: z.string().datetime(),
+    total: z.number().nonnegative(),
+    currency: z.string().length(3),
+    confidence: z.number().min(0).max(1),
+  })
+  .strict();
+
 const receiptParsedPayloadSchema = z
   .object({
     jobId: z.string().min(1),
@@ -56,6 +66,7 @@ const paymentDetectedPayloadSchema = z
     jobId: z.string().min(1),
     userId: z.string().min(1).optional(),
     extractedText: z.string(),
+    payment: paymentDataSchema.optional(),
   })
   .strict();
 
