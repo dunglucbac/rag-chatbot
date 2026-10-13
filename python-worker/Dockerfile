@@ -14,10 +14,15 @@ RUN poetry config virtualenvs.create false && poetry install --only main --no-in
 # VietOCR pins an incompatible Pillow version in its package metadata, while
 # the worker's HEIC support requires Pillow >= 11. Install its code without
 # replacing the resolved worker dependencies.
-RUN pip install --no-deps VietOCR==0.3.13
+# Its inference imports also require gdown, which is skipped by --no-deps.
+# Use its maintained version: VietOCR's pin requires removed pkg_resources.
+RUN pip install gdown==5.2.2 && pip install --no-deps VietOCR==0.3.13
 
 COPY src/ ./src/
 COPY main.py .
+
+# Verify the lazy OCR imports during the build rather than on the first job.
+RUN python -c "from src.extractors.deepdoc_vietocr.full_pipeline import DeepDocPipeline"
 
 # Non-root user for security
 RUN useradd --create-home worker
