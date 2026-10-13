@@ -137,11 +137,14 @@ Open `GET /auth/google` to begin login. The callback returns an application Bear
 token (or redirects to `AUTH_SUCCESS_REDIRECT_URL` with the token in the URL fragment).
 Send that token as `Authorization: Bearer <token>` when calling the chat or ingestion APIs.
 
-### 5. Start the database stack
+### 5. Start the app and Python workers with Docker Compose
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
+
+This starts the app and two Python worker replicas. PostgreSQL, RabbitMQ, and
+object storage must be running separately and reachable using the values in `.env`.
 
 ### 6. Run database migrations
 
@@ -151,9 +154,9 @@ npm run migration:run
 
 This will create the app schema using TypeORM migrations.
 
-### 7. Run the app
+### 7. Run the app locally (optional)
 
-Start the app:
+If you are not using the app container from step 5, start the app locally:
 
 ```bash
 npm run start:dev   # development
