@@ -56,6 +56,20 @@ services:
     networks:
       - ip6net
 
+  cloudflare-ddns:
+    image: favonia/cloudflare-ddns:1
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [all]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN in .env}
+      DOMAINS: ${CLOUDFLARE_DDNS_DOMAINS:?Set CLOUDFLARE_DDNS_DOMAINS in .env}
+      PROXIED: "${CLOUDFLARE_DDNS_PROXIED:-false}"
+      IP6_PROVIDER: "${CLOUDFLARE_DDNS_IP6_PROVIDER:-none}"
+
 networks:
   ip6net:
     enable_ipv6: true
