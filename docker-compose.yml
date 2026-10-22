@@ -56,19 +56,13 @@ services:
     networks:
       - ip6net
 
-  cloudflare-ddns:
-    image: favonia/cloudflare-ddns:1
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
     restart: unless-stopped
-    user: "1000:1000"
-    read_only: true
-    cap_drop: [all]
-    security_opt:
-      - no-new-privileges:true
     environment:
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN in .env}
-      DOMAINS: ${CLOUDFLARE_DDNS_DOMAINS:?Set CLOUDFLARE_DDNS_DOMAINS in .env}
-      PROXIED: "${CLOUDFLARE_DDNS_PROXIED:-false}"
-      IP6_PROVIDER: "${CLOUDFLARE_DDNS_IP6_PROVIDER:-none}"
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN in .env}
+      TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN in .env}
+      LOG_FILE: "false"
 
 networks:
   ip6net:
