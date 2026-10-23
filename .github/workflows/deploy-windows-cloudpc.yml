@@ -1,0 +1,94 @@
+name: Deploy to Windows Cloud PC
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-cloudpc-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    environment: Prod
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 45
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+
+    steps:
+      - name: Validate deployment checkout
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_PATH)) {
+            throw 'Set the repository variable DEPLOY_PATH to the existing application checkout on this runner.'
+          }
+
+          if (-not (Test-Path -LiteralPath (Join-Path $env:DEPLOY_PATH 'docker-compose.yml'))) {
+            throw "No docker-compose.yml found under DEPLOY_PATH: $env:DEPLOY_PATH"
+          }
+
+          $branch = (& git -C $env:DEPLOY_PATH branch --show-current).Trim()
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not read the deployment checkout branch.'
+          }
+          if ($branch -ne 'main') {
+            throw "The deployment checkout must be on main; found '$branch'."
+          }
+
+          $changes = & git -C $env:DEPLOY_PATH status --porcelain
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not inspect the deployment checkout.'
+          }
+          if ($changes) {
+            throw 'The deployment checkout has tracked or untracked changes. Commit or remove them before deployment.'
+          }
+
+      - name: Fast-forward deployment checkout
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & git -C $env:DEPLOY_PATH pull --ff-only origin main
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not fast-forward the deployment checkout from origin/main.'
+          }
+
+      - name: Build and restart Compose services
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & docker compose --project-directory $env:DEPLOY_PATH up --detach --build --remove-orphans
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Docker Compose deployment failed.'
+          }
+
+      - name: Verify application health
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $healthUrl = 'http://localhost:3000/health'
+
+          for ($attempt = 1; $attempt -le 24; $attempt++) {
+            try {
+              $response = Invoke-WebRequest -Uri $healthUrl -TimeoutSec 5 -UseBasicParsing
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Health check passed: $healthUrl"
+                exit 0
+              }
+            } catch {
+              Write-Host "Health check attempt $attempt/24 failed: $($_.Exception.Message)"
+            }
+
+            Start-Sleep -Seconds 5
+          }
+
+          & docker compose --project-directory $env:DEPLOY_PATH logs --tail 100 app
+          throw "Application health check did not pass: $healthUrl"
