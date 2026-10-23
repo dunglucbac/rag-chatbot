@@ -316,6 +316,7 @@ npm run test:cov
 - [API Reference](docs/api.md) — HTTP endpoints with request/response examples
 - [Google SSO](docs/google-sso.md) — Google OAuth setup, login flow, and protected API usage
 - [Deployment](docs/deployment.md) — Docker, production checklist, caveats
+- [GitHub Actions deployment](docs/deployment-github-actions.md) — Windows Cloud PC runner setup and automatic deploys
 - [Troubleshooting](docs/troubleshooting.md) — common issues and fixes
 - [Contributing](docs/contributing.md) — setup, conventions, adding tools/providers
 
