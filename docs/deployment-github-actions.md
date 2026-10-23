@@ -27,9 +27,11 @@ building and restarting the Docker Compose services, then checking
    self-hosted runner**, select **Windows x64**, and follow GitHub's current
    setup commands on the Cloud PC. Configure the runner to run as an account
    that can access the repository clone, its SSH key, and the Docker engine.
-5. In **Settings → Secrets and variables → Actions → Variables**, add the
-   repository variable `DEPLOY_PATH` with the absolute path to the clone, for
-   example `C:\Users\ThangLuu\Projects\rag-chatbot`.
+5. In **Settings → Environments → Prod → Environment variables**, add the
+   variable `DEPLOY_PATH` with the absolute path to the clone, for example
+   `C:\Users\ThangLuu\Projects\rag-chatbot`. The deploy job targets the `Prod`
+   environment so it can read this variable. If `Prod` has required reviewers,
+   GitHub will wait for approval before starting the deployment.
 
 The runner must be online for a deployment to start. Do not configure it to run
 workflows from pull requests; this workflow deploys only from `main`.
