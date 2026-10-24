@@ -89,6 +89,7 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL }}
           EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_CALLBACK_URL: ${{ vars.GOOGLE_CALLBACK_URL }}
@@ -125,7 +126,7 @@ jobs:
           $content = foreach ($line in Get-Content -LiteralPath $envExample) {
             if ($line -match '^(?:#\s*)?([A-Z][A-Z0-9_]*)=') {
               $key = $Matches[1]
-              if ($key -in @('RABBITMQ_EXCHANGE', 'RABBITMQ_IMAGE_QUEUE', 'RABBITMQ_PDF_QUEUE')) {
+              if ($key -in @('RABBITMQ_IMAGE_QUEUE', 'RABBITMQ_PDF_QUEUE')) {
                 continue
               }
               $value = [Environment]::GetEnvironmentVariable($key)
