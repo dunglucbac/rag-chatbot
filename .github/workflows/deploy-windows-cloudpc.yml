@@ -61,6 +61,92 @@ jobs:
             throw 'Could not fast-forward the deployment checkout from origin/main.'
           }
 
+      - name: Set up environment variables
+        shell: powershell
+        env:
+          NODE_ENV: ${{ vars.NODE_ENV }}
+          DB_HOST: ${{ vars.DB_HOST }}
+          DB_PORT: ${{ vars.DB_PORT }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_SSL: ${{ vars.DB_SSL }}
+          RABBITMQ_URL: ${{ secrets.RABBITMQ_URL }}
+          RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE }}
+          OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
+          OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
+          OBJECT_STORAGE_BUCKET: ${{ vars.OBJECT_STORAGE_BUCKET }}
+          OBJECT_STORAGE_ACCESS_KEY: ${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}
+          OBJECT_STORAGE_SECRET_KEY: ${{ secrets.OBJECT_STORAGE_SECRET_KEY }}
+          OBJECT_STORAGE_FORCE_PATH_STYLE: ${{ vars.OBJECT_STORAGE_FORCE_PATH_STYLE }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
+          LANGFUSE_TRACING_ENABLED: ${{ vars.LANGFUSE_TRACING_ENABLED }}
+          LANGFUSE_PUBLIC_KEY: ${{ vars.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL }}
+          EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_CALLBACK_URL: ${{ vars.GOOGLE_CALLBACK_URL }}
+          AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
+          AUTH_JWT_EXPIRES_IN_SECONDS: ${{ vars.AUTH_JWT_EXPIRES_IN_SECONDS }}
+          RECEIPT_CURSOR_HMAC_SECRET: ${{ secrets.RECEIPT_CURSOR_HMAC_SECRET }}
+          AUTH_SUCCESS_REDIRECT_URL: ${{ vars.AUTH_SUCCESS_REDIRECT_URL }}
+          PORT: ${{ vars.PORT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = @(
+            'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASS', 'DB_NAME', 'RABBITMQ_URL',
+            'OBJECT_STORAGE_ENDPOINT', 'OBJECT_STORAGE_BUCKET', 'OBJECT_STORAGE_ACCESS_KEY',
+            'OBJECT_STORAGE_SECRET_KEY', 'LLM_PROVIDER', 'OPENAI_API_KEY', 'TAVILY_API_KEY',
+            'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL',
+            'AUTH_JWT_SECRET', 'RECEIPT_CURSOR_HMAC_SECRET'
+          )
+          if ($env:LLM_PROVIDER -eq 'anthropic') {
+            $required += 'ANTHROPIC_API_KEY'
+          }
+          if ($env:LANGFUSE_TRACING_ENABLED -eq 'true') {
+            $required += 'LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY'
+          }
+          foreach ($key in $required) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
+              throw "Set $key in the Prod GitHub Actions environment (variables for settings, secrets for credentials)."
+            }
+          }
+
+          $envExample = Join-Path $env:DEPLOY_PATH '.env.example'
+          if (-not (Test-Path -LiteralPath $envExample)) {
+            throw "No .env.example found under DEPLOY_PATH: $env:DEPLOY_PATH"
+          }
+
+          $content = foreach ($line in Get-Content -LiteralPath $envExample) {
+            if ($line -match '^(?:#\s*)?([A-Z][A-Z0-9_]*)=') {
+              $key = $Matches[1]
+              if ($key -in @('RABBITMQ_EXCHANGE', 'RABBITMQ_IMAGE_QUEUE', 'RABBITMQ_PDF_QUEUE')) {
+                continue
+              }
+              $value = [Environment]::GetEnvironmentVariable($key)
+              if (-not [string]::IsNullOrEmpty($value)) {
+                if ($value -match '[\r\n]') {
+                  throw "$key must be a single-line value."
+                }
+                # Single quotes preserve dollar signs and hashes in Compose values.
+                $escapedValue = $value.Replace("'", "\'")
+                "$key='$escapedValue'"
+              }
+            }
+          }
+          [IO.File]::WriteAllLines(
+            (Join-Path $env:DEPLOY_PATH '.env'),
+            [string[]]$content,
+            [Text.UTF8Encoding]::new($false)
+          )
+
       - name: Build and restart Compose services
         shell: powershell
         run: |
