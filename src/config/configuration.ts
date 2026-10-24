@@ -30,6 +30,12 @@ export default () => ({
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingProvider: process.env.EMBEDDING_PROVIDER ?? 'openai',
   },
+  langfuse: {
+    tracingEnabled: process.env.LANGFUSE_TRACING_ENABLED === 'true',
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+    secretKey: process.env.LANGFUSE_SECRET_KEY,
+    baseUrl: process.env.LANGFUSE_BASE_URL ?? 'https://jp.cloud.langfuse.com',
+  },
   tavily: {
     apiKey: process.env.TAVILY_API_KEY,
   },

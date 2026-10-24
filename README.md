@@ -50,19 +50,19 @@ Background Scraper (every 6h):
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | NestJS 11 (TypeScript) |
-| LLM | Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o |
-| Embeddings | OpenAI text-embedding-3-small |
-| Vector Store | PostgreSQL + pgvector |
-| ORM | TypeORM |
-| Agent | LangChain / LangGraph ReAct |
-| Web Search | Tavily API |
-| Chat Interface | Authenticated HTTP API |
-| Scraping | Cheerio + axios |
-| Queue | RabbitMQ |
-| Parsing Worker | Python (PyPDF2, Tesseract, Anthropic) |
+| Layer          | Technology                                   |
+| -------------- | -------------------------------------------- |
+| Framework      | NestJS 11 (TypeScript)                       |
+| LLM            | Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o |
+| Embeddings     | OpenAI text-embedding-3-small                |
+| Vector Store   | PostgreSQL + pgvector                        |
+| ORM            | TypeORM                                      |
+| Agent          | LangChain / LangGraph ReAct                  |
+| Web Search     | Tavily API                                   |
+| Chat Interface | Authenticated HTTP API                       |
+| Scraping       | Cheerio + axios                              |
+| Queue          | RabbitMQ                                     |
+| Parsing Worker | Python (PyPDF2, Tesseract, Anthropic)        |
 
 ---
 
@@ -102,18 +102,21 @@ pip install -r requirements.txt
 The Python worker uses Tesseract for OCR text extraction from images and scanned PDFs.
 
 **macOS:**
+
 ```bash
 brew install tesseract
 brew install tesseract-lang   # optional: additional language support
 ```
 
 **Ubuntu / Debian:**
+
 ```bash
 sudo apt install tesseract-ocr
 sudo apt install tesseract-ocr-all   # optional: additional language support
 ```
 
 **Verify installation:**
+
 ```bash
 tesseract --version
 ```
@@ -125,6 +128,15 @@ cp .env.example .env
 ```
 
 Fill in your values — see `.env.example` for all required keys.
+
+To capture development chat traces in Langfuse, create a project API key pair
+and set `LANGFUSE_TRACING_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, and
+`LANGFUSE_SECRET_KEY` in `.env`. This integration is opt-in and never traces
+outside `NODE_ENV=development` or `NODE_ENV=test`. Each chat turn is recorded
+as one trace, grouped by chat session; the server logs a link to the trace. See the [Langfuse
+Cloud](https://langfuse.com/docs/observability/get-started) and
+[LangChain integration](https://langfuse.com/integrations/frameworks/langchain)
+guides for project setup and details.
 
 ### Google SSO
 
