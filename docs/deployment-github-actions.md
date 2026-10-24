@@ -44,15 +44,12 @@ Use the exact names from `.env.example`. Set non-secret configuration under
 **Settings → Environments → Prod → Environment variables** (the workflow
 reads these with `${{ vars.NAME }}`):
 
-- Runtime: `NODE_ENV`, `PORT`.
-- Database: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_SSL`.
-- RabbitMQ: `RABBITMQ_EXCHANGE`, `RABBITMQ_IMAGE_QUEUE`, `RABBITMQ_PDF_QUEUE`.
+- Runtime: `NODE_ENV` (set this to `production`).
+- Database: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`.
 - Object storage: `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`,
-  `OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_FORCE_PATH_STYLE`.
-- LLM: `LLM_PROVIDER`, `LLM_MODEL`, `ANTHROPIC_BASE_URL`, `EMBEDDING_PROVIDER`.
-- Langfuse: `LANGFUSE_TRACING_ENABLED`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_BASE_URL`.
-- Authentication: `GOOGLE_CLIENT_ID`, `GOOGLE_CALLBACK_URL`,
-  `AUTH_JWT_EXPIRES_IN_SECONDS`, `AUTH_SUCCESS_REDIRECT_URL`.
+  `OBJECT_STORAGE_BUCKET`.
+- LLM: `LLM_PROVIDER`.
+- Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CALLBACK_URL`.
 
 For example, create `LLM_PROVIDER` with value `anthropic`. The corresponding
 API key goes under **Settings → Environments → Prod → Environment secrets**
@@ -73,15 +70,24 @@ The setup step requires `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`,
 `OPENAI_API_KEY` is required for embeddings even when the LLM provider is
 Anthropic. Set `ANTHROPIC_API_KEY` when `LLM_PROVIDER=anthropic` (the Python
 worker also uses it for receipt processing). Set the Langfuse key pair when
-`LANGFUSE_TRACING_ENABLED=true`.
+`LANGFUSE_TRACING_ENABLED=true`. For Langfuse, also set the optional variables
+`LANGFUSE_PUBLIC_KEY` and `LANGFUSE_BASE_URL` as needed.
 
 Unset optional values are omitted from `.env`, allowing application defaults
-to apply. Leave `LLM_MODEL` and `ANTHROPIC_BASE_URL` unset to use the provider's
-defaults. Set `GOOGLE_CALLBACK_URL` to the deployed callback URL registered
-in Google Cloud. Set `NODE_ENV` explicitly to the intended runtime environment;
-Langfuse tracing is supported only in `development` or `test`. Values must be
-single-line strings. No credentials need to be committed or configured manually
-in the runner's `.env`.
+to apply. You do not need to create GitHub variables for
+`RABBITMQ_EXCHANGE`, `RABBITMQ_IMAGE_QUEUE`, or `RABBITMQ_PDF_QUEUE`; they default
+to the values in `.env.example`. You can also omit `DB_SSL` (`false`),
+`OBJECT_STORAGE_FORCE_PATH_STYLE` (`false`), `EMBEDDING_PROVIDER` (`openai`),
+`LANGFUSE_TRACING_ENABLED` (`false`), `LANGFUSE_BASE_URL`,
+`AUTH_JWT_EXPIRES_IN_SECONDS` (`86400`), and `PORT` (`3000`). Leave `LLM_MODEL`,
+`ANTHROPIC_BASE_URL`, and `AUTH_SUCCESS_REDIRECT_URL` unset unless you need to
+override their defaults. For Cloudflare R2, set
+`OBJECT_STORAGE_REGION=auto` as shown in `.env.example`; the fallback region is
+`us-east-1`. Set `GOOGLE_CALLBACK_URL` to the deployed callback URL registered
+in Google Cloud. Set `NODE_ENV` to `production` for deployment; the template's
+`development` value is for local use. Langfuse tracing is supported only in
+`development` or `test`. Values must be single-line strings. No credentials
+need to be committed or configured manually in the runner's `.env`.
 
 ## Deploy
 
