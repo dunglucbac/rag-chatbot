@@ -89,14 +89,12 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL }}
           EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_CALLBACK_URL: ${{ vars.GOOGLE_CALLBACK_URL }}
           AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
           AUTH_JWT_EXPIRES_IN_SECONDS: ${{ vars.AUTH_JWT_EXPIRES_IN_SECONDS }}
           RECEIPT_CURSOR_HMAC_SECRET: ${{ secrets.RECEIPT_CURSOR_HMAC_SECRET }}
-          AUTH_SUCCESS_REDIRECT_URL: ${{ vars.AUTH_SUCCESS_REDIRECT_URL }}
           PORT: ${{ vars.PORT }}
         run: |
           $ErrorActionPreference = 'Stop'
