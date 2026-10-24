@@ -24,9 +24,13 @@ services:
       TAVILY_API_KEY: ${TAVILY_API_KEY}
       LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      LANGFUSE_TRACING_ENABLED: ${LANGFUSE_TRACING_ENABLED:-false}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-https://jp.cloud.langfuse.com}
       PORT: ${PORT:-3000}
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - '${PORT:-3000}:${PORT:-3000}'
     volumes:
       - ./:/app
     command: npm run start:dev

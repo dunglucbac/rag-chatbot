@@ -1,9 +1,11 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
 import type { StructuredToolInterface } from '@langchain/core/tools';
+import type { CallbackHandler } from '@langfuse/langchain';
 import { LlmService } from '../llm/llm.service';
+import { LangfuseObservabilityService } from '../llm/langfuse-observability.service';
 import { AGENT_CHECKPOINTER } from './agent.constants';
 import { ReceiptAnalyticsService } from '../receipt/analytics/receipt-analytics.service';
 import { createPurchaseSummaryTool } from './tools/purchase-summary.tool';
@@ -32,6 +34,8 @@ export class AgentService {
     private readonly checkpointer: BaseCheckpointSaver,
     private readonly receiptAnalyticsService: ReceiptAnalyticsService,
     private readonly ingestionService?: IngestionService,
+    @Optional()
+    private readonly langfuseObservability?: LangfuseObservabilityService,
   ) {}
 
   async invoke(
@@ -46,7 +50,10 @@ export class AgentService {
     const now = new Date();
     const toolCallBudget = new ToolCallBudget(MAX_RECEIPT_TOOL_CALLS);
     const clock = () => now;
-    const invokeAgent = (policyRetry: boolean) => {
+    const invokeAgent = (
+      policyRetry: boolean,
+      callbacks?: CallbackHandler[],
+    ) => {
       const tools: StructuredToolInterface[] = [
         createPurchaseSummaryTool(
           this.receiptAnalyticsService,
@@ -106,29 +113,62 @@ export class AgentService {
       });
       return agent.invoke(
         { messages: [new HumanMessage(message)] },
-        { configurable: { thread_id: threadId ?? userId } },
+        {
+          configurable: { thread_id: threadId ?? userId },
+          ...(callbacks ? { callbacks } : {}),
+        },
       );
     };
 
-    try {
-      let result = await invokeAgent(false);
-      if (financialClaim && !hasCurrentTurnReceiptEvidence(result.messages)) {
-        result = await invokeAgent(true);
-        if (!hasCurrentTurnReceiptEvidence(result.messages)) {
-          return RECEIPT_EVIDENCE_UNAVAILABLE_RESPONSE;
+    const execute = async (handler?: CallbackHandler) => {
+      let policyRetryPerformed = false;
+      try {
+        let result = await invokeAgent(false, handler ? [handler] : undefined);
+        if (financialClaim && !hasCurrentTurnReceiptEvidence(result.messages)) {
+          policyRetryPerformed = true;
+          result = await invokeAgent(true, handler ? [handler] : undefined);
+          if (!hasCurrentTurnReceiptEvidence(result.messages)) {
+            return {
+              reply: RECEIPT_EVIDENCE_UNAVAILABLE_RESPONSE,
+              metadata: {
+                outcome: 'evidence-unavailable',
+                policyRetryPerformed,
+              },
+            };
+          }
         }
-      }
 
-      const lastMessage = result.messages[result.messages.length - 1];
-      return typeof lastMessage.content === 'string'
-        ? lastMessage.content
-        : JSON.stringify(lastMessage.content);
-    } catch (error: unknown) {
-      if (financialClaim) {
-        return RECEIPT_DATA_UNAVAILABLE_RESPONSE;
+        const lastMessage = result.messages[result.messages.length - 1];
+        const reply =
+          typeof lastMessage.content === 'string'
+            ? lastMessage.content
+            : JSON.stringify(lastMessage.content);
+        return {
+          reply,
+          metadata: { outcome: 'success', policyRetryPerformed },
+        };
+      } catch (error: unknown) {
+        if (financialClaim) {
+          return {
+            reply: RECEIPT_DATA_UNAVAILABLE_RESPONSE,
+            metadata: {
+              outcome: 'data-unavailable',
+              policyRetryPerformed,
+              errorType: error instanceof Error ? error.name : 'UnknownError',
+            },
+          };
+        }
+        throw error;
       }
-      throw error;
-    }
+    };
+
+    const outcome = this.langfuseObservability
+      ? await this.langfuseObservability.traceChat(
+          { message, sessionId: threadId ?? userId, userId },
+          execute,
+        )
+      : await execute();
+    return outcome.reply;
   }
 
   deleteThread(threadId: string): Promise<void> {
