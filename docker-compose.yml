@@ -56,14 +56,6 @@ services:
     networks:
       - ip6net
 
-  duckdns:
-    image: lscr.io/linuxserver/duckdns:latest
-    restart: unless-stopped
-    environment:
-      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN in .env}
-      TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN in .env}
-      LOG_FILE: "false"
-
 networks:
   ip6net:
     enable_ipv6: true

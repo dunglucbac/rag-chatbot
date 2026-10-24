@@ -4,9 +4,8 @@ The deployment workflow runs on a self-hosted GitHub Actions runner installed on
 the Windows Cloud PC. The runner initiates outbound connections to GitHub, so
 the Cloud PC does not need an inbound SSH port for deployments.
 
-The workflow deploys each push to `main` by fast-forwarding the existing clone,
-building and restarting the Docker Compose services, then checking
-`http://localhost:3000/health`.
+The workflow deploys each push to `main` by fast-forwarding the existing clone
+and building and restarting the Docker Compose services.
 
 ## One-time setup on the Cloud PC
 
@@ -43,8 +42,7 @@ Windows Cloud PC** manually from the Actions tab while selecting `main`.
 
 The workflow fails before deployment if `DEPLOY_PATH` is missing, the clone is
 not on `main`, or the clone has local changes. It then runs
-`docker compose up --detach --build --remove-orphans` and retries the app health
-endpoint for up to two minutes.
+`docker compose up --detach --build --remove-orphans`.
 
 The deployment uses the existing `docker-compose.yml` and its machine-local
 `.env`. Cloudflare Tunnel runs separately from this workflow; a Quick Tunnel

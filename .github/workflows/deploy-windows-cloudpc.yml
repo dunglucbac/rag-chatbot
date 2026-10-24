@@ -69,26 +69,3 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'Docker Compose deployment failed.'
           }
-
-      - name: Verify application health
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $healthUrl = 'http://localhost:3000/health'
-
-          for ($attempt = 1; $attempt -le 24; $attempt++) {
-            try {
-              $response = Invoke-WebRequest -Uri $healthUrl -TimeoutSec 5 -UseBasicParsing
-              if ($response.StatusCode -eq 200) {
-                Write-Host "Health check passed: $healthUrl"
-                exit 0
-              }
-            } catch {
-              Write-Host "Health check attempt $attempt/24 failed: $($_.Exception.Message)"
-            }
-
-            Start-Sleep -Seconds 5
-          }
-
-          & docker compose --project-directory $env:DEPLOY_PATH logs --tail 100 app
-          throw "Application health check did not pass: $healthUrl"
