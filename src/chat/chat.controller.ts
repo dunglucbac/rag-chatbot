@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dtos/send-message.dto';
@@ -17,6 +18,8 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 @Controller('chat')
 @UseGuards(GoogleAuthGuard)
 export class ChatController {
+  private readonly logger = new Logger(ChatController.name);
+
   constructor(private readonly chatService: ChatService) {}
 
   @Post('messages')
@@ -47,6 +50,7 @@ export class ChatController {
     @Body() dto: SendMessageDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
+    this.logger.log(`POST /chat/sessions/${sessionId}/messages`);
     return this.chatService.sendMessage({
       message: dto.message,
       sessionId,

@@ -2,7 +2,9 @@ import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LangfuseClient } from '@langfuse/client';
 import { CallbackHandler } from '@langfuse/langchain';
+import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { propagateAttributes, startActiveObservation } from '@langfuse/tracing';
+import { NodeSDK } from '@opentelemetry/sdk-node';
 
 export interface ChatTraceContext {
   message: string;
@@ -19,6 +21,7 @@ export interface ChatTraceOutcome {
 export class LangfuseObservabilityService implements OnApplicationShutdown {
   private readonly logger = new Logger(LangfuseObservabilityService.name);
   private readonly client?: LangfuseClient;
+  private readonly sdk?: NodeSDK;
   private readonly enabled: boolean;
 
   constructor(private readonly config: ConfigService) {
@@ -36,6 +39,11 @@ export class LangfuseObservabilityService implements OnApplicationShutdown {
 
     if (this.enabled && publicKey && secretKey) {
       this.client = new LangfuseClient({ publicKey, secretKey, baseUrl });
+      this.sdk = new NodeSDK({
+        spanProcessors: [new LangfuseSpanProcessor()],
+      });
+      this.sdk.start();
+      this.logger.log(`Langfuse tracing enabled (${runtimeEnvironment})`);
     }
   }
 
@@ -53,7 +61,6 @@ export class LangfuseObservabilityService implements OnApplicationShutdown {
       tags: ['chat', process.env.NODE_ENV === 'test' ? 'test' : 'development'],
     });
 
-    let traceUrl: string | undefined;
     let operationStarted = false;
     let operationOutcome: ChatTraceOutcome | undefined;
     let operationCompleted = false;
@@ -85,13 +92,13 @@ export class LangfuseObservabilityService implements OnApplicationShutdown {
             output: { reply: outcome.reply },
             metadata: outcome.metadata,
           });
-          try {
-            traceUrl = await this.client!.getTraceUrl(observation.traceId);
-          } catch (error: unknown) {
-            this.logger.warn(
-              `Could not resolve Langfuse trace URL: ${error instanceof Error ? error.message : String(error)}`,
+          void this.client!.getTraceUrl(observation.traceId)
+            .then((url) => this.logger.log(`Langfuse trace: ${url}`))
+            .catch((error: unknown) =>
+              this.logger.warn(
+                `Could not resolve Langfuse trace URL: ${error instanceof Error ? error.message : String(error)}`,
+              ),
             );
-          }
           return outcome;
         },
         { asType: 'agent' },
@@ -110,18 +117,11 @@ export class LangfuseObservabilityService implements OnApplicationShutdown {
         return operation();
       }
       throw error;
-    } finally {
-      if (traceUrl) {
-        this.logger.log(`Langfuse trace: ${traceUrl}`);
-      } else if (handler.last_trace_id) {
-        this.logger.warn(
-          `Langfuse trace recorded with id ${handler.last_trace_id}, but its URL could not be resolved`,
-        );
-      }
     }
   }
 
   async onApplicationShutdown(): Promise<void> {
+    await this.sdk?.shutdown();
     await this.client?.shutdown();
   }
 }
