@@ -46,6 +46,9 @@ reads these with `${{ vars.NAME }}`):
 
 - Runtime: `NODE_ENV` (set this to `production`).
 - Database: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`.
+- RabbitMQ (optional overrides): `RABBITMQ_EXCHANGE` (defaults to
+  `ingest.topic`), `RABBITMQ_IMAGE_QUEUE` (defaults to `ingest.image.queue`),
+  `RABBITMQ_PDF_QUEUE` (defaults to `ingest.pdf.queue`).
 - Object storage: `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_REGION`,
   `OBJECT_STORAGE_BUCKET`.
 - LLM: `LLM_PROVIDER`.
@@ -74,9 +77,8 @@ worker also uses it for receipt processing). Set the Langfuse key pair when
 `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_BASE_URL` as needed.
 
 Unset optional values are omitted from `.env`, allowing application defaults
-to apply. You do not need to create GitHub variables for
-`RABBITMQ_EXCHANGE`, `RABBITMQ_IMAGE_QUEUE`, or `RABBITMQ_PDF_QUEUE`; they default
-to the values in `.env.example`. You can also omit `DB_SSL` (`false`),
+to apply. If you do not set the optional RabbitMQ overrides, they default to
+the values in `.env.example`. You can also omit `DB_SSL` (`false`),
 `OBJECT_STORAGE_FORCE_PATH_STYLE` (`false`), `EMBEDDING_PROVIDER` (`openai`),
 `LANGFUSE_TRACING_ENABLED` (`false`), `LANGFUSE_BASE_URL`,
 `AUTH_JWT_EXPIRES_IN_SECONDS` (`86400`), and `PORT` (`3000`). Leave `LLM_MODEL`,

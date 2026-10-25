@@ -73,6 +73,8 @@ jobs:
           DB_SSL: ${{ vars.DB_SSL }}
           RABBITMQ_URL: ${{ secrets.RABBITMQ_URL }}
           RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE }}
+          RABBITMQ_IMAGE_QUEUE: ${{ vars.RABBITMQ_IMAGE_QUEUE }}
+          RABBITMQ_PDF_QUEUE: ${{ vars.RABBITMQ_PDF_QUEUE }}
           OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
           OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
           OBJECT_STORAGE_BUCKET: ${{ vars.OBJECT_STORAGE_BUCKET }}
@@ -89,14 +91,12 @@ jobs:
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL }}
           EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
-          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_CALLBACK_URL: ${{ vars.GOOGLE_CALLBACK_URL }}
           AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
           AUTH_JWT_EXPIRES_IN_SECONDS: ${{ vars.AUTH_JWT_EXPIRES_IN_SECONDS }}
           RECEIPT_CURSOR_HMAC_SECRET: ${{ secrets.RECEIPT_CURSOR_HMAC_SECRET }}
-          AUTH_SUCCESS_REDIRECT_URL: ${{ vars.AUTH_SUCCESS_REDIRECT_URL }}
           PORT: ${{ vars.PORT }}
         run: |
           $ErrorActionPreference = 'Stop'
@@ -127,9 +127,6 @@ jobs:
           $content = foreach ($line in Get-Content -LiteralPath $envExample) {
             if ($line -match '^(?:#\s*)?([A-Z][A-Z0-9_]*)=') {
               $key = $Matches[1]
-              if ($key -in @('RABBITMQ_EXCHANGE', 'RABBITMQ_IMAGE_QUEUE', 'RABBITMQ_PDF_QUEUE')) {
-                continue
-              }
               $value = [Environment]::GetEnvironmentVariable($key)
               if (-not [string]::IsNullOrEmpty($value)) {
                 if ($value -match '[\r\n]') {
