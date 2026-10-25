@@ -157,6 +157,8 @@ docker compose up -d
 
 This starts the app and two Python worker replicas. PostgreSQL, RabbitMQ, and
 object storage must be running separately and reachable using the values in `.env`.
+The same Compose file starts Traefik and DuckDNS for production HTTPS; see the
+[deployment guide](docs/deployment.md#production-docker).
 
 ### 6. Run database migrations
 

@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
@@ -39,10 +39,15 @@ services:
       AUTH_SUCCESS_REDIRECT_URL: ${AUTH_SUCCESS_REDIRECT_URL:-}
       PORT: ${PORT:-3000}
     ports:
-      - '${PORT:-3000}:${PORT:-3000}'
-    volumes:
-      - ./:/app
-    command: npm run start:dev
+      - '127.0.0.1:${PORT:-3000}:${PORT:-3000}'
+    restart: unless-stopped
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.rag-app.rule: Host(`${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN}.duckdns.org`)
+      traefik.http.routers.rag-app.entrypoints: websecure
+      traefik.http.routers.rag-app.tls.certresolver: duckdns
+      traefik.http.routers.rag-app.service: rag-app
+      traefik.http.services.rag-app.loadbalancer.server.port: ${PORT:-3000}
     networks:
       - ip6net
 
@@ -66,8 +71,43 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     deploy:
       replicas: 2
+    restart: unless-stopped
     networks:
       - ip6net
+
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.duckdns.acme.email=${ACME_EMAIL:?Set ACME_EMAIL}
+      - --certificatesresolvers.duckdns.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.duckdns.acme.dnschallenge.provider=duckdns
+    environment:
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - ip6net
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    restart: unless-stopped
+    environment:
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN}
+      TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN}
+      LOG_FILE: 'false'
 
 networks:
   ip6net:
@@ -75,3 +115,6 @@ networks:
     ipam:
       config:
         - subnet: 2001:db8::/64
+
+volumes:
+  letsencrypt:
