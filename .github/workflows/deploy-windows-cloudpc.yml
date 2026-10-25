@@ -73,6 +73,8 @@ jobs:
           DB_SSL: ${{ vars.DB_SSL }}
           RABBITMQ_URL: ${{ secrets.RABBITMQ_URL }}
           RABBITMQ_EXCHANGE: ${{ vars.RABBITMQ_EXCHANGE }}
+          RABBITMQ_IMAGE_QUEUE: ${{ vars.RABBITMQ_IMAGE_QUEUE }}
+          RABBITMQ_PDF_QUEUE: ${{ vars.RABBITMQ_PDF_QUEUE }}
           OBJECT_STORAGE_ENDPOINT: ${{ vars.OBJECT_STORAGE_ENDPOINT }}
           OBJECT_STORAGE_REGION: ${{ vars.OBJECT_STORAGE_REGION }}
           OBJECT_STORAGE_BUCKET: ${{ vars.OBJECT_STORAGE_BUCKET }}
@@ -126,9 +128,6 @@ jobs:
           $content = foreach ($line in Get-Content -LiteralPath $envExample) {
             if ($line -match '^(?:#\s*)?([A-Z][A-Z0-9_]*)=') {
               $key = $Matches[1]
-              if ($key -in @('RABBITMQ_IMAGE_QUEUE', 'RABBITMQ_PDF_QUEUE')) {
-                continue
-              }
               $value = [Environment]::GetEnvironmentVariable($key)
               if (-not [string]::IsNullOrEmpty($value)) {
                 if ($value -match '[\r\n]') {
