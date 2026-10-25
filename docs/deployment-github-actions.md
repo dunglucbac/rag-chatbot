@@ -53,8 +53,6 @@ reads these with `${{ vars.NAME }}`):
   `OBJECT_STORAGE_BUCKET`.
 - LLM: `LLM_PROVIDER`.
 - Google sign-in: `GOOGLE_CLIENT_ID`, `GOOGLE_CALLBACK_URL`.
-- Public routing: `DUCKDNS_SUBDOMAIN` (for example `lqtragchatbot`, without
-  `.duckdns.org`) and `ACME_EMAIL` (your Let's Encrypt account email).
 
 For example, create `LLM_PROVIDER` with value `anthropic`. The corresponding
 API key goes under **Settings → Environments → Prod → Environment secrets**
@@ -65,15 +63,13 @@ API key goes under **Settings → Environments → Prod → Environment secrets*
 - `OBJECT_STORAGE_ACCESS_KEY`, `OBJECT_STORAGE_SECRET_KEY`.
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`.
 - `LANGFUSE_SECRET_KEY`.
-- `DUCKDNS_TOKEN` (your DuckDNS account token).
 - `GOOGLE_CLIENT_SECRET`, `AUTH_JWT_SECRET`, `RECEIPT_CURSOR_HMAC_SECRET`.
 
 The setup step requires `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`,
 `RABBITMQ_URL`, `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_BUCKET`,
 `OBJECT_STORAGE_ACCESS_KEY`, `OBJECT_STORAGE_SECRET_KEY`, `LLM_PROVIDER`,
 `OPENAI_API_KEY`, `TAVILY_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
-`GOOGLE_CALLBACK_URL`, `AUTH_JWT_SECRET`, `RECEIPT_CURSOR_HMAC_SECRET`,
-`DUCKDNS_SUBDOMAIN`, `DUCKDNS_TOKEN`, and `ACME_EMAIL`.
+`GOOGLE_CALLBACK_URL`, `AUTH_JWT_SECRET`, and `RECEIPT_CURSOR_HMAC_SECRET`.
 `OPENAI_API_KEY` is required for embeddings even when the LLM provider is
 Anthropic. Set `ANTHROPIC_API_KEY` when `LLM_PROVIDER=anthropic` (the Python
 worker also uses it for receipt processing). Set the Langfuse key pair when
@@ -89,9 +85,9 @@ the values in `.env.example`. You can also omit `DB_SSL` (`false`),
 `ANTHROPIC_BASE_URL`, and `AUTH_SUCCESS_REDIRECT_URL` unset unless you need to
 override their defaults. For Cloudflare R2, set
 `OBJECT_STORAGE_REGION=auto` as shown in `.env.example`; the fallback region is
-`us-east-1`. Set `GOOGLE_CALLBACK_URL` to
-`https://<DUCKDNS_SUBDOMAIN>.duckdns.org/auth/google/callback` and register that
-exact URL in Google Cloud. The workflow rejects a different callback URL.
+`us-east-1`. Set `GOOGLE_CALLBACK_URL` to the callback URL for the stable public
+hostname configured on your named Cloudflare Tunnel, and register that exact
+URL in the Google OAuth client.
 Set `NODE_ENV` to `production` for deployment; the template's `development`
 value is for local use. Langfuse tracing is supported only in
 `development` or `test`. Values must be single-line strings. No credentials
@@ -104,22 +100,17 @@ Windows Cloud PC** manually from the Actions tab while selecting `main`.
 
 The workflow fails before deployment if `DEPLOY_PATH` or required application
 settings are missing, the clone is not on `main`, or the clone has local changes.
-It validates the merged Compose configuration, then runs:
+It validates the Compose configuration, then runs:
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml up --detach --build --remove-orphans
+docker compose up --detach --build --remove-orphans
 ```
 
-The production overlay starts Traefik on host ports 80/443, routes HTTPS to the app's
-configured `PORT` over Docker, and starts a DuckDNS public IPv4 updater. Only
-Traefik publishes host ports. The app runs its compiled production image, and
-two Python workers continue to process RabbitMQ messages.
-
-Before switching from Cloudflare Tunnel, make TCP 80/443 reachable through the
-Windows firewall and the Cloud PC's upstream network. A DuckDNS name does not
-provide a tunnel through NAT or CGNAT. If the Cloud PC cannot accept public
-inbound traffic, this direct setup needs network changes before it can serve
-requests. See [Traefik and DuckDNS deployment](deployment.md#production-docker)
-for certificate storage, additional service routing, and verification steps.
-The workflow does not stop a separately running Cloudflare Tunnel; stop it
-after the DuckDNS HTTPS URL has been verified externally.
+Cloudflare Tunnel runs separately from the Compose deployment. Quick Tunnels
+receive a temporary hostname on each start, so they are unsuitable for a Google
+OAuth callback that must stay registered. Use a named Cloudflare Tunnel with a
+stable hostname and configure its origin to the app's local port 3000. Register
+`https://<stable-hostname>/auth/google/callback` in the Google OAuth client and
+set the same value as `GOOGLE_CALLBACK_URL` in the `Prod` environment. Google
+requires an exact match and standard web OAuth client redirect URIs cannot be
+updated through a Cloudflare or Google API at startup.
