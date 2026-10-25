@@ -18,75 +18,49 @@ npm run start:dev
 
 ## Production (Docker)
 
-Use the production overlay to put Traefik in front of the application:
+Start the app and workers with the standard Compose file:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml config --quiet
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+```powershell
+docker compose up --detach --build --remove-orphans
 ```
 
-Requires Docker Compose v2.24.4 or newer for the overlay's `!reset` tags.
-Set these values in `.env` when running manually, or in the `Prod` GitHub Actions
-environment when using the [Windows deployment workflow](deployment-github-actions.md):
+The Windows 365 Microsoft Hosted Network does not accept direct inbound
+connections, so use a Cloudflare Tunnel to reach the app. The startup script
+runs a Quick Tunnel without a token, captures its current hostname, updates
+`GOOGLE_CALLBACK_URL` in the Cloud PC's `.env`, and recreates the app container:
 
-```dotenv
-DUCKDNS_SUBDOMAIN=lqtragchatbot
-DUCKDNS_TOKEN=<your DuckDNS account token>
-ACME_EMAIL=<your email for Let's Encrypt>
-GOOGLE_CALLBACK_URL=https://lqtragchatbot.duckdns.org/auth/google/callback
+```powershell
+.\scripts\start-cloudpc.ps1
 ```
 
-The request path is `https://lqtragchatbot.duckdns.org:443` → Traefik →
-`app:${PORT:-3000}` over the Docker network. HTTP on port 80 redirects to HTTPS.
-The overlay removes the app's published host port and development bind mount,
-and runs the compiled production image. The base Compose file still supports
-local development with `docker compose up -d`.
+Find the current callback URL in `logs/google-callback-url.txt`; the
+Cloudflare output is in `logs/cloudflared-quick-tunnel.stdout.log` and
+`logs/cloudflared-quick-tunnel.stderr.log`. Add that exact URL to the authorized
+redirect URIs in the Google OAuth client. Google requires an exact callback
+match and does not provide a supported API to add redirect URIs to a standard
+web OAuth client, so this Google Cloud step must be repeated when the Quick
+Tunnel URL changes. Set the same URL as `GOOGLE_CALLBACK_URL` in the `Prod`
+GitHub Actions environment if you deploy again before restarting the tunnel.
 
-Traefik obtains and renews a Let's Encrypt certificate using DuckDNS DNS-01.
-Certificate state lives in the `letsencrypt` named volume; retain it across
-redeployments and avoid `docker compose down --volumes`. The DuckDNS updater
-refreshes the public IPv4 address every five minutes. It does not update IPv6;
-remove any stale DuckDNS AAAA record if it points somewhere else.
-See the [Traefik ACME reference](https://doc.traefik.io/traefik/reference/install-configuration/tls/certificate-resolvers/acme/)
-and [DuckDNS updater documentation](https://docs.linuxserver.io/images/docker-duckdns/).
+For automatic startup, create a Windows Task Scheduler task for the same
+account that runs Docker Desktop. Use an **At log on** trigger with this action:
 
-The host must accept inbound TCP 80 and 443, including any Windows firewall,
-cloud firewall, and router/NAT forwarding. DuckDNS supplies DNS records; it
-cannot create an inbound route through CGNAT or a Windows 365 network without
-public ingress. DNS-01 can issue a certificate without inbound access, but
-clients still need to reach port 443. Stop the old Cloudflare Tunnel after
-verifying the DuckDNS URL works from outside the host's network. Register the
-HTTPS callback above as an authorized redirect URI in Google Cloud.
-
-Only the app exposes HTTP in this repository. The Python workers use RabbitMQ
-and have no HTTP port to route. Database and RabbitMQ connections continue
-using their configured endpoints.
-
-For another HTTP container, attach it to `ip6net` and add its own Traefik router
-and service labels. Set `loadbalancer.server.port` to that container's listening
-port. For example, a container serving `/reports` on port 8080 can use:
-
-```yaml
-networks:
-  - ip6net
-labels:
-  traefik.enable: 'true'
-  traefik.http.routers.reports.rule: Host(`${DUCKDNS_SUBDOMAIN}.duckdns.org`) && PathPrefix(`/reports`)
-  traefik.http.routers.reports.entrypoints: websecure
-  traefik.http.routers.reports.tls.certresolver: duckdns
-  traefik.http.routers.reports.service: reports
-  traefik.http.services.reports.loadbalancer.server.port: '8080'
+```text
+Program:   powershell.exe
+Arguments: -NoProfile -ExecutionPolicy Bypass -File "C:\path\to\rag-chatbot\scripts\start-cloudpc.ps1"
 ```
 
-Traefik preserves `/reports` in the upstream request. Add a StripPrefix middleware
-if that service expects paths from `/`. No extra host port needs publishing.
+The script waits up to three minutes for Docker, starts the Compose services,
+starts `cloudflared tunnel --url http://localhost:3000`, then recreates the app
+using the current callback URL. It keeps the tunnel running in the foreground.
+Quick Tunnels are for temporary testing. For a stable Google callback across
+restarts, create a named Cloudflare Tunnel and configure its fixed hostname as
+the callback instead. See [Cloudflare's tunnel setup](https://developers.cloudflare.com/tunnel/get-started/)
+and Google's [OAuth web server requirements](https://developers.google.com/identity/protocols/oauth2/web-server).
 
-After deployment, use the same two `-f` arguments for `ps`, `logs`, and `down`.
-Verify `http://<subdomain>.duckdns.org/auth/google` redirects to HTTPS, and
-`https://<subdomain>.duckdns.org/auth/google` redirects to Google with the HTTPS
-callback in `redirect_uri`.
-
----
+The Python workers have no HTTP ports; they process messages from RabbitMQ.
+Database, RabbitMQ, and object storage must be reachable using the values in
+`.env`.
 
 ## Environment Checklist
 
