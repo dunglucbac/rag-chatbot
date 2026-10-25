@@ -160,10 +160,14 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $composeArgs = @('--project-directory', $env:DEPLOY_PATH)
+          $composeArgs = @(
+            '--project-directory', $env:DEPLOY_PATH,
+            '-f', (Join-Path $env:DEPLOY_PATH 'docker-compose.yml'),
+            '-f', (Join-Path $env:DEPLOY_PATH 'docker-compose.traefik.yml')
+          )
           & docker compose @composeArgs config --quiet
           if ($LASTEXITCODE -ne 0) {
-            throw 'Docker Compose configuration is invalid. Check settings.'
+            throw 'Docker Compose configuration is invalid. Check settings and use Compose v2.24.4 or newer.'
           }
           & docker compose @composeArgs up --detach --build --remove-orphans
           if ($LASTEXITCODE -ne 0) {

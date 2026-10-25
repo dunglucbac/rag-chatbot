@@ -18,13 +18,14 @@ npm run start:dev
 
 ## Production (Docker)
 
-The main Compose file starts the app behind Traefik:
+Use the production overlay to put Traefik in front of the application:
 
 ```bash
-docker compose config --quiet
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
 ```
 
+Requires Docker Compose v2.24.4 or newer for the overlay's `!reset` tags.
 Set these values in `.env` when running manually, or in the `Prod` GitHub Actions
 environment when using the [Windows deployment workflow](deployment-github-actions.md):
 
@@ -37,9 +38,9 @@ GOOGLE_CALLBACK_URL=https://lqtragchatbot.duckdns.org/auth/google/callback
 
 The request path is `https://lqtragchatbot.duckdns.org:443` → Traefik →
 `app:${PORT:-3000}` over the Docker network. HTTP on port 80 redirects to HTTPS.
-The app port is only published on localhost for local access. Compose runs the
-compiled app in production mode; use `npm run start:dev` directly when you
-need source reloads.
+The overlay removes the app's published host port and development bind mount,
+and runs the compiled production image. The base Compose file still supports
+local development with `docker compose up -d`.
 
 Traefik obtains and renews a Let's Encrypt certificate using DuckDNS DNS-01.
 Certificate state lives in the `letsencrypt` named volume; retain it across
@@ -80,8 +81,7 @@ labels:
 Traefik preserves `/reports` in the upstream request. Add a StripPrefix middleware
 if that service expects paths from `/`. No extra host port needs publishing.
 
-After deployment, use `docker compose ps`, `docker compose logs`, and
-`docker compose down`.
+After deployment, use the same two `-f` arguments for `ps`, `logs`, and `down`.
 Verify `http://<subdomain>.duckdns.org/auth/google` redirects to HTTPS, and
 `https://<subdomain>.duckdns.org/auth/google` redirects to Google with the HTTPS
 callback in `redirect_uri`.

@@ -16,8 +16,8 @@ and building and restarting the Docker Compose services.
    optional entries; example values are never copied into `.env`.
 2. Confirm that this clone is on `main`, has no local source changes, and can
    fetch `origin/main` using the GitHub SSH key available to the runner account.
-3. Confirm that Docker (Linux containers) and Compose work under the same
-   Windows account that will run the GitHub Actions runner:
+3. Confirm that Docker (Linux containers) and Compose v2.24.4 or newer work
+   under the same Windows account that will run the GitHub Actions runner:
 
    ```powershell
    docker compose version
@@ -92,8 +92,8 @@ override their defaults. For Cloudflare R2, set
 `us-east-1`. Set `GOOGLE_CALLBACK_URL` to
 `https://<DUCKDNS_SUBDOMAIN>.duckdns.org/auth/google/callback` and register that
 exact URL in Google Cloud. The workflow rejects a different callback URL.
-The Compose file defaults to `NODE_ENV=production`; the template's
-`development` value is for local use. Langfuse tracing is supported only in
+Set `NODE_ENV` to `production` for deployment; the template's `development`
+value is for local use. Langfuse tracing is supported only in
 `development` or `test`. Values must be single-line strings. No credentials
 need to be committed or configured manually in the runner's `.env`.
 
@@ -107,10 +107,10 @@ settings are missing, the clone is not on `main`, or the clone has local changes
 It validates the merged Compose configuration, then runs:
 
 ```powershell
-docker compose up --detach --build --remove-orphans
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml up --detach --build --remove-orphans
 ```
 
-The Compose stack starts Traefik on host ports 80/443, routes HTTPS to the app's
+The production overlay starts Traefik on host ports 80/443, routes HTTPS to the app's
 configured `PORT` over Docker, and starts a DuckDNS public IPv4 updater. Only
 Traefik publishes host ports. The app runs its compiled production image, and
 two Python workers continue to process RabbitMQ messages.
