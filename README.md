@@ -157,8 +157,8 @@ docker compose up -d
 
 This starts the app and two Python worker replicas. PostgreSQL, RabbitMQ, and
 object storage must be running separately and reachable using the values in `.env`.
-For production HTTPS with Traefik and DuckDNS, use the
-[production Compose overlay](docs/deployment.md#production-docker).
+For production access from the Windows Cloud PC, see the
+[Cloudflare Tunnel deployment guide](docs/deployment.md#production-docker).
 
 ### 6. Run database migrations
 

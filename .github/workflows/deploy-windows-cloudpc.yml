@@ -99,9 +99,6 @@ jobs:
           AUTH_JWT_EXPIRES_IN_SECONDS: ${{ vars.AUTH_JWT_EXPIRES_IN_SECONDS }}
           RECEIPT_CURSOR_HMAC_SECRET: ${{ secrets.RECEIPT_CURSOR_HMAC_SECRET }}
           PORT: ${{ vars.PORT }}
-          DUCKDNS_SUBDOMAIN: ${{ vars.DUCKDNS_SUBDOMAIN }}
-          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
-          ACME_EMAIL: ${{ vars.ACME_EMAIL }}
         run: |
           $ErrorActionPreference = 'Stop'
           $required = @(
@@ -109,8 +106,7 @@ jobs:
             'OBJECT_STORAGE_ENDPOINT', 'OBJECT_STORAGE_BUCKET', 'OBJECT_STORAGE_ACCESS_KEY',
             'OBJECT_STORAGE_SECRET_KEY', 'LLM_PROVIDER', 'OPENAI_API_KEY', 'TAVILY_API_KEY',
             'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL',
-            'AUTH_JWT_SECRET', 'RECEIPT_CURSOR_HMAC_SECRET',
-            'DUCKDNS_SUBDOMAIN', 'DUCKDNS_TOKEN', 'ACME_EMAIL'
+            'AUTH_JWT_SECRET', 'RECEIPT_CURSOR_HMAC_SECRET'
           )
           if ($env:LLM_PROVIDER -eq 'anthropic') {
             $required += 'ANTHROPIC_API_KEY'
@@ -123,15 +119,6 @@ jobs:
               throw "Set $key in the Prod GitHub Actions environment (variables for settings, secrets for credentials)."
             }
           }
-
-          if ($env:DUCKDNS_SUBDOMAIN -notmatch '^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$') {
-            throw 'DUCKDNS_SUBDOMAIN must be a single subdomain, without .duckdns.org.'
-          }
-          $callbackUrl = "https://$($env:DUCKDNS_SUBDOMAIN).duckdns.org/auth/google/callback"
-          if ($env:GOOGLE_CALLBACK_URL -cne $callbackUrl) {
-            throw "Set GOOGLE_CALLBACK_URL to $callbackUrl and register it in Google Cloud."
-          }
-
           $envExample = Join-Path $env:DEPLOY_PATH '.env.example'
           if (-not (Test-Path -LiteralPath $envExample)) {
             throw "No .env.example found under DEPLOY_PATH: $env:DEPLOY_PATH"
@@ -161,14 +148,10 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $composeArgs = @(
-            '--project-directory', $env:DEPLOY_PATH,
-            '-f', (Join-Path $env:DEPLOY_PATH 'docker-compose.yml'),
-            '-f', (Join-Path $env:DEPLOY_PATH 'docker-compose.traefik.yml')
-          )
+          $composeArgs = @('--project-directory', $env:DEPLOY_PATH)
           & docker compose @composeArgs config --quiet
           if ($LASTEXITCODE -ne 0) {
-            throw 'Docker Compose configuration is invalid. Check settings and use Compose v2.24.4 or newer.'
+            throw 'Docker Compose configuration is invalid. Check settings.'
           }
           & docker compose @composeArgs up --detach --build --remove-orphans
           if ($LASTEXITCODE -ne 0) {
