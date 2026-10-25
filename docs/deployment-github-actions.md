@@ -61,20 +61,22 @@ API key goes under **Settings → Environments → Prod → Environment secrets*
 - `DB_PASS`.
 - `RABBITMQ_URL` (the URL contains the broker credentials).
 - `OBJECT_STORAGE_ACCESS_KEY`, `OBJECT_STORAGE_SECRET_KEY`.
-- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TAVILY_API_KEY`.
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
 - `LANGFUSE_SECRET_KEY`.
 - `GOOGLE_CLIENT_SECRET`, `AUTH_JWT_SECRET`, `RECEIPT_CURSOR_HMAC_SECRET`.
 
 The setup step requires `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`,
 `RABBITMQ_URL`, `OBJECT_STORAGE_ENDPOINT`, `OBJECT_STORAGE_BUCKET`,
 `OBJECT_STORAGE_ACCESS_KEY`, `OBJECT_STORAGE_SECRET_KEY`, `LLM_PROVIDER`,
-`OPENAI_API_KEY`, `TAVILY_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`OPENAI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GOOGLE_CALLBACK_URL`, `AUTH_JWT_SECRET`, and `RECEIPT_CURSOR_HMAC_SECRET`.
 `OPENAI_API_KEY` is required for embeddings even when the LLM provider is
 Anthropic. Set `ANTHROPIC_API_KEY` when `LLM_PROVIDER=anthropic` (the Python
 worker also uses it for receipt processing). Set the Langfuse key pair when
 `LANGFUSE_TRACING_ENABLED=true`. For Langfuse, also set the optional variables
 `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_BASE_URL` as needed.
+This workflow does not pass `TAVILY_API_KEY`; web search needs it configured
+in the runtime environment if you use that feature.
 
 Unset optional values are omitted from `.env`, allowing application defaults
 to apply. If you do not set the optional RabbitMQ overrides, they default to
