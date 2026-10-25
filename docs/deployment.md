@@ -24,35 +24,47 @@ Start the app and workers with the standard Compose file:
 docker compose up --detach --build --remove-orphans
 ```
 
-The app is available to a local Cloudflare Tunnel at `http://localhost:3000`.
 The Windows 365 Microsoft Hosted Network does not accept direct inbound
 connections, so DuckDNS or an open Windows Firewall rule cannot make this host
-publicly reachable. Use Cloudflare Tunnel, which connects outward from the
-Cloud PC.
+publicly reachable. Use a named Cloudflare Tunnel, which connects outward from
+the Cloud PC and keeps a stable public hostname across restarts.
 
-A Quick Tunnel can be started manually for temporary testing:
+In Cloudflare, create a named tunnel and add a published application route for
+your Cloudflare-managed hostname. Set its service URL to
+`http://localhost:3000`. Install `cloudflared` on the Cloud PC and set the
+tunnel token as the Windows user environment variable `TUNNEL_TOKEN`. The
+token is enough to run a remotely managed tunnel; no Cloudflare API token is
+needed by the startup script. Keep the tunnel token out of source control.
 
-```powershell
-cloudflared tunnel --url http://localhost:3000
-```
-
-It prints a temporary `trycloudflare.com` hostname that changes each time the
-tunnel starts. Google OAuth requires the callback URL to exactly match a URI
-registered for the client, so a changing Quick Tunnel URL requires manually
-updating the Google OAuth client in Cloud Console and the deployed
-`GOOGLE_CALLBACK_URL` each time. Google does not provide an API for changing
-redirect URIs on standard web OAuth clients. Use a named Cloudflare Tunnel with
-a stable hostname for sign-in that survives restarts. Configure its published
-application route to the local app origin and set the exact callback once:
+Set the Google callback once to the stable hostname:
 
 ```text
-https://<stable-hostname>/auth/google/callback
+https://<your-hostname>/auth/google/callback
 ```
 
-Register that URL in Google Cloud and set it as `GOOGLE_CALLBACK_URL` in the
-`Prod` GitHub Actions environment. Keep the named tunnel token outside source
-control. See [Cloudflare's Tunnel setup](https://developers.cloudflare.com/tunnel/get-started/)
+Register that exact URL in Google Cloud and set the same value for
+`GOOGLE_CALLBACK_URL` in the `Prod` GitHub Actions environment. Google requires
+an exact match for OAuth redirect URIs, so the startup script does not change
+the callback. See [Cloudflare's Tunnel setup](https://developers.cloudflare.com/tunnel/get-started/)
 and Google's [OAuth web server requirements](https://developers.google.com/identity/protocols/oauth2/web-server).
+
+Run the app and tunnel together from PowerShell:
+
+```powershell
+.\scripts\start-cloudpc.ps1
+```
+
+To start them at sign-in, create a Windows Task Scheduler task for the same
+account that runs Docker Desktop. Use an **At log on** trigger and this action:
+
+```text
+Program:   powershell.exe
+Arguments: -NoProfile -ExecutionPolicy Bypass -File "C:\path\to\rag-chatbot\scripts\start-cloudpc.ps1"
+```
+
+The script waits up to three minutes for Docker, starts the Compose services,
+then runs `cloudflared tunnel run` in the foreground. Set `TUNNEL_TOKEN` in the
+Windows user environment before launching it.
 
 The Python workers have no HTTP ports; they process messages from RabbitMQ.
 Database, RabbitMQ, and object storage must be reachable using the values in

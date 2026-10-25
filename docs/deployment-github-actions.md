@@ -106,11 +106,10 @@ It validates the Compose configuration, then runs:
 docker compose up --detach --build --remove-orphans
 ```
 
-Cloudflare Tunnel runs separately from the Compose deployment. Quick Tunnels
-receive a temporary hostname on each start, so they are unsuitable for a Google
-OAuth callback that must stay registered. Use a named Cloudflare Tunnel with a
-stable hostname and configure its origin to the app's local port 3000. Register
-`https://<stable-hostname>/auth/google/callback` in the Google OAuth client and
-set the same value as `GOOGLE_CALLBACK_URL` in the `Prod` environment. Google
-requires an exact match and standard web OAuth client redirect URIs cannot be
-updated through a Cloudflare or Google API at startup.
+Cloudflare Tunnel runs separately from the Compose deployment. Configure a
+named tunnel's stable hostname to route to `http://localhost:3000`, register
+`https://<your-hostname>/auth/google/callback` in the Google OAuth client, and
+set the same value as `GOOGLE_CALLBACK_URL` in the `Prod` environment. See the
+[Cloud PC startup instructions](deployment.md#production-docker) for starting
+the named tunnel automatically. Google requires an exact callback match, so
+the URL is configured once rather than changed at startup.
