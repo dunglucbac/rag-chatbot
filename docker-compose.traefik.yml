@@ -1,0 +1,57 @@
+# Production overlay: docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+services:
+  app:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      GOOGLE_CALLBACK_URL: https://${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN}.duckdns.org/auth/google/callback
+    command: node dist/main.js
+    volumes: !reset []
+    ports: !reset []
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.rag-app.rule: Host(`${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN}.duckdns.org`)
+      traefik.http.routers.rag-app.entrypoints: websecure
+      traefik.http.routers.rag-app.tls.certresolver: duckdns
+      traefik.http.routers.rag-app.service: rag-app
+      traefik.http.services.rag-app.loadbalancer.server.port: ${PORT:-3000}
+
+  python-worker:
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.duckdns.acme.email=${ACME_EMAIL:?Set ACME_EMAIL}
+      - --certificatesresolvers.duckdns.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.duckdns.acme.dnschallenge.provider=duckdns
+    environment:
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - ip6net
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    restart: unless-stopped
+    environment:
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:?Set DUCKDNS_SUBDOMAIN}
+      TOKEN: ${DUCKDNS_TOKEN:?Set DUCKDNS_TOKEN}
+      LOG_FILE: 'false'
+
+volumes:
+  letsencrypt:
