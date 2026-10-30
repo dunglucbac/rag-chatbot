@@ -1,0 +1,6 @@
+simulation: spending-ui
+routing: path
+mocks:
+  - name: Spending backend
+    routeKey: spending
+    path: postman/mocks/spending-api/config.yaml

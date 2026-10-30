@@ -22,7 +22,7 @@
       "console": "integratedTerminal",
       "restart": true,
       "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "outFiles": ["${workspaceFolder}/rag-chatbot-BE/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**"]
     },
     {
@@ -32,18 +32,18 @@
       "port": 9229,
       "restart": true,
       "sourceMaps": true,
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "outFiles": ["${workspaceFolder}/rag-chatbot-BE/dist/**/*.js"],
       "skipFiles": ["<node_internals>/**"]
     },
     {
       "name": "Python Worker",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/python-worker/main.py",
-      "cwd": "${workspaceFolder}/python-worker",
-      "python": "${workspaceFolder}/python-worker/.venv/bin/python",
+      "program": "${workspaceFolder}/rag-chatbot-BE/python-worker/main.py",
+      "cwd": "${workspaceFolder}/rag-chatbot-BE/python-worker",
+      "python": "${workspaceFolder}/rag-chatbot-BE/python-worker/.venv/bin/python",
       "console": "integratedTerminal",
-      "envFile": "${workspaceFolder}/python-worker/.env"
+      "envFile": "${workspaceFolder}/rag-chatbot-BE/python-worker/.env"
     }
   ]
 }

@@ -7,6 +7,7 @@ Guidance for working in this repository.
 This is a NestJS monolith focused on receipt intelligence and chat-based spending analysis.
 
 Core flow:
+
 - Authenticated HTTP APIs receive user requests
 - Agent service routes requests through LangGraph / LangChain
 - Ingestion processes uploaded receipts and documents
@@ -14,11 +15,12 @@ Core flow:
 - pgvector stores embeddings for retrieval
 - Web search and scraping enrich the knowledge base over time
 
-The architecture is documented in `docs/architecture.md` and should be treated as the source of truth for system design.
+The architecture is documented in `rag-chatbot-BE/docs/architecture.md` and should be treated as the source of truth for system design.
 
 ## High-level architecture
 
 Current modules:
+
 - `ConfigModule` for environment configuration
 - `DatabaseModule` for TypeORM and PostgreSQL
 - `LlmModule` for Claude / GPT model abstraction
@@ -31,6 +33,8 @@ Current modules:
 
 When adding new functionality, follow the same modular NestJS approach.
 
+Backend source paths below are relative to `rag-chatbot-BE/`. The frontend lives in `rag-chatbot-UI/`; root npm scripts delegate to the appropriate workspace. Shared environment and deployment configuration stay at the root.
+
 ## Code organization rules
 
 ### Module-local structure
@@ -38,6 +42,7 @@ When adding new functionality, follow the same modular NestJS approach.
 Keep feature-specific code inside the feature folder.
 
 Preferred layout:
+
 - `src/<module>/<module>.module.ts`
 - `src/<module>/<module>.service.ts`
 - `src/<module>/<module>.controller.ts`
@@ -50,12 +55,14 @@ Preferred layout:
 Use a repository layer for persistence and keep orchestration in services.
 
 Preferred pattern:
+
 - `src/repositories/base/base.interface.repository.ts` for shared repository contracts
 - `src/repositories/base/base.repository.ts` for shared repository behavior
 - `src/repositories/<feature>.repository.ts` for domain-specific repositories
 - `src/<feature>/<feature>.service.ts` for orchestration and workflow logic
 
 Guidelines:
+
 - Repositories should wrap TypeORM or other persistence concerns.
 - Services should call repositories and coordinate business flow.
 - Keep TypeORM details out of controllers and most services when possible.
@@ -66,12 +73,14 @@ Guidelines:
 Prefer shared generic helpers for repeated shapes and workflows.
 
 Examples:
+
 - `BaseRepositoryInterface<T>` for repository contracts
 - `BaseRepository<T>` for common CRUD behavior
 - shared pagination/sort response types in `src/common/common.types.ts`
 - common dispatch/event envelope helpers in `src/common/`
 
 Rules:
+
 - Use generics when the behavior is reusable across multiple modules.
 - Keep generic helpers small and predictable.
 - Do not over-abstract feature-specific logic into shared code.
@@ -114,6 +123,7 @@ Rules:
 ## Ingestion-specific guidance
 
 For ingestion work, follow these conventions:
+
 - Define ingestion types in `src/ingestion/ingestion.module.types.ts`.
 - Put ingestion DTOs in `src/ingestion/dtos/`.
 - Keep ingestion entities in `src/ingestion/entities/`.
@@ -138,7 +148,7 @@ For ingestion work, follow these conventions:
 
 ## Notes for contributors
 
-- Check `docs/architecture.md` first for design intent.
+- Check `rag-chatbot-BE/docs/architecture.md` first for design intent.
 - Keep the ingestion pipeline aligned with the receipt-first product direction.
 - Treat the chatbot as retrieval + reasoning over stored data, not as a manual expense-entry app.
 - When unsure where code belongs, prefer module-local placement first, then promote to `src/common/` only if shared.

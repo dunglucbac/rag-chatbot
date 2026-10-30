@@ -1,0 +1,34 @@
+purpose:
+  stands_in_for: The NestJS spending API, signed upload storage and asynchronous worker outcomes, using local synthetic records.
+  unblocks: Running the real static UI without Google credentials, cloud storage, RabbitMQ, or paid LLM calls.
+assumptions:
+  - id: public-contracts
+    status: supported
+    claim: The fixture models public chat, upload, review and saved-receipt response shapes used by the browser.
+    reason: The shapes come from the repository controllers and documented UI contract; this does not establish live OAuth or worker behavior.
+    verification: On 2026-10-30, inspected the changed controllers and rag-chatbot-UI/README.md, then ran the real static UI through Chrome DevTools MCP against this simulation. The simulation request log confirmed chat, signed upload, ingestion, both review types, receipt editing, and history retrieval. The production HTTP contracts were separately exercised with SQLite integration tests.
+    source: rag-chatbot-UI/README.md; rag-chatbot-BE/src/chat/chat.controller.ts; rag-chatbot-BE/src/ingestion/ingestion.controller.ts; rag-chatbot-BE/src/receipt/receipt.controller.ts
+    updated_at: '2026-10-30'
+  - id: live-integrations
+    status: unknown
+    claim: The deployed Google OAuth callback, storage CORS and worker processing complete successfully in the user's environment.
+    reason: This fixture deliberately replaces those dependencies and cannot verify their configuration.
+    verification: No live Google, storage or worker requests have been made for this change.
+    source: rag-chatbot-UI/README.md; rag-chatbot-BE/docs/google-sso.md; rag-chatbot-BE/src/storage/object-storage.service.ts
+    updated_at: '2026-10-30'
+  - id: browser-workflows
+    status: supported
+    claim: In the scenarios exercised, the UI submits and restores chat and upload history, handles review forms, and preserves user input on backend failures.
+    reason: Observed real browser DOM state, screenshots and simulation requests at desktop and phone widths; this is caller evidence against synthetic backend records.
+    verification: On 2026-10-30, Chrome MCP checks at 1440px desktop and 390px mobile covered chat, corrected saved receipt, receipt approval, payment approval with a purchase description, a three-file batch with one storage 503 and two successful uploads, a receipt 409 retaining unsaved edits, and a chat 503 retaining the question. A second isolated browser context restored two messages and two upload cards. The final mobile Lighthouse snapshot scored 100 for accessibility and best practices. No JavaScript console errors appeared after a clean reload. SEO and agentic crawling checks were not goals for this personal app.
+    source: rag-chatbot-UI/public/app.mjs; rag-chatbot-UI/postman/mocks/spending-api/default.js; rag-chatbot-UI/README.md#verification; Chrome MCP observations from the local-ui-implementation fingerprint
+    updated_at: '2026-10-30'
+fingerprints:
+  - id: local-ui-implementation
+    date: '2026-10-30'
+    commit: af551096849070cfda989bd4fb5f0bf10583b35c (working tree has uncommitted UI changes)
+    cli: 1.75.0
+  - id: workspace-split
+    date: '2026-10-30'
+    commit: af551096849070cfda989bd4fb5f0bf10583b35c (uncommitted split into rag-chatbot-BE and rag-chatbot-UI workspaces)
+    cli: 1.75.0

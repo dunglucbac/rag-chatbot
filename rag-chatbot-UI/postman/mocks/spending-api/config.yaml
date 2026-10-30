@@ -1,0 +1,10 @@
+version: 1
+name: Personal spending API — local UI fixtures
+slug: spending-api
+protocol: http
+port: 4011
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

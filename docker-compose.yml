@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: rag-chatbot-BE/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       DB_HOST: ${DB_HOST}
@@ -34,6 +34,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_ALLOWED_EMAIL: ${AUTH_ALLOWED_EMAIL}
       AUTH_JWT_EXPIRES_IN_SECONDS: ${AUTH_JWT_EXPIRES_IN_SECONDS:-86400}
       RECEIPT_CURSOR_HMAC_SECRET: ${RECEIPT_CURSOR_HMAC_SECRET}
       AUTH_SUCCESS_REDIRECT_URL: ${AUTH_SUCCESS_REDIRECT_URL:-}
@@ -49,7 +50,7 @@ services:
 
   python-worker:
     build:
-      context: ./python-worker
+      context: ./rag-chatbot-BE/python-worker
       dockerfile: Dockerfile
     environment:
       RABBITMQ_URL: ${RABBITMQ_URL}
