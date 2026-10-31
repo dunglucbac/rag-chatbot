@@ -1,0 +1,14 @@
+[
+  {
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://localhost:4187",
+      "http://127.0.0.1:4187",
+      "https://*.trycloudflare.com"
+    ],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type", "x-amz-meta-original-filename"],
+    "MaxAgeSeconds": 3600
+  }
+]
