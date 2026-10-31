@@ -175,5 +175,7 @@ sequenceDiagram
 5. Processor classifies the text and parses a Receipt or routes a Payment
 6. Consumer publishes the resulting event and acknowledges the RabbitMQ delivery
 
-DeepDoc and VietOCR model assets are included in `src/extractors/deepdoc_vietocr`,
-so no system OCR package or model-download command is required at runtime.
+DeepDoc's ONNX models download from Hugging Face when the worker first initializes
+document extraction. The worker needs outbound access to Hugging Face and a writable
+model directory for that first extraction. VietOCR's default PyTorch weights remain
+under `src/extractors/deepdoc_vietocr/vietocr/weight`.
