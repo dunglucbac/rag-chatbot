@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: rag-chatbot-BE/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       DB_HOST: ${DB_HOST}
@@ -49,7 +49,7 @@ services:
 
   python-worker:
     build:
-      context: ./python-worker
+      context: ./rag-chatbot-BE/python-worker
       dockerfile: Dockerfile
     environment:
       RABBITMQ_URL: ${RABBITMQ_URL}

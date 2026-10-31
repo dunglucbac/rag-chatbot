@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f7f8f4" />
+    <meta
+      name="description"
+      content="Your personal space for receipts, purchases, and clearer spending."
+    />
+    <title>Ledger · Your spending, in conversation</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/app.mjs"></script>
+  </head>
+  <body>
+    <section id="login" class="login" hidden>
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true">L<span>↗</span></span>
+        ledger<span class="brand-dot">.</span>
+      </div>
+      <div class="login-copy">
+        <span class="eyebrow">A LITTLE MORE CLARITY</span>
+        <h1>Your everyday spending.<br />A clearer picture.</h1>
+        <p>
+          Drop in your receipts. Ask what you spent.<br />Keep the small details
+          in one place.
+        </p>
+        <a class="primary google-signin" href="/auth/google?ui=1"
+          ><span aria-hidden="true">G</span> Continue with Google
+          <span aria-hidden="true">↗</span></a
+        >
+        <p class="login-note">
+          A private space for your receipts and conversations.
+        </p>
+      </div>
+      <div class="login-art" aria-hidden="true">
+        <div class="paper">
+          <div class="paper-symbol">↗</div>
+          <div class="paper-title">Little things, accounted for.</div>
+          <div class="paper-line"></div>
+          <div class="paper-line short"></div>
+          <div class="paper-line"></div>
+          <div class="paper-bottom">LESS GUESSWORK. MORE CLARITY.</div>
+        </div>
+        <span class="art-caption">MAKE SENSE OF THE EVERYDAY</span>
+      </div>
+      <div id="login-error" class="login-error" role="alert"></div>
+      <footer>YOUR RECEIPTS. YOUR SPACE.</footer>
+    </section>
+
+    <div id="boot" class="boot">
+      <span class="brand-mark" aria-hidden="true">L<span>↗</span></span>
+      <p>Opening your space…</p>
+    </div>
+    <div id="app" class="app" hidden>
+      <button
+        id="sidebar-scrim"
+        class="scrim"
+        aria-label="Close conversation history"
+        hidden
+      ></button>
+      <aside id="sidebar" class="sidebar" aria-label="Conversation history">
+        <a class="brand" href="/" aria-label="Ledger home"
+          ><span class="brand-mark" aria-hidden="true">L<span>↗</span></span
+          ><span>ledger<span class="brand-dot">.</span></span></a
+        >
+        <button id="new-chat" class="new-chat">
+          <span aria-hidden="true">＋</span> New conversation <kbd>↗</kbd>
+        </button>
+        <button id="sidebar-receipts" class="sidebar-link">
+          <span data-icon="receipt"></span> Your receipts
+          <span aria-hidden="true">↗</span>
+        </button>
+        <div class="sidebar-heading">
+          RECENT CONVERSATIONS
+          <button
+            id="refresh-history"
+            class="icon-button"
+            aria-label="Refresh conversations"
+          >
+            <span data-icon="refresh"></span>
+          </button>
+        </div>
+        <nav
+          id="history"
+          class="history"
+          aria-label="Recent conversations"
+        ></nav>
+        <button id="more-history" class="text-button" hidden>
+          Load more conversations
+        </button>
+        <p class="retention-note">
+          Chats expire after 90 inactive days.<br />Your saved receipts stay
+          with you.
+        </p>
+        <div class="account">
+          <span id="avatar" class="avatar"></span>
+          <div>
+            <strong id="user-name"></strong><span>Personal account</span>
+          </div>
+          <button id="sign-out" class="icon-button" aria-label="Sign out">
+            <span data-icon="logout"></span>
+          </button>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-title">
+            <button
+              id="menu"
+              class="icon-button mobile-only"
+              aria-label="Open conversation history"
+              aria-controls="sidebar"
+              aria-expanded="false"
+            >
+              <span data-icon="menu"></span></button
+            ><span class="breadcrumb">Personal space <span>/</span></span
+            ><span id="chat-title">New conversation</span>
+          </div>
+          <div class="topbar-actions">
+            <button id="open-receipts" class="outline-button">
+              <span data-icon="receipt"></span><span>Receipts</span></button
+            ><button
+              id="delete-chat"
+              class="icon-button"
+              aria-label="Delete this conversation"
+              hidden
+            >
+              <span data-icon="trash"></span>
+            </button>
+          </div>
+        </header>
+        <div id="conversation" class="conversation" tabindex="-1">
+          <div id="welcome" class="welcome">
+            <div class="welcome-symbol" aria-hidden="true">↗</div>
+            <span class="eyebrow">YOUR EVERYDAY, ACCOUNTED FOR</span>
+            <h1>A little clarity<br />goes a long way.</h1>
+            <p>Bring your receipts. We’ll make sense of the spending.</p>
+            <div class="suggestions">
+              <button data-prompt="How much did I spend last month?">
+                <span data-icon="chart"></span
+                ><span
+                  >See the bigger picture<small
+                    >What did I spend last month?</small
+                  ></span
+                ><span aria-hidden="true">↗</span></button
+              ><button data-prompt="Find my grocery purchases from last month.">
+                <span data-icon="search"></span
+                ><span
+                  >Find the little details<small
+                    >Look up a purchase or merchant</small
+                  ></span
+                ><span aria-hidden="true">↗</span></button
+              ><button id="welcome-upload">
+                <span data-icon="upload"></span
+                ><span
+                  >Start with a receipt<small
+                    >Upload a photo, screenshot, or PDF</small
+                  ></span
+                ><span aria-hidden="true">＋</span>
+              </button>
+            </div>
+          </div>
+          <div
+            id="timeline"
+            class="timeline"
+            role="log"
+            aria-label="Conversation"
+          ></div>
+        </div>
+        <div class="composer-area">
+          <div
+            id="activity"
+            class="activity"
+            role="status"
+            aria-live="polite"
+          ></div>
+          <form id="composer" class="composer">
+            <label class="sr-only" for="message">Message Ledger</label
+            ><textarea
+              id="message"
+              placeholder="Ask about your spending, or add a receipt…"
+              rows="1"
+              maxlength="20000"
+            ></textarea>
+            <div class="composer-toolbar">
+              <div>
+                <button
+                  id="attach"
+                  type="button"
+                  class="tool-button"
+                  aria-label="Add receipts"
+                >
+                  <span data-icon="plus"></span
+                  ><span>Add receipts</span></button
+                ><button
+                  id="camera"
+                  type="button"
+                  class="icon-button"
+                  aria-label="Take a receipt photo"
+                >
+                  <span data-icon="camera"></span>
+                </button>
+              </div>
+              <button
+                id="send"
+                type="submit"
+                class="send-button"
+                aria-label="Send message"
+              >
+                <span data-icon="arrow"></span>
+              </button>
+            </div>
+          </form>
+          <p class="composer-note">
+            <span aria-hidden="true">◈</span> Check important details. Saved
+            receipts power your spending answers.
+          </p>
+          <input
+            id="files"
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.heic,.heif,.heifs"
+            hidden
+          /><input
+            id="photo"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+          />
+        </div>
+      </main>
+    </div>
+
+    <dialog id="drawer" class="drawer" aria-labelledby="drawer-title">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">YOUR PERSONAL RECORD</span>
+          <h2 id="drawer-title">
+            Receipts & uploads<span class="brand-dot">.</span>
+          </h2>
+        </div>
+        <button
+          id="close-drawer"
+          class="icon-button"
+          aria-label="Close receipts"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Receipt views">
+        <button
+          id="saved-tab"
+          role="tab"
+          aria-selected="true"
+          aria-controls="drawer-results"
+        >
+          Saved receipts</button
+        ><button
+          id="uploads-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="drawer-results"
+        >
+          All uploads
+        </button>
+      </div>
+      <form id="filters" class="filters">
+        <label class="search-field"
+          ><span data-icon="search"></span
+          ><input
+            id="receipt-search"
+            placeholder="Search merchant or item…"
+            aria-label="Search merchant or item"
+            maxlength="200"
+        /></label>
+        <div class="date-filters">
+          <label>From<input id="date-from" type="date" /></label
+          ><label>To<input id="date-to" type="date" /></label
+          ><button class="outline-button" type="submit">Search</button>
+        </div>
+      </form>
+      <div
+        id="drawer-results"
+        class="drawer-results"
+        role="tabpanel"
+        aria-live="polite"
+      ></div>
+      <button id="more-results" class="load-more" hidden>Load more</button>
+    </dialog>
+    <dialog id="editor" class="editor" aria-labelledby="editor-title">
+      <div class="dialog-heading">
+        <div>
+          <span id="editor-label" class="eyebrow">CHECK THE DETAILS</span>
+          <h2 id="editor-title">Review receipt</h2>
+        </div>
+        <button
+          id="close-editor"
+          class="icon-button"
+          aria-label="Close receipt form"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div id="editor-content"></div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

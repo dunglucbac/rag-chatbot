@@ -1,0 +1,349 @@
+# RAG Chatbot
+
+A Retrieval-Augmented Generation (RAG) chatbot built with NestJS, LangChain, and PostgreSQL + pgvector. It exposes authenticated HTTP APIs for chat and ingestion, letting users work with an AI agent that can search a knowledge base of uploaded PDFs and perform live web searches.
+
+---
+
+## Architecture
+
+```
+Authenticated HTTP API
+    ↓
+Agent (LangGraph ReAct)
+    ├── search_knowledge_base  →  PGVector (uploaded PDFs + scraped web content)
+    └── search_web             →  Tavily API
+         ↓
+    LLM (Claude Sonnet 4.6 / GPT-4o)
+
+Ingestion Pipeline:
+  NestJS                                    Python Worker
+  ──────────────────────────────────        ──────────────────────────────
+  POST /ingest
+    → accept a client-provided S3-compatible storage key
+    → validate the stored object and create ingestion_jobs row
+    → publish EventEnvelope to RabbitMQ ──→ consume doc.pdf.parse.requested
+                                               → extract text (PDF/OCR)
+                                               → classify (receipt/payment; all other files are documents)
+                                               → parse receipts when applicable
+                                               → publish result events
+
+  ← handle receipt.parsed                   receipt.parsed ──→
+       → save receipt + line items to DB
+       → queue item categorization
+  ← handle receipt.items.categorize
+       → classify items against the receipt taxonomy
+       → save category, subcategory, confidence, and status
+  ← handle receipt.needs_review              receipt.needs_review ──→
+       → mark the job for review
+  ← handle payment.detected                  payment.detected ──→
+       → mark the job for review
+  ← handle job.failed / parse.completed      job.failed / parse.completed ──→
+       → update ingestion_jobs status
+
+Background Scraper (every 6h):
+    → Fetch unscraped Tavily URLs from web_search_logs
+    → Cheerio content extraction (body text, capped at 8000 chars)
+    → PGVector
+```
+
+---
+
+## Tech Stack
+
+| Layer          | Technology                                   |
+| -------------- | -------------------------------------------- |
+| Framework      | NestJS 11 (TypeScript)                       |
+| LLM            | Anthropic Claude Sonnet 4.6 or OpenAI GPT-4o |
+| Embeddings     | OpenAI text-embedding-3-small                |
+| Vector Store   | PostgreSQL + pgvector                        |
+| ORM            | TypeORM                                      |
+| Agent          | LangChain / LangGraph ReAct                  |
+| Web Search     | Tavily API                                   |
+| Chat Interface | Authenticated HTTP API                       |
+| Scraping       | Cheerio + axios                              |
+| Queue          | RabbitMQ                                     |
+| Parsing Worker | Python (PyPDF2, Tesseract, Anthropic)        |
+
+---
+
+## Prerequisites
+
+- Node.js 20+
+- Python 3.12+ (for the Python worker)
+- Docker & Docker Compose
+- Anthropic or OpenAI API key
+- OpenAI API key (always required for embeddings)
+- Tavily API key
+- Google OAuth client credentials (for the HTTP API)
+
+---
+
+## Setup
+
+Commands below run from the repository root unless a step explicitly changes
+directory. Backend source and worker files live under `rag-chatbot-BE/`; npm
+dependencies and `.env` are shared at the root. See [the workspace guide](../README.md).
+
+The personal spending web UI is served at `/` by the same NestJS app. See
+[UI setup and API contracts](../rag-chatbot-UI/README.md). Any verified Google account
+can sign in. Run migrations before starting the updated app.
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd rag-chatbot
+npm install
+```
+
+### 2. Install Python worker dependencies
+
+```bash
+cd rag-chatbot-BE/python-worker
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Install Tesseract OCR
+
+The Python worker uses Tesseract for OCR text extraction from images and scanned PDFs.
+
+**macOS:**
+
+```bash
+brew install tesseract
+brew install tesseract-lang   # optional: additional language support
+```
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt install tesseract-ocr
+sudo apt install tesseract-ocr-all   # optional: additional language support
+```
+
+**Verify installation:**
+
+```bash
+tesseract --version
+```
+
+### 4. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Fill in your values — see `.env.example` for all required keys.
+
+To capture development chat traces in Langfuse, create a project API key pair
+and set `LANGFUSE_TRACING_ENABLED=true`, `LANGFUSE_PUBLIC_KEY`, and
+`LANGFUSE_SECRET_KEY` in `.env`. This integration is opt-in and never traces
+outside `NODE_ENV=development` or `NODE_ENV=test`. Each chat turn is recorded
+as one trace, grouped by chat session; the server logs a link to the trace. See the [Langfuse
+Cloud](https://langfuse.com/docs/observability/get-started) and
+[LangChain integration](https://langfuse.com/integrations/frameworks/langchain)
+guides for project setup and details.
+
+### Google SSO
+
+Create an OAuth 2.0 Web application client in Google Cloud, then register the exact
+`GOOGLE_CALLBACK_URL` (for local development, `http://localhost:3000/auth/google/callback`)
+as an authorized redirect URI. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a
+high-entropy `AUTH_JWT_SECRET` in `.env`.
+
+Open `GET /auth/google` to begin login. The callback returns an application Bearer
+token (or redirects to `AUTH_SUCCESS_REDIRECT_URL` with the token in the URL fragment).
+Send that token as `Authorization: Bearer <token>` when calling the chat or ingestion APIs.
+
+### 5. Start the app and Python workers with Docker Compose
+
+```bash
+docker compose up -d
+```
+
+This starts the app and two Python worker replicas. PostgreSQL, RabbitMQ, and
+object storage must be running separately and reachable using the values in `.env`.
+For production access from the Windows Cloud PC, see the
+[Cloudflare Tunnel deployment guide](docs/deployment.md#production-docker).
+
+### 6. Run database migrations
+
+```bash
+npm run migration:run
+```
+
+This will create the app schema using TypeORM migrations.
+
+### 7. Run the app locally (optional)
+
+If you are not using the app container from step 5, start the app locally:
+
+```bash
+npm run start:dev   # development
+npm run start:prod  # production
+```
+
+The server starts on `http://localhost:3000`.
+
+---
+
+## Database Migrations
+
+The app uses TypeORM migrations instead of `synchronize`.
+
+Available scripts:
+
+```bash
+npm run migration:generate
+npm run migration:run
+npm run migration:revert
+```
+
+### Notes
+
+- `init.sql` is only used to enable the `vector` extension in Postgres.
+- Database tables and column changes should be made through migrations.
+- Ingestion job columns use snake_case in the database.
+
+---
+
+## API
+
+### Queue an uploaded object
+
+```
+POST /ingest
+Content-Type: application/json
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "storageKey": "raw/<user-id>/<file-id>.pdf"
+}
+```
+
+Create an upload target first with `POST /storage/upload-targets`, upload the
+file bytes directly to its signed URL with the returned `uploadHeaders`, then
+submit the returned `storageKey`.
+The signed upload saves the original filename in object metadata. Ingestion
+reads that name and the MIME type from the uploaded object. Older objects
+without filename metadata need a fresh upload target and upload.
+See [the full client upload walkthrough](docs/api.md#ingestion) for browser,
+curl, and Postman examples.
+
+### Get ingestion job status
+
+```
+GET /ingest/jobs/:id
+```
+
+Low-confidence receipt jobs can be reviewed with `GET` and `POST`
+`/ingest/jobs/:id/review`. Approving queues the proposed (or corrected) receipt
+for persistence; rejecting marks the job as rejected. See the
+[review API reference](docs/api.md#receipt-reviews).
+
+---
+
+## How the Agent Works
+
+1. An authenticated user sends a message to the chat API.
+2. The ReAct agent decides which tools to call.
+3. `search_knowledge_base` — vector similarity search over stored PDFs and scraped web pages. Always tried first.
+4. `search_web` — queries Tavily for up-to-date information. Used only if the knowledge base has no relevant results. Result URLs are logged for later scraping.
+5. The background scraper runs every 6 hours, extracts full page content from logged URLs, and adds it to the vector store.
+6. The LLM synthesizes retrieved context into a final answer.
+
+---
+
+## Receipt financial assistant
+
+Authenticated users can ask the agent about their parsed receipt data. The
+agent uses deterministic, user-scoped tools for purchase summaries and
+paginated item search; it does not allow the model to generate SQL or read raw
+OCR text.
+
+Receipt items are categorized asynchronously after receipt parsing. The
+categorizer uses a versioned taxonomy and stores a category, optional
+subcategory, confidence score, and processing status for every item. Low
+confidence results are stored as `unknown`, while failed categorization can be
+retried through the existing queue pipeline.
+
+The financial tools support:
+
+- spending totals by currency and category;
+- category coverage, so incomplete results are disclosed;
+- item searches filtered by item name, merchant, or category;
+- `last_week`, `last_month`, `last_quarter`, or explicit local date ranges;
+- stable, signed cursor pagination for item results.
+
+For the full tool contracts, categorization lifecycle, taxonomy behavior, and
+security model, see the [Receipt Financial Agent guide](docs/receipt-financial-agent.md)
+and its [product requirements document](docs/prd-receipt-financial-agent.md).
+
+---
+
+## Project Structure
+
+```
+src/
+├── agent/              # LangGraph ReAct agent + tools
+│   └── tools/
+│       ├── knowledge-base.tool.ts
+│       └── web-search.tool.ts
+├── common/             # Shared types, event envelope helpers
+├── config/             # Environment configuration
+├── conversation/       # Message entity
+├── database/           # TypeORM / PostgreSQL setup + migrations
+├── ingestion/          # Upload, job tracking, and queue handoff
+├── llm/                # LLM provider abstraction (Claude / GPT-4o)
+├── message-queue/      # RabbitMQ broker and publisher
+├── receipt/            # Receipt parsing, categorization, analytics, and summaries
+├── scraper/            # Background web scraper (cron, every 6h)
+├── vector-store/       # PGVector service
+└── web-search/         # Tavily service + search log entity
+
+python-worker/          # Python file processing worker
+├── main.py             # RabbitMQ consumer entry point
+├── src/
+│   ├── consumer/       # Message handler (extract → classify → parse → publish)
+│   ├── extractors/     # PDF and OCR text extraction
+│   ├── publisher/      # RabbitMQ event publisher
+│   └── services/       # Classification, receipt parsing, chunking
+└── tests/
+```
+
+---
+
+## Development
+
+```bash
+npm run lint
+npm run format
+npm run test
+npm run test:cov
+```
+
+---
+
+## Docs
+
+- [Architecture](docs/architecture.md) — module map, data flows, database schema, agent tools
+- [Receipt Financial Agent](docs/receipt-financial-agent.md) — receipt analytics, categorized items, tools, and safety rules
+- [Receipt Financial Agent PRD](docs/prd-receipt-financial-agent.md) — requirements and acceptance criteria for receipt capabilities
+- [Database schema](docs/database-schema.md) — current PostgreSQL tables, constraints, and relationships
+- [RabbitMQ topology](docs/architecture.md#rabbitmq-topology) — exchanges, queues, bindings, and dead-letter routing
+- [API Reference](docs/api.md) — HTTP endpoints with request/response examples
+- [Google SSO](docs/google-sso.md) — Google OAuth setup, login flow, and protected API usage
+- [Deployment](docs/deployment.md) — Docker, production checklist, caveats
+- [GitHub Actions deployment](docs/deployment-github-actions.md) — Windows Cloud PC runner setup and automatic deploys
+- [Troubleshooting](docs/troubleshooting.md) — common issues and fixes
+- [Contributing](docs/contributing.md) — setup, conventions, adding tools/providers
+
+---
+
+## License
+
+MIT
