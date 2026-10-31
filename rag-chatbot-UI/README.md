@@ -10,10 +10,9 @@ It proxies requests to `UI_API_ORIGIN` (default `http://127.0.0.1:3000`).
 For Google login returning to this server, register and configure
 `http://localhost:4187/auth/google/callback` as the callback URL.
 
-Set `AUTH_ALLOWED_EMAIL` to your verified Google email before signing in. Access
-fails closed when this value is absent; it is checked on every authenticated
-request, including tokens issued before the configuration changes. Register the
-existing `/auth/google/callback` URL in Google. The UI starts `/auth/google?ui=1`
+Any verified Google account can sign in. Each user's chats, receipts, and uploads
+are scoped to their Google identity. Register the existing `/auth/google/callback`
+URL in Google. The UI starts `/auth/google?ui=1`
 and returns to `/`; API OAuth clients retain `AUTH_SUCCESS_REDIRECT_URL` behavior.
 Tokens are kept in session storage and removed from the callback fragment.
 

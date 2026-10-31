@@ -85,7 +85,7 @@ describe('Personal UI HTTP contracts', () => {
         {
           provide: ConfigService,
           useValue: new ConfigService({
-            auth: { jwtSecret: secret, allowedEmail: 'owner@example.test' },
+            auth: { jwtSecret: secret },
           }),
         },
       ],
@@ -104,7 +104,7 @@ describe('Personal UI HTTP contracts', () => {
     await ds?.destroy();
   });
 
-  it('serves the static UI and protects APIs with the configured account', async () => {
+  it('serves the static UI and accepts authenticated users with different Google emails', async () => {
     await request(app.getHttpServer())
       .get('/')
       .expect(200)
@@ -114,7 +114,11 @@ describe('Personal UI HTTP contracts', () => {
     await request(app.getHttpServer())
       .get('/auth/me')
       .auth(token('outsider', 'outsider@example.test'), { type: 'bearer' })
-      .expect(401);
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.id).toBe('outsider');
+        expect(body.data.email).toBe('outsider@example.test');
+      });
     await request(app.getHttpServer())
       .get('/auth/me')
       .auth(token(), { type: 'bearer' })
@@ -160,7 +164,7 @@ describe('Personal UI HTTP contracts', () => {
     ]);
     await request(app.getHttpServer())
       .get(`/chat/sessions/${session.id}`)
-      .auth(token('other'), { type: 'bearer' })
+      .auth(token('other', 'other@example.test'), { type: 'bearer' })
       .expect(404);
     await request(app.getHttpServer())
       .get('/chat/sessions?offset=-1')
@@ -203,7 +207,7 @@ describe('Personal UI HTTP contracts', () => {
       .expect(409);
     await request(app.getHttpServer())
       .get(`/receipts/${receipt.id}`)
-      .auth(token('other'), { type: 'bearer' })
+      .auth(token('other', 'other@example.test'), { type: 'bearer' })
       .expect(404);
     const found = (
       await request(app.getHttpServer())

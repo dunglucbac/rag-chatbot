@@ -8,7 +8,9 @@ its own signed Bearer access token.
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or select
    a project.
-2. Configure the OAuth consent screen.
+2. Configure the OAuth consent screen with an **External** audience so Google
+   accounts outside your organization can sign in. See Google's
+   [app audience guide](https://support.google.com/cloud/answer/15549945).
 3. Create an **OAuth client ID** of type **Web application**.
 4. Add the exact callback URL as an authorized redirect URI. For local development:
 
@@ -64,7 +66,8 @@ sequenceDiagram
 
 The state cookie binds the Google callback to the browser that initiated login,
 which protects against OAuth login-CSRF. The API only accepts a Google account
-with a verified email address.
+with a verified email address. Any verified Google account can use the app;
+chats, receipts, and ingestion jobs remain scoped to the signed-in user.
 
 ## How the authentication components work together
 

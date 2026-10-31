@@ -85,8 +85,8 @@ directory. Backend source and worker files live under `rag-chatbot-BE/`; npm
 dependencies and `.env` are shared at the root. See [the workspace guide](../README.md).
 
 The personal spending web UI is served at `/` by the same NestJS app. See
-[UI setup and API contracts](../rag-chatbot-UI/README.md). Set `AUTH_ALLOWED_EMAIL` to your Google
-email, then run migrations before starting the updated app.
+[UI setup and API contracts](../rag-chatbot-UI/README.md). Any verified Google account
+can sign in. Run migrations before starting the updated app.
 
 ### 1. Clone and install
 

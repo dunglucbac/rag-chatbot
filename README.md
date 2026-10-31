@@ -17,7 +17,7 @@ npm ci
 On a new checkout, copy `.env.example` to `.env`. The existing `.env` stays in
 place when reorganizing an existing checkout.
 
-Configure the backend services and `AUTH_ALLOWED_EMAIL`, then run:
+Configure the backend services and Google OAuth credentials, then run:
 
 ```sh
 npm run migration:run

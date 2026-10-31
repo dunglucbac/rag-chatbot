@@ -58,7 +58,6 @@ export class AuthService {
       audience: this.required('auth.googleClientId'),
     });
     const user = this.userFromPayload(ticket.getPayload());
-    this.assertAllowedEmail(user.email);
     const expiresIn = this.sessionTtlSeconds();
 
     return {
@@ -98,7 +97,6 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-    this.assertAllowedEmail(claims.email);
     return {
       id: claims.id,
       email: claims.email,
@@ -128,17 +126,6 @@ export class AuthService {
 
   getApplicationUrl(): string {
     return new URL('/', this.required('auth.googleCallbackUrl')).toString();
-  }
-
-  private assertAllowedEmail(email: string): void {
-    if (
-      email.trim().toLowerCase() !==
-      this.required('auth.allowedEmail').toLowerCase()
-    ) {
-      throw new UnauthorizedException(
-        'This Google account is not allowed to use this personal app',
-      );
-    }
   }
 
   private createGoogleClient(): OAuth2Client {

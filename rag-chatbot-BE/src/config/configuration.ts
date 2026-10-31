@@ -46,7 +46,6 @@ export default () => ({
     jwtSecret: process.env.AUTH_JWT_SECRET,
     jwtExpiresInSeconds: process.env.AUTH_JWT_EXPIRES_IN_SECONDS ?? '86400',
     successRedirectUrl: process.env.AUTH_SUCCESS_REDIRECT_URL,
-    allowedEmail: process.env.AUTH_ALLOWED_EMAIL,
   },
   receiptAnalytics: {
     cursorHmacSecret: process.env.RECEIPT_CURSOR_HMAC_SECRET,

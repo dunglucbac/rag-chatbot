@@ -66,7 +66,7 @@ export class AuthController {
       const url = new URL(this.authService.getApplicationUrl());
       url.hash = new URLSearchParams({
         sign_in_error:
-          'Sign-in failed. Use your configured Google account, or check the server authentication settings.',
+          'Sign-in failed. Try again, or check the server authentication settings.',
       }).toString();
       response.redirect(url.toString());
       return;

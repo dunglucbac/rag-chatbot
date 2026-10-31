@@ -134,7 +134,7 @@ async function api(path, options = {}) {
   if (token !== state.token) throw new Error('The signed-in account changed.');
   if (response.status === 401) {
     signedOut(
-      'Your session has expired or this account is not allowed. Sign in with your configured Google account.',
+      'Your session has expired. Sign in with Google again.',
     );
     throw new Error('Please sign in again.');
   }
