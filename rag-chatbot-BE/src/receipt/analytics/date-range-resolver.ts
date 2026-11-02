@@ -16,6 +16,7 @@ export class InvalidDateRangeError extends Error {
 export enum DateRangeType {
   RELATIVE = 'relative',
   ABSOLUTE = 'absolute',
+  ALL_TIME = 'all_time',
 }
 
 export enum RelativePeriod {
@@ -35,9 +36,19 @@ export type DateRangeInput =
       endDate: string;
     };
 
+export type SearchDateRangeInput =
+  | DateRangeInput
+  | { rangeType: DateRangeType.ALL_TIME };
+
 export interface ResolvedDateRange {
   start: Date;
   end: Date;
+  timeZone: typeof TIME_ZONE;
+}
+
+export interface ResolvedSearchDateRange {
+  start: Date | null;
+  end: Date | null;
   timeZone: typeof TIME_ZONE;
 }
 

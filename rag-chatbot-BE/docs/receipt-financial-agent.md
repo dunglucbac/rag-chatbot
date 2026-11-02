@@ -132,7 +132,7 @@ includes `CATEGORIZATION_INCOMPLETE` so the model can disclose the gap.
 
 The item-search tool accepts:
 
-- relative or absolute date range;
+- all-time, relative, or absolute date range;
 - optional item-name, merchant, and category filters;
 - page size from 1 to 50, defaulting to 20;
 - an optional opaque continuation cursor.
@@ -150,6 +150,7 @@ All version-1 report boundaries use `Asia/Ho_Chi_Minh`.
 | `last_month` | Previous complete calendar month, from day 1 at 00:00 through the next month’s day 1 at 00:00. |
 | `last_quarter` | Previous complete calendar quarter, from its first day at 00:00 through the current quarter’s first day at 00:00. |
 | `absolute` | Half-open `[startDate, endDate)` local-date range. |
+| `all_time` | No purchase-date bounds; useful for finding the latest purchase in the full history. |
 
 The resolver converts local boundaries to UTC before querying PostgreSQL. An
 absolute range cannot exceed 366 days.

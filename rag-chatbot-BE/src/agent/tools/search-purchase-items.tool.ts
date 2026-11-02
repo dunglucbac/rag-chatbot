@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import {
   DateRangeType,
-  DateRangeInput,
+  SearchDateRangeInput,
   InvalidDateRangeError,
   RelativePeriod,
 } from '../../receipt/analytics/date-range-resolver';
@@ -49,8 +49,10 @@ export function createSearchPurchaseItemsTool(
           },
         };
       }
-      const range: DateRangeInput =
-        input.rangeType === DateRangeType.RELATIVE
+      const range: SearchDateRangeInput =
+        input.rangeType === DateRangeType.ALL_TIME
+          ? { rangeType: DateRangeType.ALL_TIME }
+          : input.rangeType === DateRangeType.RELATIVE
           ? {
               rangeType: DateRangeType.RELATIVE,
               period: input.period ?? RelativePeriod.LAST_WEEK,
@@ -93,7 +95,7 @@ export function createSearchPurchaseItemsTool(
     {
       name: 'search_purchase_items',
       description:
-        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results default to highest item total first (sortBy totalPrice). For a question about the latest or most recent purchases, use sortBy purchasedAt. Results are paginated with an opaque cursor; repeat the same filters, date range, and sortBy when continuing with nextCursor.",
+        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results default to highest item total first (sortBy totalPrice). For a question about the latest or most recent purchase, use rangeType all_time, sortBy purchasedAt, and pageSize 1 unless the user specifies a date range. Results are paginated with an opaque cursor; repeat the same filters, date range, and sortBy when continuing with nextCursor.",
       schema: searchPurchaseItemsSchema,
     },
   );
