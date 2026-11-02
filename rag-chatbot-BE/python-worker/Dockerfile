@@ -24,8 +24,10 @@ COPY main.py .
 # Verify the lazy OCR imports during the build rather than on the first job.
 RUN python -c "from src.extractors.deepdoc_vietocr.full_pipeline import DeepDocPipeline"
 
-# Non-root user for security
-RUN useradd --create-home worker
+# Model downloads and Hugging Face metadata must be writable at runtime.
+RUN useradd --create-home worker \
+    && mkdir -p /app/src/extractors/deepdoc_vietocr/onnx \
+    && chown -R worker:worker /app/src/extractors/deepdoc_vietocr/onnx
 USER worker
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

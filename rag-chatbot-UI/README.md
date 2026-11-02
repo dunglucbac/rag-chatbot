@@ -61,7 +61,9 @@ upload targets, jobs and cards. Transfers require a purchase description. Receip
 reviews and saved receipt edits use fields-only forms. Chat replies arrive in full.
 There are no offline uploads or background notifications in this first version.
 The browser accepts receipt images and PDFs up to 25 MB per file. Storage bucket
-CORS must allow the app origin and all returned upload headers. Live Google OAuth,
+CORS must allow the app origin and the signed `PUT` headers. The R2 policy is in
+[`rag-chatbot-BE/r2-cors.json`](../rag-chatbot-BE/r2-cors.json). Apply it in the
+bucket's **Settings → CORS Policy** and add any stable custom UI origin. Live Google OAuth,
 object storage and worker processing require the configured backend services.
 
 ## Verification

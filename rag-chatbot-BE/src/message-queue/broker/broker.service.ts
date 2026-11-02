@@ -11,10 +11,12 @@ import {
   MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
   MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
   MESSAGE_QUEUE_EXCHANGE,
+  MESSAGE_QUEUE_IMAGE_QUEUE,
+  MESSAGE_QUEUE_PDF_QUEUE,
   MESSAGE_QUEUE_RAG_APP_QUEUES,
+  MESSAGE_QUEUE_RESULTS_QUEUE,
+  MESSAGE_QUEUE_STATUS_QUEUE,
 } from '@modules/message-queue/message-queue.constants';
-
-const DEAD_LETTERED_QUEUES = new Set<string>(MESSAGE_QUEUE_RAG_APP_QUEUES);
 
 @Injectable()
 export class MessageQueueBrokerService
@@ -25,6 +27,10 @@ export class MessageQueueBrokerService
   private channel?: Channel;
   private readonly exchange: string;
   private readonly url: string;
+  private readonly queueNames: Readonly<Record<string, string>>;
+  private readonly deadLetterExchange: string;
+  private readonly deadLetterQueue: string;
+  readonly appQueues: readonly string[];
 
   constructor(private readonly configService: ConfigService) {
     this.url = this.configService.get<string>(
@@ -34,6 +40,37 @@ export class MessageQueueBrokerService
     this.exchange = this.configService.get<string>(
       'rabbitmq.exchange',
       MESSAGE_QUEUE_EXCHANGE,
+    );
+    const configured = (key: string, fallback: string) =>
+      this.configService.get<string>(`rabbitmq.${key}`, fallback);
+    this.queueNames = {
+      [MESSAGE_QUEUE_IMAGE_QUEUE]: configured(
+        'imageQueue',
+        MESSAGE_QUEUE_IMAGE_QUEUE,
+      ),
+      [MESSAGE_QUEUE_PDF_QUEUE]: configured(
+        'pdfQueue',
+        MESSAGE_QUEUE_PDF_QUEUE,
+      ),
+      [MESSAGE_QUEUE_STATUS_QUEUE]: configured(
+        'statusQueue',
+        MESSAGE_QUEUE_STATUS_QUEUE,
+      ),
+      [MESSAGE_QUEUE_RESULTS_QUEUE]: configured(
+        'resultsQueue',
+        MESSAGE_QUEUE_RESULTS_QUEUE,
+      ),
+    };
+    this.appQueues = MESSAGE_QUEUE_RAG_APP_QUEUES.map(
+      (queue) => this.queueNames[queue],
+    );
+    this.deadLetterExchange = configured(
+      'deadLetterExchange',
+      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+    );
+    this.deadLetterQueue = configured(
+      'deadLetterQueue',
+      MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
     );
   }
 
@@ -55,36 +92,31 @@ export class MessageQueueBrokerService
     await this.channel.assertExchange(this.exchange, 'topic', {
       durable: true,
     });
-    await this.channel.assertExchange(
-      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
-      'topic',
-      { durable: true },
-    );
-    await this.channel.assertQueue(MESSAGE_QUEUE_DEAD_LETTER_QUEUE, {
+    await this.channel.assertExchange(this.deadLetterExchange, 'topic', {
+      durable: true,
+    });
+    await this.channel.assertQueue(this.deadLetterQueue, {
       durable: true,
     });
     await this.channel.bindQueue(
-      MESSAGE_QUEUE_DEAD_LETTER_QUEUE,
-      MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+      this.deadLetterQueue,
+      this.deadLetterExchange,
       '#',
     );
 
     for (const binding of MESSAGE_QUEUE_BROKER_BINDINGS) {
-      await this.channel.assertQueue(binding.queue, {
+      const queue = this.queueNames[binding.queue];
+      await this.channel.assertQueue(queue, {
         durable: true,
-        ...(DEAD_LETTERED_QUEUES.has(binding.queue)
+        ...(this.appQueues.includes(queue)
           ? {
               arguments: {
-                'x-dead-letter-exchange': MESSAGE_QUEUE_DEAD_LETTER_EXCHANGE,
+                'x-dead-letter-exchange': this.deadLetterExchange,
               },
             }
           : {}),
       });
-      await this.channel.bindQueue(
-        binding.queue,
-        this.exchange,
-        binding.routingKey,
-      );
+      await this.channel.bindQueue(queue, this.exchange, binding.routingKey);
     }
 
     this.logger.log(`Connected to RabbitMQ exchange ${this.exchange}`);

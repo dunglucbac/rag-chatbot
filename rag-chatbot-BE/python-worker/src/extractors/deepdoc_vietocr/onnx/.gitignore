@@ -1,3 +1,5 @@
-*.onnx
-*.model
-.cache/
+# Downloads and generated model caches stay local.
+*
+!.gitignore
+!README.md
+!ocr.res

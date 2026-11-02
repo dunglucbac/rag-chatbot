@@ -27,6 +27,12 @@ npm run start:dev
 The backend serves the UI at `http://localhost:3000`. Its production Docker image
 includes the UI assets, so the existing single-URL deployment is preserved.
 
+When debugging against a shared RabbitMQ broker, give the local `.env` its own
+`RABBITMQ_EXCHANGE` and all queue/dead-letter names from `.env.example`. Match
+the exchange and PDF/image queue names in `rag-chatbot-BE/python-worker/.env`.
+Restart both the backend and worker after changing them. A different exchange
+alone still shares jobs if any queue names are reused.
+
 For the standalone UI development server, keep the backend running and use:
 
 ```sh

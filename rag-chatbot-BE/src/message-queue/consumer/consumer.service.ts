@@ -1,6 +1,5 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { type Channel, type ConsumeMessage } from 'amqplib';
-import { MESSAGE_QUEUE_RAG_APP_QUEUES } from '@modules/message-queue/message-queue.constants';
 import { MessageQueueBrokerService } from '@modules/message-queue/broker/broker.service';
 import {
   InvalidEventPayloadError,
@@ -29,7 +28,7 @@ export class MessageQueueConsumer implements OnApplicationBootstrap {
       return;
     }
 
-    for (const queue of MESSAGE_QUEUE_RAG_APP_QUEUES) {
+    for (const queue of this.broker.appQueues) {
       await this.channel.consume(
         queue,
         async (msg) => {

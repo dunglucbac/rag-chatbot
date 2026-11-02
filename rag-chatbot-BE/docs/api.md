@@ -266,8 +266,9 @@ For the final `POST /ingest` request, use:
 
 ### Client requirements
 
-- Configure object-storage CORS to permit your browser origin to send `PUT`
-  requests with the `Content-Type` and `x-amz-meta-original-filename` headers.
+- For Cloudflare R2, apply [`r2-cors.json`](../r2-cors.json) in the bucket's
+  **Settings → CORS Policy**. It permits the UI origins and the two signed
+  upload headers: `Content-Type` and `x-amz-meta-original-filename`.
 - Use a new signed URL when a request has expired (the default is 900 seconds).
 - For large files, the current API uses a single signed `PUT`; multipart upload
   support is a future enhancement.
