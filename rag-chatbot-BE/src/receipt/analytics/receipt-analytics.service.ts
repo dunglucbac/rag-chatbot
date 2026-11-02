@@ -58,7 +58,7 @@ export enum PurchaseItemSortBy {
 }
 
 export interface PurchaseItemSearchResult {
-  range: ResolvedSearchDateRange;
+  range: ResolvedDateRange;
   asOf: Date;
   items: Array<{
     itemRef: string;
