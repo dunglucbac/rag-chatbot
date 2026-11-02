@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import {
   DateRangeType,
-  DateRangeInput,
+  SearchDateRangeInput,
   InvalidDateRangeError,
   RelativePeriod,
 } from '../../receipt/analytics/date-range-resolver';
@@ -49,8 +49,13 @@ export function createSearchPurchaseItemsTool(
           },
         };
       }
-      const range: DateRangeInput =
-        input.rangeType === DateRangeType.RELATIVE
+      const range: SearchDateRangeInput =
+        input.rangeType === DateRangeType.ROLLING
+          ? {
+              rangeType: DateRangeType.ROLLING,
+              period: input.period ?? RelativePeriod.LAST_WEEK,
+            }
+          : input.rangeType === DateRangeType.RELATIVE
           ? {
               rangeType: DateRangeType.RELATIVE,
               period: input.period ?? RelativePeriod.LAST_WEEK,
@@ -93,7 +98,7 @@ export function createSearchPurchaseItemsTool(
     {
       name: 'search_purchase_items',
       description:
-        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results default to highest item total first (sortBy totalPrice). For the latest or most recent purchase, start with rangeType relative, period last_week, sortBy purchasedAt, and pageSize 1. If no items match, retry once with last_month, then once with last_quarter, stopping at the first non-empty result. Call each period at most once. Respect any date range the user specifies. Results are paginated with an opaque cursor; repeat the same filters, date range, and sortBy when continuing with nextCursor.",
+        "Search the authenticated user's parsed receipt items with optional item-name, merchant, and category filters. Results default to highest item total first (sortBy totalPrice). For the latest or most recent purchase, start with rangeType rolling, period last_week, sortBy purchasedAt, and pageSize 1. If no items match, retry once with rolling last_month, then once with rolling last_quarter, stopping at the first non-empty result. These are rolling 7-, 30-, and 90-day windows. Call each period at most once. Respect any date range the user specifies. Results are paginated with an opaque cursor; repeat the same filters, date range, and sortBy when continuing with nextCursor.",
       schema: searchPurchaseItemsSchema,
     },
   );

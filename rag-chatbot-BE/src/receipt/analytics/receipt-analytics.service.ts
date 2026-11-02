@@ -5,9 +5,11 @@ import { Receipt } from '../entities/receipt.entity';
 import { ReceiptItem } from '../entities/receipt-item.entity';
 import { ReceiptCategorizationStatus } from '../entities/receipt-item.entity';
 import {
+  DateRangeType,
   DateRangeInput,
   DateRangeResolver,
   ResolvedDateRange,
+  SearchDateRangeInput,
 } from './date-range-resolver';
 import {
   InvalidPurchaseCursorError,
@@ -41,7 +43,7 @@ export interface PurchaseSummary {
   }>;
 }
 
-export type SearchPurchaseItemsInput = DateRangeInput & {
+export type SearchPurchaseItemsInput = SearchDateRangeInput & {
   query?: string;
   merchant?: string;
   category?: string;
@@ -174,7 +176,10 @@ export class ReceiptAnalyticsService {
     input: SearchPurchaseItemsInput,
     now = new Date(),
   ): Promise<PurchaseItemSearchResult> {
-    const range = this.dateRangeResolver.resolve(input, now);
+    const range =
+      input.rangeType === DateRangeType.ROLLING
+        ? this.dateRangeResolver.resolveRolling(input.period, now)
+        : this.dateRangeResolver.resolve(input, now);
     const filters = {
       query: this.normalizeFilter(input.query),
       merchant: this.normalizeFilter(input.merchant),
