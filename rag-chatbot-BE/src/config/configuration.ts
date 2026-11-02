@@ -13,6 +13,12 @@ export default () => ({
     exchange: process.env.RABBITMQ_EXCHANGE ?? 'ingest.topic',
     imageQueue: process.env.RABBITMQ_IMAGE_QUEUE ?? 'ingest.image.queue',
     pdfQueue: process.env.RABBITMQ_PDF_QUEUE ?? 'ingest.pdf.queue',
+    statusQueue: process.env.RABBITMQ_STATUS_QUEUE ?? 'ingest.status.queue',
+    resultsQueue: process.env.RABBITMQ_RESULTS_QUEUE ?? 'ingest.results.queue',
+    deadLetterExchange:
+      process.env.RABBITMQ_DEAD_LETTER_EXCHANGE ?? 'ingest.dlx',
+    deadLetterQueue:
+      process.env.RABBITMQ_DEAD_LETTER_QUEUE ?? 'ingest.dead-letter.queue',
   },
   objectStorage: {
     endpoint: process.env.OBJECT_STORAGE_ENDPOINT,

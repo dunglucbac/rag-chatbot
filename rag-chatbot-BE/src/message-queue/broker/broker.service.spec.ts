@@ -142,4 +142,55 @@ describe('MessageQueueBrokerService', () => {
     expect(channel.close).toHaveBeenCalledTimes(1);
     expect(connection.close).toHaveBeenCalledTimes(1);
   });
+
+  it('binds only the configured development queues and isolates dead letters', async () => {
+    const config = new ConfigService({
+      rabbitmq: {
+        url: 'amqp://broker',
+        exchange: 'dev.topic',
+        imageQueue: 'dev.image.queue',
+        pdfQueue: 'dev.pdf.queue',
+        statusQueue: 'dev.status.queue',
+        resultsQueue: 'dev.results.queue',
+        deadLetterExchange: 'dev.dlx',
+        deadLetterQueue: 'dev.dead-letter.queue',
+      },
+    });
+    const channel = {
+      assertExchange: jest.fn(),
+      assertQueue: jest.fn(),
+      bindQueue: jest.fn(),
+    };
+    connectMock.mockResolvedValue({
+      createChannel: async () => channel,
+    } as never);
+    const broker = new MessageQueueBrokerService(config);
+    await broker.connect();
+
+    expect(broker.appQueues).toEqual(['dev.status.queue', 'dev.results.queue']);
+    expect(channel.assertExchange.mock.calls.map((call) => call[0])).toEqual([
+      'dev.topic',
+      'dev.dlx',
+    ]);
+    for (const [queue, exchange] of channel.bindQueue.mock.calls) {
+      expect(queue).toMatch(/^dev\./);
+      expect(exchange).toMatch(/^dev\./);
+    }
+    expect(channel.bindQueue).toHaveBeenCalledWith(
+      'dev.pdf.queue',
+      'dev.topic',
+      'doc.pdf.parse.requested',
+    );
+    expect(channel.bindQueue).toHaveBeenCalledWith(
+      'dev.image.queue',
+      'dev.topic',
+      'image.classify.requested',
+    );
+    for (const queue of broker.appQueues) {
+      expect(channel.assertQueue).toHaveBeenCalledWith(queue, {
+        durable: true,
+        arguments: { 'x-dead-letter-exchange': 'dev.dlx' },
+      });
+    }
+  });
 });

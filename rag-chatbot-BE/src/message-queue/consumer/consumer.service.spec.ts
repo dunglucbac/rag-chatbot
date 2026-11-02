@@ -18,6 +18,17 @@ const getConsumeHandler = (consume: jest.Mock): ConsumeHandler =>
   (consume.mock.calls as unknown as ConsumeCall[])[0][1];
 
 describe('MessageQueueConsumer', () => {
+  it('consumes the configured queues without subscribing to the shared defaults', async () => {
+    const consume = jest.fn();
+    const broker = {
+      appQueues: ['dev.status.queue', 'dev.results.queue'],
+      connect: jest.fn().mockResolvedValue({ channel: { consume } }),
+    } as unknown as MessageQueueBrokerService;
+    const consumer = new MessageQueueConsumer(broker, {} as MessageRouter);
+    await consumer.onApplicationBootstrap();
+    expect(consume.mock.calls.map((call) => call[0])).toEqual(broker.appQueues);
+  });
+
   it('consumes each NestJS-owned queue once using the broker channel', async () => {
     const consume = jest.fn();
     const channel = {
@@ -26,6 +37,7 @@ describe('MessageQueueConsumer', () => {
       consume,
     };
     const broker = {
+      appQueues: MESSAGE_QUEUE_RAG_APP_QUEUES,
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
     const router = {
@@ -68,6 +80,7 @@ describe('MessageQueueConsumer', () => {
       nack: jest.fn(),
     };
     const broker = {
+      appQueues: MESSAGE_QUEUE_RAG_APP_QUEUES,
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
     const router = {
@@ -99,6 +112,7 @@ describe('MessageQueueConsumer', () => {
       nack: jest.fn(),
     };
     const broker = {
+      appQueues: MESSAGE_QUEUE_RAG_APP_QUEUES,
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
     const router = {
@@ -132,6 +146,7 @@ describe('MessageQueueConsumer', () => {
       nack: jest.fn(),
     };
     const broker = {
+      appQueues: MESSAGE_QUEUE_RAG_APP_QUEUES,
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
     const router = {
@@ -165,6 +180,7 @@ describe('MessageQueueConsumer', () => {
       nack: jest.fn(),
     };
     const broker = {
+      appQueues: MESSAGE_QUEUE_RAG_APP_QUEUES,
       connect: jest.fn().mockResolvedValue({ channel }),
     } as unknown as MessageQueueBrokerService;
     const router = {
