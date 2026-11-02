@@ -143,10 +143,10 @@ The currently registered tools are:
   small set of receipt references.
 - `search_purchase_items` calls
   `ReceiptAnalyticsService.searchPurchaseItems` with optional item-name,
-  merchant, category, date-range, and cursor filters. It defaults to
-  `sortBy: totalPrice`; `sortBy: purchasedAt` returns newest purchases first.
-  Its opaque HMAC-signed cursor is bound to the user, filters, range, ordering,
-  and a one-hour expiry.
+  merchant, category, rolling, bounded date-range, and cursor filters. It
+  defaults to `sortBy: totalPrice`; `sortBy: purchasedAt` returns newest
+  purchases first. Its opaque HMAC-signed cursor is bound to the user, filters,
+  range, ordering, and a one-hour expiry.
 
 The tool callbacks receive the trusted server-side user ID by closure. The model
 cannot select another user's data. The Zod tool schemas reject unexpected

@@ -137,6 +137,11 @@ The item-search tool accepts:
 - page size from 1 to 50, defaulting to 20;
 - an optional opaque continuation cursor.
 
+For an unqualified latest-purchase question, the agent searches rolling 7-day,
+30-day, and 90-day windows in that order, stopping after the first non-empty
+result and trying each window once. These rolling windows include the current
+day and widen from the time of the request.
+
 It returns stable item and receipt references, item quantities/prices, merchant,
 purchase time, category, and currency. It never returns `receipts.raw_text`.
 
@@ -150,6 +155,7 @@ All version-1 report boundaries use `Asia/Ho_Chi_Minh`.
 | `last_month` | Previous complete calendar month, from day 1 at 00:00 through the next month’s day 1 at 00:00. |
 | `last_quarter` | Previous complete calendar quarter, from its first day at 00:00 through the current quarter’s first day at 00:00. |
 | `absolute` | Half-open `[startDate, endDate)` local-date range. |
+| `rolling` | For item search, a trailing 7-, 30-, or 90-day window ending at request time. |
 
 The resolver converts local boundaries to UTC before querying PostgreSQL. An
 absolute range cannot exceed 366 days.

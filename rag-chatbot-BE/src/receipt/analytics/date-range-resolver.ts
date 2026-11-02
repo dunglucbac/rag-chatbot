@@ -16,6 +16,7 @@ export class InvalidDateRangeError extends Error {
 export enum DateRangeType {
   RELATIVE = 'relative',
   ABSOLUTE = 'absolute',
+  ROLLING = 'rolling',
 }
 
 export enum RelativePeriod {
@@ -35,6 +36,10 @@ export type DateRangeInput =
       endDate: string;
     };
 
+export type SearchDateRangeInput =
+  | DateRangeInput
+  | { rangeType: DateRangeType.ROLLING; period: RelativePeriod };
+
 export interface ResolvedDateRange {
   start: Date;
   end: Date;
@@ -43,6 +48,20 @@ export interface ResolvedDateRange {
 
 @Injectable()
 export class DateRangeResolver {
+  resolveRolling(period: RelativePeriod, now = new Date()): ResolvedDateRange {
+    const days = {
+      [RelativePeriod.LAST_WEEK]: 7,
+      [RelativePeriod.LAST_MONTH]: 30,
+      [RelativePeriod.LAST_QUARTER]: 90,
+    }[period];
+
+    return {
+      start: new Date(now.getTime() - days * DAY_MS),
+      end: now,
+      timeZone: TIME_ZONE,
+    };
+  }
+
   resolve(input: DateRangeInput, now = new Date()): ResolvedDateRange {
     if (input.rangeType === DateRangeType.ABSOLUTE) {
       const start = this.parseLocalDate(input.startDate);
