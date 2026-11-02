@@ -143,7 +143,7 @@ The currently registered tools are:
   small set of receipt references.
 - `search_purchase_items` calls
   `ReceiptAnalyticsService.searchPurchaseItems` with optional item-name,
-  merchant, category, all-time or bounded date-range, and cursor filters. It defaults to
+  merchant, category, date-range, and cursor filters. It defaults to
   `sortBy: totalPrice`; `sortBy: purchasedAt` returns newest purchases first.
   Its opaque HMAC-signed cursor is bound to the user, filters, range, ordering,
   and a one-hour expiry.

@@ -11,7 +11,7 @@ import { MAX_RECEIPT_TOOL_CALLS, ToolCallBudget } from '../tool-call-budget';
 
 const purchaseSummarySchema = z
   .object({
-    rangeType: z.enum([DateRangeType.RELATIVE, DateRangeType.ABSOLUTE]),
+    rangeType: z.nativeEnum(DateRangeType),
     period: z.nativeEnum(RelativePeriod).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),

@@ -5,12 +5,9 @@ import { Receipt } from '../entities/receipt.entity';
 import { ReceiptItem } from '../entities/receipt-item.entity';
 import { ReceiptCategorizationStatus } from '../entities/receipt-item.entity';
 import {
-  DateRangeType,
   DateRangeInput,
   DateRangeResolver,
   ResolvedDateRange,
-  ResolvedSearchDateRange,
-  SearchDateRangeInput,
 } from './date-range-resolver';
 import {
   InvalidPurchaseCursorError,
@@ -44,7 +41,7 @@ export interface PurchaseSummary {
   }>;
 }
 
-export type SearchPurchaseItemsInput = SearchDateRangeInput & {
+export type SearchPurchaseItemsInput = DateRangeInput & {
   query?: string;
   merchant?: string;
   category?: string;
@@ -177,10 +174,7 @@ export class ReceiptAnalyticsService {
     input: SearchPurchaseItemsInput,
     now = new Date(),
   ): Promise<PurchaseItemSearchResult> {
-    const range: ResolvedSearchDateRange =
-      input.rangeType === DateRangeType.ALL_TIME
-        ? { start: null, end: null, timeZone: 'Asia/Ho_Chi_Minh' }
-        : this.dateRangeResolver.resolve(input, now);
+    const range = this.dateRangeResolver.resolve(input, now);
     const filters = {
       query: this.normalizeFilter(input.query),
       merchant: this.normalizeFilter(input.merchant),
@@ -192,8 +186,8 @@ export class ReceiptAnalyticsService {
       filterFingerprint: createHash('sha256')
         .update(JSON.stringify(filters))
         .digest('base64url'),
-      rangeStart: range.start?.toISOString() ?? 'all-time',
-      rangeEnd: range.end?.toISOString() ?? 'all-time',
+      rangeStart: range.start.toISOString(),
+      rangeEnd: range.end.toISOString(),
       sortBy,
     };
     const cursorPosition = input.cursor
@@ -206,14 +200,9 @@ export class ReceiptAnalyticsService {
       .createQueryBuilder('item')
       .innerJoinAndSelect('item.receipt', 'receipt')
       .where('receipt.user_id = :userId', { userId })
+      .andWhere('receipt.purchased_at >= :start', { start: range.start })
+      .andWhere('receipt.purchased_at < :end', { end: range.end })
       .andWhere('item.created_at <= :asOf', { asOf });
-
-    if (range.start) {
-      query.andWhere('receipt.purchased_at >= :start', { start: range.start });
-    }
-    if (range.end) {
-      query.andWhere('receipt.purchased_at < :end', { end: range.end });
-    }
 
     if (filters.query) {
       query.andWhere('LOWER(item.name) LIKE :itemQuery', {
