@@ -36,7 +36,11 @@ export default () => ({
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingProvider: process.env.EMBEDDING_PROVIDER ?? 'openai',
   },
-  investment: { embeddingRate: process.env.INVESTMENT_EMBEDDING_RATE_MICROS_PER_MILLION },
+  investment: {
+    embeddingRate: process.env.INVESTMENT_EMBEDDING_RATE_MICROS_PER_MILLION,
+    inputRate: process.env.INVESTMENT_INPUT_RATE_MICROS_PER_MILLION,
+    outputRate: process.env.INVESTMENT_OUTPUT_RATE_MICROS_PER_MILLION,
+  },
   finhay: {
     encryptionKey: process.env.FINHAY_OAUTH_ENCRYPTION_KEY,
     redirectUri: process.env.FINHAY_OAUTH_REDIRECT_URI,

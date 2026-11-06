@@ -100,6 +100,11 @@ connecting.
   timestamp. `GET /investments/finhay/valuation/:symbol` also calculates market
   value and unrealized profit/loss for the owner's recorded position. Missing
   cost or quantity remains unknown, and `quoteStale` flags old quotes.
+- `GET /investments/finhay/research-snapshot/:symbol` returns the quote, company
+  overview, up to five quarterly periods of each financial statement, one year
+  of daily history, and up to ten news items. Individual unavailable or invalid
+  components are listed in `unavailable`. Values are provider data, and units,
+  source timestamps, financial periods, and adjustment semantics need review.
 - `DELETE /investments/finhay/connection` removes local credentials and reports
   whether remote token revocation succeeded.
 
@@ -114,6 +119,30 @@ document embedding path reserves a conservative estimate before calling OpenAI
 and reconciles reported token usage afterward. When the billing outcome is
 unknown, its reservation remains pending. The provider rate must be configured
 explicitly; usage-based accounting may differ from the provider invoice.
+
+### Company-report PDFs
+
+Upload a PDF through the normal ingestion flow and wait for the job to complete.
+In the Investments view, select its stock and attach the completed PDF with its
+title and publication date. The application verifies upload ownership, extracts
+page text, and stores embeddings tagged with owner, stock, document ID, and page.
+The publication date is supplied by the user and is not independently verified.
+
+Configure `INVESTMENT_EMBEDDING_RATE_MICROS_PER_MILLION` to the verified current
+USD micro-unit input price per million tokens for `text-embedding-3-small` and
+configure `OPENAI_API_KEY`. Text from the selected PDF is sent to OpenAI to
+generate embeddings. Indexing and search reserve investment AI budget before
+requesting embeddings. Up to 300 PDF pages and 150,000 extracted characters are
+accepted, subject to the embedding request's token limit. Image-only scanned
+PDFs need page-level OCR and are currently rejected.
+
+- `GET /investments/stocks/:symbol/documents` lists owned reports.
+- `POST /investments/stocks/:symbol/documents` accepts `{ingestionJobId, title,
+  publicationDate, retryFailed?}`. A failed retry may incur another charge.
+- `POST /investments/stocks/:symbol/documents/search` accepts `{query, asOf?}`
+  and returns passages with report, publication date, and page references.
+- `GET /investments/stocks/:symbol/documents/:id/source` creates a five-minute
+  link to the owned source PDF.
 
 ---
 

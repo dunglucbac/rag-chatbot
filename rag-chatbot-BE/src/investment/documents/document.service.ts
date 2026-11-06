@@ -227,7 +227,9 @@ export class InvestmentDocumentService {
         error instanceof ServiceUnavailableException
       )
         throw error;
-      throw new ServiceUnavailableException('Could not index the document');
+      throw new ServiceUnavailableException('Could not index the document', {
+        cause: error,
+      });
     }
   }
 

@@ -6,6 +6,8 @@ import { FinhayController } from './finhay/finhay.controller';
 import { FinhayService } from './finhay/finhay.service';
 import { ValuationService } from './finhay/valuation.service';
 import { BudgetService } from './budget/budget.service';
+import { BudgetedModelService } from './budget/budgeted-model.service';
+import { LlmModule } from '../llm/llm.module';
 import { BudgetController } from './budget/budget.controller';
 import { InvestmentDocumentController } from './documents/document.controller';
 import { InvestmentDocumentService } from './documents/document.service';
@@ -14,7 +16,7 @@ import { ObjectStorageModule } from '../storage/object-storage.module';
 import { VectorStoreModule } from '../vector-store/vector-store.module';
 
 @Module({
-  imports: [AuthModule, ObjectStorageModule, VectorStoreModule],
+  imports: [AuthModule, ObjectStorageModule, VectorStoreModule, LlmModule],
   controllers: [
     InvestmentController,
     FinhayController,
@@ -26,6 +28,7 @@ import { VectorStoreModule } from '../vector-store/vector-store.module';
     FinhayService,
     ValuationService,
     BudgetService,
+    BudgetedModelService,
     InvestmentDocumentService,
     InvestmentEmbeddingService,
   ],

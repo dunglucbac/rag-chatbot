@@ -10,9 +10,14 @@ warnings. Its PostgreSQL migration and concurrent duplicate requests were tested
 against an isolated database. Journal corrections preserve history. The Finhay
 market-only OAuth and quote/valuation path has controlled tests; full sign-in
 with a real account remains to be verified. Chat integration, research jobs, PDF
-research, and paid-work integration remain unimplemented. The monthly budget
-ledger and reservation primitives are implemented, but they do not protect any
-research or embedding calls until those callers are integrated.
+research orchestration, and report generation remain unimplemented. Company PDF
+indexing and page-cited vector retrieval use the monthly budget ledger; a real PDF
+and pgvector were tested with a mocked embedding provider. Live credentials,
+scanned-page OCR, and integration into research reports remain to be verified.
+The Finhay connection also exposes a bounded research snapshot; its market data
+contracts are tested with mocks and still need a live account check. A separate
+Python workflow implements the bounded TradingAgents debate router, but is not
+yet connected to a queue, budgeted model gateway, reports, or the UI.
 
 ## Objective
 

@@ -327,6 +327,120 @@ export class FinhayService {
     }
   }
 
+  async researchSnapshot(userId: string, value: string) {
+    const symbol = value.trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,10}$/.test(symbol))
+      throw new BadRequestException('Invalid stock symbol');
+    const token = await this.accessToken(userId);
+    try {
+      return await this.fetchResearchSnapshot(symbol, token);
+    } catch (error: unknown) {
+      if (error instanceof StreamableHTTPError && error.code === 401) {
+        const refreshed = await this.accessToken(userId, token);
+        try {
+          return await this.fetchResearchSnapshot(symbol, refreshed);
+        } catch {
+          // Only one token refresh is attempted.
+        }
+      }
+      throw new ServiceUnavailableException(
+        'Finhay research snapshot unavailable',
+      );
+    }
+  }
+
+  private async fetchResearchSnapshot(symbol: string, accessToken: string) {
+    const now = Math.floor(Date.now() / 1000);
+    const calls = [
+      { key: 'quote', name: 'get_stock_quote', args: { symbol } },
+      { key: 'overview', name: 'get_company_overview', args: { symbol } },
+      ...(['income-statement', 'balance-sheet', 'cash-flow'] as const).map(
+        (type) => ({
+          key: type,
+          name: 'get_financial_statement',
+          args: { symbol, type, period: 'quarterly', limit: 5 },
+        }),
+      ),
+      {
+        key: 'history',
+        name: 'get_stock_history',
+        args: { symbol, from: now - 366 * 86400, to: now, resolution: '1D' },
+      },
+      {
+        key: 'news',
+        name: 'list_news',
+        args: { symbol, topic: 'stock', page: 1, page_size: 10 },
+      },
+    ];
+    const client = new Client({ name: 'investment-journal', version: '1.0.0' });
+    const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
+      requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
+      fetch: safeFetch,
+    });
+    try {
+      await client.connect(transport);
+      const evidence: Record<string, unknown> = {};
+      const unavailable: string[] = [];
+      for (const call of calls) {
+        try {
+          const result = await client.callTool(
+            { name: call.name, arguments: call.args },
+            undefined,
+            { timeout: 15000 },
+          );
+          if (result.isError) throw new Error('Tool failed');
+          let data: unknown = result.structuredContent;
+          if (!data) {
+            const content = z
+              .array(
+                z.object({ type: z.string(), text: z.string().optional() }),
+              )
+              .parse(result.content)
+              .find((part) => part.type === 'text');
+            if (content?.text) data = JSON.parse(content.text) as unknown;
+          }
+          const object = z.record(z.unknown()).parse(data);
+          if (call.key === 'quote') quoteSchema.parse(object);
+          if (
+            typeof object.symbol === 'string' &&
+            object.symbol.toUpperCase() !== symbol
+          )
+            throw new Error('Incorrect symbol');
+          const rows =
+            call.key === 'history'
+              ? object.series
+              : call.key === 'news'
+                ? object.results
+                : call.key === 'overview' || call.key === 'quote'
+                  ? undefined
+                  : object.items;
+          if (
+            call.key !== 'overview' &&
+            call.key !== 'quote' &&
+            !Array.isArray(rows)
+          )
+            throw new Error('Missing data');
+          if (JSON.stringify(object).length > 250000)
+            throw new Error('Response too large');
+          evidence[call.key] = object;
+        } catch (error: unknown) {
+          if (error instanceof StreamableHTTPError && error.code === 401)
+            throw error;
+          unavailable.push(call.key);
+        }
+      }
+      return {
+        source: 'Finhay',
+        symbol,
+        retrievedAt: new Date().toISOString(),
+        evidence,
+        unavailable,
+      };
+    } finally {
+      await client.close().catch(() => undefined);
+    }
+  }
+
   private async fetchQuote(symbol: string, accessToken: string) {
     const client = new Client({ name: 'investment-journal', version: '1.0.0' });
     const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {

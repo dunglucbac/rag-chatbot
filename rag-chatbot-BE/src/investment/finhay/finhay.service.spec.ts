@@ -30,6 +30,8 @@ describe('Finhay application connection', () => {
   let tokenCalls: number;
   let failQuote: boolean;
   let unauthorizedOnce: boolean;
+  let missingNews: boolean;
+  let historySymbol: string;
   let requests: Array<{ url: string; body: string }>;
 
   beforeEach(async () => {
@@ -48,6 +50,8 @@ describe('Finhay application connection', () => {
     tokenCalls = 0;
     failQuote = false;
     unauthorizedOnce = false;
+    missingNews = false;
+    historySymbol = 'VCB';
     requests = [];
     jest
       .spyOn(globalThis, 'fetch')
@@ -104,7 +108,11 @@ describe('Finhay application connection', () => {
             const message = JSON.parse(body) as {
               id?: number;
               method: string;
-              params?: { protocolVersion?: string };
+              params?: {
+                protocolVersion?: string;
+                name?: string;
+                arguments?: { type?: string };
+              };
             };
             if (message.method === 'initialize')
               return json({
@@ -118,6 +126,31 @@ describe('Finhay application connection', () => {
               });
             if (message.method === 'notifications/initialized')
               return new Response(null, { status: 202 });
+            if (
+              message.method === 'tools/call' &&
+              message.params?.name !== 'get_stock_quote'
+            ) {
+              const name = message.params?.name;
+              if (name === 'list_news' && missingNews)
+                return json({
+                  jsonrpc: '2.0',
+                  id: message.id,
+                  result: { isError: true, content: [] },
+                });
+              const data =
+                name === 'get_company_overview'
+                  ? { pe: 10 }
+                  : name === 'get_stock_history'
+                    ? { symbol: historySymbol, series: [{ c: 54000 }] }
+                    : name === 'list_news'
+                      ? { results: [] }
+                      : { items: [{ year: 2026, quarter: 2 }] };
+              return json({
+                jsonrpc: '2.0',
+                id: message.id,
+                result: { content: [], structuredContent: data },
+              });
+            }
             if (message.method === 'tools/call')
               return failQuote
                 ? json({ error: 'unavailable' }, 503)
@@ -203,5 +236,61 @@ describe('Finhay application connection', () => {
       priceVnd: 54000,
     });
     expect(tokenCalls).toBe(2);
+  });
+
+  it('fetches only bounded market research tools for the connected owner', async () => {
+    const url = new URL((await service.start('alice')).authorizationUrl);
+    await service.callback(url.searchParams.get('state'), 'code');
+    const snapshot = await service.researchSnapshot('alice', 'vcb');
+    expect(snapshot).toMatchObject({
+      symbol: 'VCB',
+      source: 'Finhay',
+      unavailable: [],
+      evidence: {
+        overview: { pe: 10 },
+        'income-statement': { items: [{ year: 2026 }] },
+        history: { symbol: 'VCB' },
+        news: { results: [] },
+      },
+    });
+    const calls = requests
+      .filter(
+        (request) =>
+          request.url.endsWith('/mcp') && request.body.includes('tools/call'),
+      )
+      .map(
+        (request) =>
+          JSON.parse(request.body) as {
+            params: { name: string; arguments: Record<string, unknown> };
+          },
+      );
+    expect(calls).toHaveLength(7);
+    expect(calls.map((call) => call.params.name)).toEqual([
+      'get_stock_quote',
+      'get_company_overview',
+      'get_financial_statement',
+      'get_financial_statement',
+      'get_financial_statement',
+      'get_stock_history',
+      'list_news',
+    ]);
+    expect(calls[2].params.arguments).toMatchObject({
+      symbol: 'VCB',
+      period: 'quarterly',
+      limit: 5,
+    });
+    await expect(service.researchSnapshot('bob', 'VCB')).rejects.toThrow();
+  });
+
+  it('records missing or mismatched evidence without treating it as valid', async () => {
+    const url = new URL((await service.start('alice')).authorizationUrl);
+    await service.callback(url.searchParams.get('state'), 'code');
+    missingNews = true;
+    historySymbol = 'VIC';
+    const snapshot = await service.researchSnapshot('alice', 'VCB');
+    expect(snapshot.unavailable).toEqual(['history', 'news']);
+    expect(snapshot.evidence).not.toHaveProperty('history');
+    expect(snapshot.evidence).not.toHaveProperty('news');
+    expect(snapshot.evidence).toHaveProperty('income-statement');
   });
 });

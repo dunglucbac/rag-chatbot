@@ -49,6 +49,15 @@ export class FinhayController {
     return this.finhay.quote(user.id, symbol);
   }
 
+  @Get('research-snapshot/:symbol')
+  @UseGuards(GoogleAuthGuard)
+  researchSnapshot(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('symbol') symbol: string,
+  ) {
+    return this.finhay.researchSnapshot(user.id, symbol);
+  }
+
   @Get('valuation/:symbol')
   @UseGuards(GoogleAuthGuard)
   valuation(

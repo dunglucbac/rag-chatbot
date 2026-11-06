@@ -39,7 +39,10 @@ function samplePdf(): Buffer {
   ];
   let pdf = '%PDF-1.4\n';
   const offsets: number[] = [];
-  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
   const xref = Buffer.byteLength(pdf);
   pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(pdf);
@@ -223,32 +226,97 @@ postgres('investment PostgreSQL migration and concurrency', () => {
   it('indexes and retrieves a real PDF page while accounting for embeddings', async () => {
     await db.query('CREATE EXTENSION IF NOT EXISTS vector');
     const connection = new URL(url!);
-    const config = new ConfigService({ db: { host: connection.hostname, port: Number(connection.port), user: connection.username, pass: connection.password, name: connection.pathname.slice(1), ssl: 'false' }, llm: { openaiApiKey: 'test-only' }, investment: { embeddingRate: '20000' } });
+    const config = new ConfigService({
+      db: {
+        host: connection.hostname,
+        port: Number(connection.port),
+        user: connection.username,
+        pass: connection.password,
+        name: connection.pathname.slice(1),
+        ssl: 'false',
+      },
+      llm: { openaiApiKey: 'test-only' },
+      investment: { embeddingRate: '20000' },
+    });
     const vectors = new VectorStoreService(config);
     await vectors.onModuleInit();
     const pdf = samplePdf();
     const jobId = '7e15685b-de2e-41e5-ab98-6091c8512a40';
     const documentRepository = db.getRepository(InvestmentDocument);
-    const source = { findOneBy: (filter: { id: string; userId: string }) => Promise.resolve(filter.id === jobId && filter.userId === 'erin' ? { id: jobId, userId: 'erin', fileType: 'pdf', status: 'completed', storageKey: 'owned-pdf' } : null) };
-    const scoped = { getRepository: (entity: unknown): unknown => entity === IngestionJob ? source : documentRepository } as unknown as DataSource;
-    const storage = { readPdf: () => Promise.resolve(pdf), createReadUrl: () => Promise.resolve('https://example.test/source') } as unknown as ObjectStorageService;
+    const source = {
+      findOneBy: (filter: { id: string; userId: string }) =>
+        Promise.resolve(
+          filter.id === jobId && filter.userId === 'erin'
+            ? {
+                id: jobId,
+                userId: 'erin',
+                fileType: 'pdf',
+                status: 'completed',
+                storageKey: 'owned-pdf',
+              }
+            : null,
+        ),
+    };
+    const scoped = {
+      getRepository: (entity: unknown): unknown =>
+        entity === IngestionJob ? source : documentRepository,
+    } as unknown as DataSource;
+    const storage = {
+      readPdf: () => Promise.resolve(pdf),
+      createReadUrl: () => Promise.resolve('https://example.test/source'),
+    } as unknown as ObjectStorageService;
     const budget = new BudgetService(db);
     const embeddings = new InvestmentEmbeddingService(config, budget);
-    const documents = new InvestmentDocumentService(scoped, storage, vectors, embeddings);
-    const fetchMock = jest.spyOn(globalThis, 'fetch').mockImplementation(async (_input: string | URL | Request, init?: RequestInit) => {
-      await Promise.resolve();
-      const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as { input: string[] };
-      return new Response(JSON.stringify({ data: body.input.map((_, index) => ({ index, embedding: Array.from({ length: 1536 }, () => 0.1) })), usage: { total_tokens: 25 } }), { status: 200 });
-    });
+    const documents = new InvestmentDocumentService(
+      scoped,
+      storage,
+      vectors,
+      embeddings,
+    );
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(
+        async (_input: string | URL | Request, init?: RequestInit) => {
+          await Promise.resolve();
+          const body = JSON.parse(
+            typeof init?.body === 'string' ? init.body : '{}',
+          ) as { input: string[] };
+          return new Response(
+            JSON.stringify({
+              data: body.input.map((_, index) => ({
+                index,
+                embedding: Array.from({ length: 1536 }, () => 0.1),
+              })),
+              usage: { total_tokens: 25 },
+            }),
+            { status: 200 },
+          );
+        },
+      );
     try {
-      const saved = await documents.index('erin', 'VCB', { ingestionJobId: jobId, title: 'VCB annual report', publicationDate: '2025-01-01' });
+      const saved = await documents.index('erin', 'VCB', {
+        ingestionJobId: jobId,
+        title: 'VCB annual report',
+        publicationDate: '2025-01-01',
+      }).catch((error: Error & { cause?: Error }) => { throw error.cause ?? error; });
       expect(saved).toMatchObject({ status: 'ready', pageCount: 1 });
-      const result = await documents.search('erin', 'VCB', { query: 'credit risk' });
+      const result = await documents.search('erin', 'VCB', {
+        query: 'credit risk',
+      });
       expect(result.results).toHaveLength(1);
-      expect(result.results[0]).toMatchObject({ documentId: saved.id, page: 1, text: expect.stringContaining('VCB credit risk report') });
-      expect(await budget.status('erin')).toMatchObject({ spentMicros: '2', reservedMicros: '0' });
+      expect(result.results[0]).toMatchObject({
+        documentId: saved.id,
+        page: 1,
+      });
+      expect(result.results[0].text).toContain('VCB credit risk report');
+      expect(await budget.status('erin')).toMatchObject({
+        spentMicros: '2',
+        reservedMicros: '0',
+      });
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(await documents.search('other-user', 'VCB', { query: 'credit risk' })).toMatchObject({ results: [] });
+      expect(
+        await documents.search('other-user', 'VCB', { query: 'credit risk' }),
+      ).toMatchObject({ results: [] });
     } finally {
       fetchMock.mockRestore();
       await vectors.onModuleDestroy();

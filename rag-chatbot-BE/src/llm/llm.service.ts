@@ -8,12 +8,13 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 export class LlmService {
   constructor(private readonly config: ConfigService) {}
 
-  getModel(): BaseChatModel {
+  getModel(options?: { maxTokens: number; maxRetries: number }): BaseChatModel {
     const provider = this.config.get<string>('llm.provider');
     if (provider === 'openai') {
       return new ChatOpenAI({
         model: this.config.get<string>('llm.model') ?? 'gpt-4o',
         apiKey: this.config.get<string>('llm.openaiApiKey'),
+        ...options,
       });
     }
 
@@ -23,6 +24,7 @@ export class LlmService {
       clientOptions: {
         baseURL: this.config.get<string>('llm.anthropicBaseUrl'),
       },
+      ...options,
     });
   }
 }
