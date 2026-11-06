@@ -8,6 +8,7 @@ import {
 
 @Entity('investment_events')
 @Unique(['userId', 'requestId'])
+@Unique(['supersedesId'])
 export class InvestmentEvent {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -20,6 +21,9 @@ export class InvestmentEvent {
 
   @Column({ name: 'request_id' })
   requestId: string;
+
+  @Column({ name: 'supersedes_id', type: 'varchar', nullable: true })
+  supersedesId: string | null;
 
   @Column({ length: 20 })
   type: string;

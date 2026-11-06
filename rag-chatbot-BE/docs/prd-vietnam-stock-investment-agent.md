@@ -7,8 +7,12 @@ The first vertical slice adds an authenticated investment journal and UI. It
 records and retrieves user-owned interest, decisions, reported trades, and
 position snapshots, and derives holdings and average cost with missing-data
 warnings. Its PostgreSQL migration and concurrent duplicate requests were tested
-against an isolated database. Journal editing, chat integration, market valuation,
-research jobs, provider access, and budget enforcement remain unimplemented.
+against an isolated database. Journal corrections preserve history. The Finhay
+market-only OAuth and quote/valuation path has controlled tests; full sign-in
+with a real account remains to be verified. Chat integration, research jobs, PDF
+research, and paid-work integration remain unimplemented. The monthly budget
+ledger and reservation primitives are implemented, but they do not protect any
+research or embedding calls until those callers are integrated.
 
 ## Objective
 

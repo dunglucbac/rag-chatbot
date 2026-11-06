@@ -25,9 +25,11 @@ transcript until new messages are sent through the changed API.
 The Investments sidebar opens a personal stock journal. You can record interest,
 decisions, user-reported buys and sells, or a current position. A stock's detail
 view shows its history, current shares, average cost, invested amount, and any
-warnings about incomplete data. Existing entries are not yet editable; a current
-position snapshot can reconcile holdings when earlier history is incomplete.
-Market prices, investment chat, and TradingAgents research are not yet connected.
+warnings about incomplete data. Correcting an entry retains the original in
+history; a current position snapshot can reconcile incomplete history.
+When Finhay OAuth is configured, connect it in the Investments view to see a
+timestamped quote, market value and estimated unrealized profit/loss. Investment
+chat and TradingAgents research are not yet connected.
 See [the investment journal API](../rag-chatbot-BE/docs/api.md#investment-journal)
 for validation and request-id behavior.
 

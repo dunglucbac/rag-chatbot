@@ -65,6 +65,11 @@ All events require `requestId`, `type`, and a calendar date `occurredOn` in
 - `position`: nonnegative integer `shares` and optional positive decimal-string
   `averageCostVnd`, for a reported position without inventing earlier trades.
 
+To correct an entry, send a new event of the same type and symbol with a new
+`requestId` and `supersedesId` set to the original event ID. The original stays
+in history, and calculations use its replacement. Only the owning user can
+correct an event, and competing corrections return 409.
+
 Stock list and detail responses include the current interest, latest decision,
 and derived position as of the current Vietnam date. Position amounts are decimal
 strings. Average acquisition cost uses reported buy prices and buy fees; a sell
@@ -74,10 +79,41 @@ makes holdings unknown until a later snapshot reconciles it. Warnings identify
 missing purchase fees, ambiguous same-day ordering, invalid or future events,
 and unknown cost basis.
 
-The Investments UI can record and inspect these entries. It does not yet edit or
-delete previous entries, update the journal through chat, fetch market prices,
-calculate market value/profit or loss, or run stock research. Trade records are
-user reports, not broker-verified transactions.
+The Investments UI can record and correct these entries. It does not yet delete
+previous entries, update the journal through chat, or run stock research. Trade
+records are user reports, not broker-verified transactions.
+
+### Finhay market connection
+
+Set `FINHAY_OAUTH_ENCRYPTION_KEY` to an independently generated 32-byte base64
+key (`openssl rand -base64 32`) and `FINHAY_OAUTH_REDIRECT_URI` to the app's
+public origin followed by `/investments/finhay/callback`. HTTPS is required
+except for localhost development. Keep the key stable and outside the database;
+losing or changing it makes stored connections unreadable. Run migrations before
+connecting.
+
+- `GET /investments/finhay/status` returns `{connected}` for the signed-in user.
+- `POST /investments/finhay/connect` returns an authorization URL. Open it in the
+  same browser and approve `read:market` on Finhay. The callback uses a one-time,
+  time-limited state and PKCE and returns to the app without exposing tokens.
+- `GET /investments/finhay/quote/:symbol` returns a validated Finhay quote and
+  timestamp. `GET /investments/finhay/valuation/:symbol` also calculates market
+  value and unrealized profit/loss for the owner's recorded position. Missing
+  cost or quantity remains unknown, and `quoteStale` flags old quotes.
+- `DELETE /investments/finhay/connection` removes local credentials and reports
+  whether remote token revocation succeeded.
+
+Tokens are encrypted per user in PostgreSQL. This app requests no account or
+trading scope. A stored coding-agent MCP connection is not reused. The OAuth
+registration start was verified with Finhay; completing sign-in and checking a
+live account quote require a real app session.
+
+`GET /investments/budget` returns the current Vietnam calendar month, the US$10
+limit, spent, reserved, and remaining amounts as integer USD micro-units. The
+document embedding path reserves a conservative estimate before calling OpenAI
+and reconciles reported token usage afterward. When the billing outcome is
+unknown, its reservation remains pending. The provider rate must be configured
+explicitly; usage-based accounting may differ from the provider invoice.
 
 ---
 

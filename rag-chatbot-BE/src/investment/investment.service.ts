@@ -32,6 +32,11 @@ const common = {
     .uuid()
     .transform((value) => value.toLowerCase()),
   occurredOn: date,
+  supersedesId: z
+    .string()
+    .uuid()
+    .transform((value) => value.toLowerCase())
+    .optional(),
   note: z.string().trim().max(2000).optional(),
 };
 const inputSchema = z.discriminatedUnion('type', [
@@ -91,6 +96,7 @@ function eventResult(event: InvestmentEvent) {
     requestId: event.requestId,
     type: event.type,
     occurredOn: event.occurredOn,
+    supersedesId: event.supersedesId,
     ...event.details,
     createdAt: event.createdAt,
   };
@@ -106,6 +112,31 @@ function todayInVietnam(): string {
 }
 
 function summarize(events: InvestmentEvent[], asOf: string) {
+  const all = new Map(events.map((event) => [event.id, event]));
+  const superseded = new Set(
+    events.map((event) => event.supersedesId).filter(Boolean),
+  );
+  events = events.filter((event) => !superseded.has(event.id));
+  const original = (event: InvestmentEvent) => {
+    const seen = new Set<string>();
+    while (event.supersedesId && !seen.has(event.id)) {
+      seen.add(event.id);
+      const previous = all.get(event.supersedesId);
+      if (!previous) break;
+      event = previous;
+    }
+    return event;
+  };
+  events.sort((left, right) => {
+    const day = left.occurredOn.localeCompare(right.occurredOn);
+    if (day) return day;
+    const leftRoot = original(left);
+    const rightRoot = original(right);
+    return (
+      leftRoot.createdAt.getTime() - rightRoot.createdAt.getTime() ||
+      leftRoot.id.localeCompare(rightRoot.id)
+    );
+  });
   const latest = (type: string) =>
     [...events]
       .reverse()
@@ -157,11 +188,19 @@ export class InvestmentService {
       where: { userId, stockId: stock.id },
       order: { occurredOn: 'ASC', createdAt: 'ASC', id: 'ASC' },
     });
+    const corrected = new Map(
+      events
+        .filter((event) => event.supersedesId)
+        .map((event) => [event.supersedesId, event.id]),
+    );
     return {
       id: stock.id,
       symbol,
       ...summarize(events, todayInVietnam()),
-      events: [...events].reverse().map(eventResult),
+      events: [...events].reverse().map((event) => ({
+        ...eventResult(event),
+        supersededById: corrected.get(event.id) ?? null,
+      })),
     };
   }
 
@@ -191,13 +230,32 @@ export class InvestmentService {
         const stock = await manager
           .getRepository(InvestmentStock)
           .findOneByOrFail({ userId, symbol });
-        const { requestId, type, occurredOn, ...details } = input;
+        const { requestId, type, occurredOn, supersedesId, ...details } = input;
+        if (supersedesId) {
+          const original = await manager
+            .getRepository(InvestmentEvent)
+            .findOneBy({ id: supersedesId, userId, stockId: stock.id });
+          if (!original)
+            throw new NotFoundException('Investment event not found');
+          if (original.type !== type)
+            throw new BadRequestException(
+              'Correction must keep the original event type',
+            );
+          const correction = await manager
+            .getRepository(InvestmentEvent)
+            .findOneBy({ supersedesId, userId });
+          if (correction)
+            throw new ConflictException(
+              'Investment event has already been corrected',
+            );
+        }
         const event = manager.getRepository(InvestmentEvent).create({
           userId,
           stockId: stock.id,
           requestId,
           type,
           occurredOn,
+          supersedesId: supersedesId ?? null,
           details,
         });
         await manager.getRepository(InvestmentEvent).save(event);
@@ -216,6 +274,15 @@ export class InvestmentService {
           input,
           existing,
         );
+      if (
+        input.supersedesId &&
+        (await this.dataSource
+          .getRepository(InvestmentEvent)
+          .findOneBy({ supersedesId: input.supersedesId, userId }))
+      )
+        throw new ConflictException(
+          'Investment event has already been corrected',
+        );
       throw error;
     }
   }
@@ -230,13 +297,20 @@ export class InvestmentService {
     const stock = await manager
       .getRepository(InvestmentStock)
       .findOneBy({ id: event.stockId, userId });
-    const { requestId: _requestId, type, occurredOn, ...details } = input;
+    const {
+      requestId: _requestId,
+      type,
+      occurredOn,
+      supersedesId,
+      ...details
+    } = input;
     void _requestId;
     if (
       !stock ||
       stock.symbol !== symbol ||
       event.type !== type ||
       event.occurredOn !== occurredOn ||
+      event.supersedesId !== (supersedesId ?? null) ||
       JSON.stringify(event.details) !== JSON.stringify(details)
     ) {
       throw new ConflictException(

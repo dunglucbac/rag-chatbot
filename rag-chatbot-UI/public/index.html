@@ -316,10 +316,77 @@
       <p class="form-note">
         Record your own positions and decisions. No brokerage orders are placed.
       </p>
+      <div id="finhay-connection" aria-live="polite">
+        <p id="finhay-status" class="form-note">Checking Finhay connection…</p>
+        <button id="connect-finhay" class="outline-button" type="button">
+          Connect Finhay
+        </button>
+        <button id="disconnect-finhay" class="text-button" type="button" hidden>
+          Disconnect
+        </button>
+      </div>
+      <p id="investment-budget" class="form-note" aria-live="polite"></p>
       <div id="investment-list" class="drawer-results" aria-live="polite"></div>
       <div id="investment-detail" aria-live="polite"></div>
+      <section
+        id="investment-documents"
+        hidden
+        aria-labelledby="investment-documents-title"
+      >
+        <h3 id="investment-documents-title">Company reports</h3>
+        <p class="form-note">
+          Upload a PDF in chat first. Indexing and searching use your AI budget.
+          A failed retry may incur another charge.
+        </p>
+        <div id="investment-document-list" aria-live="polite"></div>
+        <form id="investment-document-form">
+          <label
+            >Completed PDF upload<select name="ingestionJobId" required></select
+          ></label>
+          <button
+            id="more-investment-uploads"
+            class="text-button"
+            type="button"
+            hidden
+          >
+            Load older uploads
+          </button>
+          <label
+            >Report title<input name="title" maxlength="200" required
+          /></label>
+          <label
+            >Publication date<input name="publicationDate" type="date" required
+          /></label>
+          <label
+            ><input name="retryFailed" type="checkbox" /> Retry a previously
+            failed index</label
+          >
+          <button class="outline-button" type="submit">Index report</button>
+          <p id="investment-document-error" class="form-error" role="alert"></p>
+        </form>
+        <form id="investment-document-search">
+          <label
+            >Search report passages<input
+              name="query"
+              maxlength="2000"
+              required
+              placeholder="Credit risk, profitability…"
+          /></label>
+          <button class="outline-button" type="submit">Search reports</button>
+        </form>
+        <div id="investment-document-results" aria-live="polite"></div>
+      </section>
       <form id="investment-form" class="editor-form">
         <h3>Record an update</h3>
+        <p id="investment-mode" class="form-note" hidden></p>
+        <button
+          id="cancel-investment-correction"
+          class="text-button"
+          type="button"
+          hidden
+        >
+          Cancel correction
+        </button>
         <label
           >Stock symbol<input
             name="symbol"

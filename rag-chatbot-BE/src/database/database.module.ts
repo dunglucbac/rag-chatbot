@@ -9,6 +9,10 @@ import { ChatSession } from '@modules/chat/entities/chat-session.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
 import { InvestmentStock } from '../investment/entities/investment-stock.entity';
 import { InvestmentEvent } from '../investment/entities/investment-event.entity';
+import { FinhayConnection } from '../investment/entities/finhay-connection.entity';
+import { InvestmentBudget } from '../investment/entities/investment-budget.entity';
+import { InvestmentReservation } from '../investment/entities/investment-reservation.entity';
+import { InvestmentDocument } from '../investment/entities/investment-document.entity';
 
 @Module({
   imports: [
@@ -33,6 +37,10 @@ import { InvestmentEvent } from '../investment/entities/investment-event.entity'
             ChatMessage,
             InvestmentStock,
             InvestmentEvent,
+            FinhayConnection,
+            InvestmentBudget,
+            InvestmentReservation,
+            InvestmentDocument,
           ],
           synchronize: false,
           logging: false,

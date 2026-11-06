@@ -8,6 +8,10 @@ import { ChatSession } from '../chat/entities/chat-session.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
 import { InvestmentStock } from '../investment/entities/investment-stock.entity';
 import { InvestmentEvent } from '../investment/entities/investment-event.entity';
+import { FinhayConnection } from '../investment/entities/finhay-connection.entity';
+import { InvestmentBudget } from '../investment/entities/investment-budget.entity';
+import { InvestmentReservation } from '../investment/entities/investment-reservation.entity';
+import { InvestmentDocument } from '../investment/entities/investment-document.entity';
 import { resolve } from 'path';
 
 config({ path: resolve(__dirname, '../../../.env') });
@@ -28,6 +32,10 @@ export const AppDataSource = new DataSource({
     ChatMessage,
     InvestmentStock,
     InvestmentEvent,
+    FinhayConnection,
+    InvestmentBudget,
+    InvestmentReservation,
+    InvestmentDocument,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

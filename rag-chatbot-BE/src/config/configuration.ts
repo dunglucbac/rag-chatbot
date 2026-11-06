@@ -36,6 +36,11 @@ export default () => ({
     openaiApiKey: process.env.OPENAI_API_KEY,
     embeddingProvider: process.env.EMBEDDING_PROVIDER ?? 'openai',
   },
+  investment: { embeddingRate: process.env.INVESTMENT_EMBEDDING_RATE_MICROS_PER_MILLION },
+  finhay: {
+    encryptionKey: process.env.FINHAY_OAUTH_ENCRYPTION_KEY,
+    redirectUri: process.env.FINHAY_OAUTH_REDIRECT_URI,
+  },
   langfuse: {
     tracingEnabled: process.env.LANGFUSE_TRACING_ENABLED === 'true',
     publicKey: process.env.LANGFUSE_PUBLIC_KEY,
