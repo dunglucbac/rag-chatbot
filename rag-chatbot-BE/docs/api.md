@@ -25,6 +25,52 @@ Authorization: Bearer <access-token>
 
 ---
 
+## Investment journal
+
+These endpoints use the same Bearer session as chat. Investment data is scoped
+to the authenticated user and does not affect receipt spending summaries.
+Apply the TypeORM migrations before using them.
+
+- `GET /investments/stocks` lists the user's tracked symbols.
+- `GET /investments/stocks/:symbol` returns the symbol and its dated events.
+- `POST /investments/stocks/:symbol/events` records an event, creating the
+  tracked symbol if needed.
+
+Example recorded purchase (VND amounts are decimal strings):
+
+```json
+{
+  "requestId": "4e15685b-de2e-41e5-ab98-6091c8512a40",
+  "type": "buy",
+  "occurredOn": "2026-11-06",
+  "shares": 500,
+  "priceVnd": "54000",
+  "feesVnd": "10000",
+  "note": "Reported purchase"
+}
+```
+
+`requestId` is a client-generated UUID that must be unique per user. Retrying
+the same event with the same ID returns `deduplicated: true`; reusing that ID
+for different data or another symbol returns 409. The server never places a
+brokerage order.
+
+All events require `requestId`, `type`, and a calendar date `occurredOn` in
+`YYYY-MM-DD` format; `note` is optional. Supported event-specific fields are:
+
+- `interest`: `level` is `low`, `medium`, or `high`.
+- `decision`: `decision` is `buy`, `hold`, `reduce`, `avoid`, or `wait`.
+- `buy` / `sell`: positive integer `shares`, positive decimal-string
+  `priceVnd`, and optional nonnegative decimal-string `feesVnd`.
+- `position`: nonnegative integer `shares` and optional positive decimal-string
+  `averageCostVnd`, for a reported position without inventing earlier trades.
+
+The API currently records and retrieves history only. It does not yet calculate
+holdings, cost basis, or profit/loss; connect chat or the Investments UI; or run
+stock research. Trade records are user reports, not broker-verified transactions.
+
+---
+
 ## Ingestion
 
 Files use a three-request, direct-to-object-storage flow. The API never proxies

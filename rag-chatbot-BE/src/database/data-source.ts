@@ -6,6 +6,8 @@ import { Receipt } from '../receipt/entities/receipt.entity';
 import { ReceiptItem } from '../receipt/entities/receipt-item.entity';
 import { ChatSession } from '../chat/entities/chat-session.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
+import { InvestmentStock } from '../investment/entities/investment-stock.entity';
+import { InvestmentEvent } from '../investment/entities/investment-event.entity';
 import { resolve } from 'path';
 
 config({ path: resolve(__dirname, '../../../.env') });
@@ -24,6 +26,8 @@ export const AppDataSource = new DataSource({
     ReceiptItem,
     ChatSession,
     ChatMessage,
+    InvestmentStock,
+    InvestmentEvent,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

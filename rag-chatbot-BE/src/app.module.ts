@@ -14,6 +14,7 @@ import { ScraperModule } from './scraper/scraper.module';
 import { ReceiptModule } from './receipt/receipt.module';
 import { ChatModule } from './chat/chat.module';
 import { AuthModule } from './auth/auth.module';
+import { InvestmentModule } from './investment/investment.module';
 import { ResponseInterceptor } from './common/response.interceptor';
 import { GlobalExceptionFilter } from './common/exception.filter';
 import { AppController } from './app.controller';
@@ -39,6 +40,7 @@ import { resolve } from 'path';
     ReceiptModule,
     ChatModule,
     AuthModule,
+    InvestmentModule,
   ],
   controllers: [AppController],
   providers: [
