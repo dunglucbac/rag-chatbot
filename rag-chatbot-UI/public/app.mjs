@@ -5,6 +5,7 @@ import {
   receiptInput,
   renderReply,
 } from './ui-model.mjs';
+import { formatInvestmentVnd, investmentInput } from './investment-model.mjs';
 
 const $ = (id) => document.getElementById(id);
 const icons = {
@@ -75,6 +76,8 @@ let createPromise,
   editorGeneration = 0,
   toastTimer,
   polling = false;
+let investmentGeneration = 0;
+let investmentPending = null;
 
 function notify(message) {
   clearTimeout(toastTimer);
@@ -96,6 +99,8 @@ function signedOut(message = '') {
   viewGeneration++;
   resultsGeneration++;
   editorGeneration++;
+  investmentGeneration++;
+  investmentPending = null;
   Object.assign(state, {
     user: null,
     current: null,
@@ -118,6 +123,9 @@ function signedOut(message = '') {
   $('editor-content').replaceChildren();
   $('drawer').close();
   $('editor').close();
+  $('investments').close();
+  $('investment-list').replaceChildren();
+  $('investment-detail').replaceChildren();
   $('login-error').textContent = message;
 }
 async function api(path, options = {}) {
@@ -133,9 +141,7 @@ async function api(path, options = {}) {
   });
   if (token !== state.token) throw new Error('The signed-in account changed.');
   if (response.status === 401) {
-    signedOut(
-      'Your session has expired. Sign in with Google again.',
-    );
+    signedOut('Your session has expired. Sign in with Google again.');
     throw new Error('Please sign in again.');
   }
   if (response.status === 204) return null;
@@ -1027,6 +1033,219 @@ async function poll() {
     polling = false;
   }
 }
+
+const investmentWarnings = {
+  future_event_excluded:
+    'Future-dated entries are excluded from the current position.',
+  same_day_order_assumed:
+    'Multiple position entries share a date; their order is estimated from when they were saved.',
+  purchase_fees_not_provided: 'Purchase fees were not provided for every buy.',
+  invalid_event:
+    'A saved entry needs review before holdings can be calculated.',
+  unmatched_sale:
+    'A sale exceeds known holdings. Add a current position to reconcile.',
+  cost_basis_unknown: 'Average cost is unknown for part of this position.',
+};
+function vietnamToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+function updateInvestmentFields() {
+  const type = $('investment-form').elements.namedItem('type').value;
+  document.querySelectorAll('[data-investment-types]').forEach((label) => {
+    const visible = label.dataset.investmentTypes.split(' ').includes(type);
+    label.hidden = !visible;
+    const input = label.querySelector('input,select');
+    input.disabled = !visible;
+    input.required =
+      visible && (input.name === 'shares' || input.name === 'priceVnd');
+  });
+}
+function positionText(position) {
+  if (position.shares === null) return 'Shares unknown';
+  const shares = position.shares.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${shares} shares · Avg cost ${formatInvestmentVnd(position.averageCostVnd)}`;
+}
+async function loadInvestments() {
+  const generation = ++investmentGeneration;
+  $('investment-list').replaceChildren(
+    el('p', 'form-note', 'Loading investments…'),
+  );
+  try {
+    const stocks = await api('/investments/stocks');
+    if (generation !== investmentGeneration || !$('investments').open) return;
+    const content = $('investment-list');
+    content.replaceChildren();
+    if (!stocks.length)
+      content.append(
+        el(
+          'p',
+          'form-note',
+          'No stocks yet. Record an interest, decision, trade, or position below.',
+        ),
+      );
+    for (const stock of stocks) {
+      const row = button('', 'receipt-row', () => showInvestment(stock.symbol));
+      const info = el('div', 'receipt-summary');
+      info.append(
+        el('strong', '', stock.symbol),
+        el('small', '', positionText(stock.position)),
+      );
+      const tags = [
+        stock.interest?.level ? `Interest: ${stock.interest.level}` : '',
+        stock.decision?.decision ? `Decision: ${stock.decision.decision}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      if (tags) info.append(el('small', '', tags));
+      row.append(info, el('span', 'amount', 'View →'));
+      content.append(row);
+    }
+  } catch (error) {
+    if (generation === investmentGeneration && $('investments').open)
+      $('investment-list').replaceChildren(
+        el('p', 'form-error', error.message),
+      );
+  }
+}
+async function showInvestment(symbol) {
+  const generation = ++investmentGeneration;
+  $('investment-detail').replaceChildren(
+    el('p', 'form-note', 'Loading stock history…'),
+  );
+  try {
+    const stock = await api(
+      `/investments/stocks/${encodeURIComponent(symbol)}`,
+    );
+    if (generation !== investmentGeneration || !$('investments').open) return;
+    $('investment-form').elements.namedItem('symbol').value = stock.symbol;
+    const detail = $('investment-detail');
+    const position = stock.position;
+    detail.replaceChildren(
+      el('h3', '', stock.symbol),
+      el('p', 'form-note', positionText(position)),
+      el(
+        'p',
+        'form-note',
+        `Invested amount: ${formatInvestmentVnd(position.investedVnd)} · Position as of ${position.asOf}`,
+      ),
+    );
+    for (const warning of position.warnings)
+      detail.append(
+        el('p', 'form-error', investmentWarnings[warning] ?? warning),
+      );
+    detail.append(el('h3', '', 'History'));
+    for (const event of stock.events) {
+      const facts = [event.occurredOn, event.type];
+      if (event.level) facts.push(event.level);
+      if (event.decision) facts.push(event.decision);
+      if (event.shares !== undefined) facts.push(`${event.shares} shares`);
+      if (event.priceVnd)
+        facts.push(`price ${formatInvestmentVnd(event.priceVnd)}`);
+      if (event.averageCostVnd)
+        facts.push(`avg cost ${formatInvestmentVnd(event.averageCostVnd)}`);
+      if (event.feesVnd)
+        facts.push(`fees ${formatInvestmentVnd(event.feesVnd)}`);
+      const item = el('div', 'investment-history-item');
+      item.append(el('span', '', facts.join(' · ')));
+      if (event.note) item.append(el('small', '', event.note));
+      detail.append(item);
+    }
+  } catch (error) {
+    if (generation === investmentGeneration && $('investments').open)
+      $('investment-detail').replaceChildren(
+        el('p', 'form-error', error.message),
+      );
+  }
+}
+function showInvestments() {
+  menu(false);
+  $('investment-detail').replaceChildren();
+  $('investment-error').textContent = '';
+  if (!$('investment-form').elements.namedItem('occurredOn').value)
+    $('investment-form').elements.namedItem('occurredOn').value =
+      vietnamToday();
+  updateInvestmentFields();
+  if (!$('investments').open) $('investments').showModal();
+  loadInvestments();
+}
+async function saveInvestment(event) {
+  event.preventDefault();
+  const form = $('investment-form');
+  const read = (name) => form.elements.namedItem(name).value;
+  const fields = Object.fromEntries(
+    [
+      'symbol',
+      'type',
+      'occurredOn',
+      'level',
+      'decision',
+      'shares',
+      'priceVnd',
+      'feesVnd',
+      'averageCostVnd',
+      'note',
+    ].map((name) => [name, read(name)]),
+  );
+  $('investment-error').textContent = '';
+  let data;
+  try {
+    data = investmentInput(fields, '');
+  } catch (error) {
+    $('investment-error').textContent = error.message;
+    return;
+  }
+  const signature = JSON.stringify(data);
+  if (investmentPending?.signature !== signature)
+    investmentPending = { signature, id: crypto.randomUUID() };
+  data.input.requestId = investmentPending.id;
+  const controls = [...form.querySelectorAll('input,select,textarea,button')];
+  controls.forEach((control) => {
+    control.disabled = true;
+  });
+  try {
+    const result = await post(
+      `/investments/stocks/${encodeURIComponent(data.symbol)}/events`,
+      data.input,
+    );
+    investmentPending = null;
+    if (!$('investments').open) return;
+    form.reset();
+    form.elements.namedItem('symbol').value = data.symbol;
+    form.elements.namedItem('occurredOn').value = vietnamToday();
+    notify(
+      result.deduplicated
+        ? 'Update was already saved.'
+        : 'Investment update saved.',
+    );
+    await loadInvestments();
+    await showInvestment(data.symbol);
+  } catch (error) {
+    if ($('investments').open)
+      $('investment-error').textContent = error.message;
+  } finally {
+    controls.forEach((control) => {
+      control.disabled = false;
+    });
+    updateInvestmentFields();
+  }
+}
+$('sidebar-investments').addEventListener('click', showInvestments);
+$('close-investments').addEventListener('click', () => {
+  investmentGeneration++;
+  $('investments').close();
+});
+$('investments').addEventListener('cancel', () => {
+  investmentGeneration++;
+});
+$('investment-form')
+  .elements.namedItem('type')
+  .addEventListener('change', updateInvestmentFields);
+$('investment-form').addEventListener('submit', saveInvestment);
 
 $('new-chat').addEventListener('click', newChat);
 $('menu').addEventListener('click', () => menu(true));

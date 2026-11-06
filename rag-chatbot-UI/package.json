@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node scripts/serve.mjs",
     "dev": "node --watch scripts/serve.mjs",
-    "test": "node --test test/ui-model.test.mjs",
+    "test": "node --test test/*.test.mjs",
     "simulate": "postman simulation run postman/simulations/spending-ui.sim.yaml --port 4010 --no-history"
   }
 }

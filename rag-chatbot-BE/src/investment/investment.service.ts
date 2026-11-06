@@ -8,6 +8,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { z } from 'zod';
 import { InvestmentEvent } from './entities/investment-event.entity';
 import { InvestmentStock } from './entities/investment-stock.entity';
+import { calculatePosition } from './position';
 
 const date = z
   .string()
@@ -95,6 +96,29 @@ function eventResult(event: InvestmentEvent) {
   };
 }
 
+function todayInVietnam(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function summarize(events: InvestmentEvent[], asOf: string) {
+  const latest = (type: string) =>
+    [...events]
+      .reverse()
+      .find((event) => event.type === type && event.occurredOn <= asOf);
+  const interest = latest('interest');
+  const decision = latest('decision');
+  return {
+    position: calculatePosition(events, asOf),
+    interest: interest ? eventResult(interest) : null,
+    decision: decision ? eventResult(decision) : null,
+  };
+}
+
 @Injectable()
 export class InvestmentService {
   constructor(private readonly dataSource: DataSource) {}
@@ -104,10 +128,22 @@ export class InvestmentService {
       where: { userId },
       order: { symbol: 'ASC' },
     });
+    const events = await this.dataSource.getRepository(InvestmentEvent).find({
+      where: { userId },
+      order: { occurredOn: 'ASC', createdAt: 'ASC', id: 'ASC' },
+    });
+    const groups = new Map<string, InvestmentEvent[]>();
+    for (const event of events) {
+      const group = groups.get(event.stockId) ?? [];
+      group.push(event);
+      groups.set(event.stockId, group);
+    }
+    const asOf = todayInVietnam();
     return stocks.map(({ id, symbol, createdAt }) => ({
       id,
       symbol,
       createdAt,
+      ...summarize(groups.get(id) ?? [], asOf),
     }));
   }
 
@@ -119,9 +155,14 @@ export class InvestmentService {
     if (!stock) throw new NotFoundException('Stock not found');
     const events = await this.dataSource.getRepository(InvestmentEvent).find({
       where: { userId, stockId: stock.id },
-      order: { occurredOn: 'DESC', createdAt: 'DESC', id: 'DESC' },
+      order: { occurredOn: 'ASC', createdAt: 'ASC', id: 'ASC' },
     });
-    return { id: stock.id, symbol, events: events.map(eventResult) };
+    return {
+      id: stock.id,
+      symbol,
+      ...summarize(events, todayInVietnam()),
+      events: [...events].reverse().map(eventResult),
+    };
   }
 
   async record(userId: string, value: string, raw: unknown) {

@@ -3,11 +3,12 @@
 Status: agreed product scope from the grill-me interview; implementation started.
 Updated: 2026-11-06, Asia/Ho_Chi_Minh.
 
-The first backend slice adds an authenticated investment event journal and
-migration. It records and retrieves user-owned stock interest, decisions,
-reported trades, and position snapshots with request deduplication. Holdings
-calculation, chat/UI integration, research jobs, provider access, and budget
-enforcement remain unimplemented.
+The first vertical slice adds an authenticated investment journal and UI. It
+records and retrieves user-owned interest, decisions, reported trades, and
+position snapshots, and derives holdings and average cost with missing-data
+warnings. Its PostgreSQL migration and concurrent duplicate requests were tested
+against an isolated database. Journal editing, chat integration, market valuation,
+research jobs, provider access, and budget enforcement remain unimplemented.
 
 ## Objective
 
@@ -155,6 +156,12 @@ An authenticated Finhay connection available in this coding conversation is not
 an application connection. Verify app-owned authorization, read-only market
 scope, token refresh, and reconnect behavior before relying on it in deployment.
 Keep tokens out of prompts, report evidence, queues, and traces.
+
+On 2026-11-06, Finhay's public OAuth discovery metadata advertised authorization
+code with PKCE S256, dynamic client registration, refresh tokens, and the
+`read:market` and `read:account` scopes. The public resource metadata advertises
+Bearer headers. Discovery does not establish that application registration,
+callback, refresh, revocation, or token storage works; those remain to be tested.
 
 Fetch and normalize required market facts deterministically and cache them by
 their source and date. An implementation may expose bounded tools for additional

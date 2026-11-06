@@ -53,6 +53,12 @@ describe('InvestmentService', () => {
       'buy',
     ]);
     expect(alice.events[1]).toMatchObject({ shares: 500, priceVnd: '54000' });
+    expect(alice.position).toMatchObject({
+      shares: '500',
+      averageCostVnd: '54000.0000',
+      investedVnd: '27000000.0000',
+    });
+    expect(alice.position.warnings).toContain('purchase_fees_not_provided');
     expect((await service.get('bob', 'VCB')).events).toHaveLength(1);
     expect(await service.list('alice')).toHaveLength(1);
     await expect(service.get('charlie', 'VCB')).rejects.toBeInstanceOf(

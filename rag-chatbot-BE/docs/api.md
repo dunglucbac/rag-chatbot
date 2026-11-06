@@ -65,9 +65,19 @@ All events require `requestId`, `type`, and a calendar date `occurredOn` in
 - `position`: nonnegative integer `shares` and optional positive decimal-string
   `averageCostVnd`, for a reported position without inventing earlier trades.
 
-The API currently records and retrieves history only. It does not yet calculate
-holdings, cost basis, or profit/loss; connect chat or the Investments UI; or run
-stock research. Trade records are user reports, not broker-verified transactions.
+Stock list and detail responses include the current interest, latest decision,
+and derived position as of the current Vietnam date. Position amounts are decimal
+strings. Average acquisition cost uses reported buy prices and buy fees; a sell
+reduces the remaining cost proportionally. A position snapshot replaces prior
+holdings and cost. Unknown opening cost stays unknown, and an unmatched sale
+makes holdings unknown until a later snapshot reconciles it. Warnings identify
+missing purchase fees, ambiguous same-day ordering, invalid or future events,
+and unknown cost basis.
+
+The Investments UI can record and inspect these entries. It does not yet edit or
+delete previous entries, update the journal through chat, fetch market prices,
+calculate market value/profit or loss, or run stock research. Trade records are
+user reports, not broker-verified transactions.
 
 ---
 

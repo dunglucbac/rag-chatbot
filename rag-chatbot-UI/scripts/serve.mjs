@@ -9,6 +9,7 @@ const files = new Map([
   ['/styles.css', ['styles.css', 'text/css']],
   ['/app.mjs', ['app.mjs', 'text/javascript']],
   ['/ui-model.mjs', ['ui-model.mjs', 'text/javascript']],
+  ['/investment-model.mjs', ['investment-model.mjs', 'text/javascript']],
   ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
 ]);
 const server = http.createServer(async (request, response) => {

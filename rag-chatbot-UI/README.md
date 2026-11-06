@@ -22,6 +22,15 @@ messages. Receipt records and ingestion jobs remain independent of chat retentio
 Existing model checkpoints are retained, but older conversations have no UI
 transcript until new messages are sent through the changed API.
 
+The Investments sidebar opens a personal stock journal. You can record interest,
+decisions, user-reported buys and sells, or a current position. A stock's detail
+view shows its history, current shares, average cost, invested amount, and any
+warnings about incomplete data. Existing entries are not yet editable; a current
+position snapshot can reconcile holdings when earlier history is incomplete.
+Market prices, investment chat, and TradingAgents research are not yet connected.
+See [the investment journal API](../rag-chatbot-BE/docs/api.md#investment-journal)
+for validation and request-id behavior.
+
 ## Additional API contracts
 
 All routes use the existing Bearer guard and `{status, message, data}` envelope.
