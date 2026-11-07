@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InvestmentService } from '../investment.service';
-import { MarketDataProvider } from '../market-data/market-data.provider';
+import { MarketDataProvider } from './market-data.provider';
 
 function units(value: string): bigint | null {
   if (!/^\d+(?:\.\d{1,4})?$/.test(value)) return null;

@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { InvestmentController } from './investment.controller';
 import { InvestmentService } from './investment.service';
-import { FinhayController } from './finhay/finhay.controller';
+import { MarketDataController } from './market-data/market-data.controller';
 import { FinhayService } from './finhay/finhay.service';
 import { MarketDataProvider } from './market-data/market-data.provider';
-import { ValuationService } from './finhay/valuation.service';
+import { ValuationService } from './market-data/valuation.service';
 import { BudgetService } from './budget/budget.service';
 import { BudgetedModelService } from './budget/budgeted-model.service';
 import { LlmModule } from '../llm/llm.module';
@@ -20,7 +20,7 @@ import { VectorStoreModule } from '../vector-store/vector-store.module';
   imports: [AuthModule, ObjectStorageModule, VectorStoreModule, LlmModule],
   controllers: [
     InvestmentController,
-    FinhayController,
+    MarketDataController,
     BudgetController,
     InvestmentDocumentController,
   ],

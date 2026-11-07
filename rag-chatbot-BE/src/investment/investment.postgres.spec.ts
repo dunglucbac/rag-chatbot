@@ -15,7 +15,6 @@ import { InvestmentDocument } from './entities/investment-document.entity';
 import { InvestmentBudget } from './entities/investment-budget.entity';
 import { InvestmentReservation } from './entities/investment-reservation.entity';
 import { BudgetService } from './budget/budget.service';
-import { FinhayConnection } from './entities/finhay-connection.entity';
 import { InvestmentEvent } from './entities/investment-event.entity';
 import { InvestmentStock } from './entities/investment-stock.entity';
 import { InvestmentService } from './investment.service';
@@ -59,7 +58,6 @@ postgres('investment PostgreSQL migration and concurrency', () => {
       entities: [
         InvestmentStock,
         InvestmentEvent,
-        FinhayConnection,
         InvestmentBudget,
         InvestmentReservation,
         InvestmentDocument,

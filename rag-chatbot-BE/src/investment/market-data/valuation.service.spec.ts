@@ -1,5 +1,5 @@
 import { InvestmentService } from '../investment.service';
-import { MarketDataProvider } from '../market-data/market-data.provider';
+import { MarketDataProvider } from './market-data.provider';
 import { ValuationService } from './valuation.service';
 
 describe('valuation', () => {

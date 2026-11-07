@@ -2,12 +2,12 @@ import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { GoogleAuthGuard } from '../../auth/google-auth.guard';
 import type { AuthenticatedUser } from '../../auth/auth.types';
-import { MarketDataProvider } from '../market-data/market-data.provider';
+import { MarketDataProvider } from './market-data.provider';
 import { ValuationService } from './valuation.service';
 
 @Controller(['investments/market-data', 'investments/finhay'])
 @UseGuards(GoogleAuthGuard)
-export class FinhayController {
+export class MarketDataController {
   constructor(
     private readonly marketData: MarketDataProvider,
     private readonly valuations: ValuationService,

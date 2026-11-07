@@ -3,8 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { Server } from 'http';
 import { GoogleAuthGuard } from '../../auth/google-auth.guard';
-import { MarketDataProvider } from '../market-data/market-data.provider';
-import { FinhayController } from './finhay.controller';
+import { MarketDataProvider } from './market-data.provider';
+import { MarketDataController } from './market-data.controller';
 import { ValuationService } from './valuation.service';
 
 describe('market data strategy routes', () => {
@@ -16,7 +16,7 @@ describe('market data strategy routes', () => {
   };
   beforeAll(async () => {
     const module = await Test.createTestingModule({
-      controllers: [FinhayController],
+      controllers: [MarketDataController],
       providers: [
         { provide: MarketDataProvider, useValue: provider },
         { provide: ValuationService, useValue: {} },
