@@ -27,8 +27,8 @@ decisions, user-reported buys and sells, or a current position. A stock's detail
 view shows its history, current shares, average cost, invested amount, and any
 warnings about incomplete data. Correcting an entry retains the original in
 history; a current position snapshot can reconcile incomplete history.
-When Finhay OAuth is configured, connect it in the Investments view to see a
-timestamped quote, market value and estimated unrealized profit/loss. Investment
+When the server has a Finhay API key configured, the Investments view shows a
+market quote, its timestamp when available, market value and estimated unrealized profit/loss. Investment
 chat and TradingAgents research are not yet connected. The stock detail view can
 index a completed PDF upload and search cited passages after configuring the
 investment embedding rate. Image-only scanned PDFs are not yet supported.

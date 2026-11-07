@@ -42,8 +42,7 @@ export default () => ({
     outputRate: process.env.INVESTMENT_OUTPUT_RATE_MICROS_PER_MILLION,
   },
   finhay: {
-    encryptionKey: process.env.FINHAY_OAUTH_ENCRYPTION_KEY,
-    redirectUri: process.env.FINHAY_OAUTH_REDIRECT_URI,
+    apiKey: process.env.FINHAY_API_KEY,
   },
   langfuse: {
     tracingEnabled: process.env.LANGFUSE_TRACING_ENABLED === 'true',

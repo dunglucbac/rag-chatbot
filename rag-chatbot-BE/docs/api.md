@@ -83,35 +83,28 @@ The Investments UI can record and correct these entries. It does not yet delete
 previous entries, update the journal through chat, or run stock research. Trade
 records are user reports, not broker-verified transactions.
 
-### Finhay market connection
+### Market data
 
-Set `FINHAY_OAUTH_ENCRYPTION_KEY` to an independently generated 32-byte base64
-key (`openssl rand -base64 32`) and `FINHAY_OAUTH_REDIRECT_URI` to the app's
-public origin followed by `/investments/finhay/callback`. HTTPS is required
-except for localhost development. Keep the key stable and outside the database;
-losing or changing it makes stored connections unreadable. Run migrations before
-connecting.
+Set `FINHAY_API_KEY` on the backend to an API key created in the Finhay API
+management portal. The key is sent only to Finhay as `X-FH-APIKEY`; users do
+not need to connect individual Finhay accounts. The market-data strategy is
+bound in `InvestmentModule`, so another provider can implement
+`MarketDataProvider`. See [Finhay's quickstart](https://developers.fhsc.com.vn/quickstart).
 
-- `GET /investments/finhay/status` returns `{connected}` for the signed-in user.
-- `POST /investments/finhay/connect` returns an authorization URL. Open it in the
-  same browser and approve `read:market` on Finhay. The callback uses a one-time,
-  time-limited state and PKCE and returns to the app without exposing tokens.
-- `GET /investments/finhay/quote/:symbol` returns a validated Finhay quote and
-  timestamp. `GET /investments/finhay/valuation/:symbol` also calculates market
-  value and unrealized profit/loss for the owner's recorded position. Missing
-  cost or quantity remains unknown, and `quoteStale` flags old quotes.
-- `GET /investments/finhay/research-snapshot/:symbol` returns the quote, company
-  overview, up to five quarterly periods of each financial statement, one year
-  of daily history, and up to ten news items. Individual unavailable or invalid
-  components are listed in `unavailable`. Values are provider data, and units,
-  source timestamps, financial periods, and adjustment semantics need review.
-- `DELETE /investments/finhay/connection` removes local credentials and reports
-  whether remote token revocation succeeded.
+- `GET /investments/market-data/status` reports whether a key is configured; it does
+  not verify the key with Finhay.
+- `GET /investments/market-data/quote/:symbol` returns a validated market quote.
+- `GET /investments/market-data/valuation/:symbol` combines that quote with the
+  authenticated user's recorded position. An unknown timestamp is marked stale.
+- `GET /investments/market-data/research-snapshot/:symbol` returns bounded market
+  evidence and lists unavailable components. Financial statement arrays are
+  wrapped in `items` for the research worker.
 
-Tokens are encrypted per user in PostgreSQL. This app requests no account or
-trading scope. A stored coding-agent MCP connection is not reused. The OAuth
-registration start was verified with Finhay; completing sign-in and checking a
-live account quote require a real app session.
+The old `/investments/finhay/*` read paths remain aliases. A `429` pauses
+further provider requests until Finhay’s reset time. These endpoints remain
+authenticated. Previous OAuth credentials in the
+`finhay_connections` table are not used or deleted by this change. Live API
+keys and provider contracts must be verified in the deployment environment.
 
 `GET /investments/budget` returns the current Vietnam calendar month, the US$10
 limit, spent, reserved, and remaining amounts as integer USD micro-units. The

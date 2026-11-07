@@ -1,5 +1,5 @@
 import { InvestmentService } from '../investment.service';
-import { FinhayService } from './finhay.service';
+import { MarketDataProvider } from '../market-data/market-data.provider';
 import { ValuationService } from './valuation.service';
 
 describe('valuation', () => {
@@ -19,7 +19,7 @@ describe('valuation', () => {
         priceVnd: 54000.25,
         updatedAt: new Date().toISOString(),
       }),
-    } as unknown as FinhayService;
+    } as unknown as MarketDataProvider;
     const service = new ValuationService(investments, finhay);
     expect(await service.get('alice', 'VCB')).toMatchObject({
       marketValueVnd: '27000125.0000',
@@ -38,5 +38,30 @@ describe('valuation', () => {
       marketValueVnd: '27000125.0000',
       unrealizedProfitVnd: null,
     });
+  });
+  it('works with another market-data strategy and flags a missing timestamp', async () => {
+    const investments = {
+      get: jest
+        .fn()
+        .mockResolvedValue({
+          symbol: 'VCB',
+          position: { shares: '2', investedVnd: '100.0000', warnings: [] },
+        }),
+    } as unknown as InvestmentService;
+    const provider = {
+      quote: jest
+        .fn()
+        .mockResolvedValue({ source: 'Other', priceVnd: 60, updatedAt: null }),
+    } as unknown as MarketDataProvider;
+    const result = await new ValuationService(investments, provider).get(
+      'alice',
+      'VCB',
+    );
+    expect(result).toMatchObject({
+      quote: { source: 'Other' },
+      marketValueVnd: '120.0000',
+      quoteStale: true,
+    });
+    expect(provider.quote).toHaveBeenCalledWith('VCB');
   });
 });

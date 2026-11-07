@@ -4,6 +4,7 @@ import { InvestmentController } from './investment.controller';
 import { InvestmentService } from './investment.service';
 import { FinhayController } from './finhay/finhay.controller';
 import { FinhayService } from './finhay/finhay.service';
+import { MarketDataProvider } from './market-data/market-data.provider';
 import { ValuationService } from './finhay/valuation.service';
 import { BudgetService } from './budget/budget.service';
 import { BudgetedModelService } from './budget/budgeted-model.service';
@@ -26,6 +27,7 @@ import { VectorStoreModule } from '../vector-store/vector-store.module';
   providers: [
     InvestmentService,
     FinhayService,
+    { provide: MarketDataProvider, useExisting: FinhayService },
     ValuationService,
     BudgetService,
     BudgetedModelService,

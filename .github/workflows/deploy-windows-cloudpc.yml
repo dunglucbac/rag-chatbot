@@ -104,8 +104,7 @@ jobs:
           AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
           AUTH_JWT_EXPIRES_IN_SECONDS: ${{ vars.AUTH_JWT_EXPIRES_IN_SECONDS }}
           RECEIPT_CURSOR_HMAC_SECRET: ${{ secrets.RECEIPT_CURSOR_HMAC_SECRET }}
-          FINHAY_OAUTH_ENCRYPTION_KEY: ${{ secrets.FINHAY_OAUTH_ENCRYPTION_KEY }}
-          FINHAY_OAUTH_REDIRECT_URI: ${{ vars.FINHAY_OAUTH_REDIRECT_URI }}
+          FINHAY_API_KEY: ${{ secrets.FINHAY_API_KEY }}
           PORT: ${{ vars.PORT }}
         run: |
           $ErrorActionPreference = 'Stop'

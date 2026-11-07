@@ -1,296 +1,155 @@
 import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
-import { FinhayConnection } from '../entities/finhay-connection.entity';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { FinhayService } from './finhay.service';
-import { seal, unseal } from './finhay-oauth';
 
-const key = Buffer.alloc(32, 7);
-const redirectUri = 'http://localhost:3000/investments/finhay/callback';
-const metadata = {
-  issuer: 'https://mcp.fhsc.com.vn',
-  authorization_endpoint:
-    'https://open-api.fhsc.com.vn/auth/v1/oa/oauth/authorize',
-  token_endpoint: 'https://open-api.fhsc.com.vn/auth/v1/oa/oauth/token',
-  registration_endpoint:
-    'https://open-api.fhsc.com.vn/auth/v1/oa/oauth/register',
-  response_types_supported: ['code'],
-  grant_types_supported: ['authorization_code', 'refresh_token'],
-  token_endpoint_auth_methods_supported: ['none'],
-  code_challenge_methods_supported: ['S256'],
+const success = (data: unknown) =>
+  new Response(JSON.stringify({ error_code: '0', message: 'success', data }), {
+    status: 200,
+  });
+const quote = {
+  symbol: 'VCB',
+  currency: 'VND',
+  price: 54000,
+  updated_at: '2026-11-06T09:00:00+07:00',
 };
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
 
-describe('Finhay application connection', () => {
-  let db: DataSource;
+describe('Finhay REST market-data strategy', () => {
   let service: FinhayService;
-  let tokenCalls: number;
-  let failQuote: boolean;
-  let unauthorizedOnce: boolean;
-  let missingNews: boolean;
-  let historySymbol: string;
-  let requests: Array<{ url: string; body: string }>;
-
-  beforeEach(async () => {
-    db = await new DataSource({
-      type: 'sqlite',
-      database: ':memory:',
-      entities: [FinhayConnection],
-      synchronize: true,
-    }).initialize();
+  beforeEach(() => {
     service = new FinhayService(
-      db,
-      new ConfigService({
-        finhay: { encryptionKey: key.toString('base64'), redirectUri },
-      }),
+      new ConfigService({ finhay: { apiKey: 'test-api-key' } }),
     );
-    tokenCalls = 0;
-    failQuote = false;
-    unauthorizedOnce = false;
-    missingNews = false;
-    historySymbol = 'VCB';
-    requests = [];
-    jest
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('uses the server key and maps the documented quote envelope', async () => {
+    const fetch = jest
       .spyOn(globalThis, 'fetch')
-      .mockImplementation(
-        async (input: string | URL | Request, init?: RequestInit) => {
-          await Promise.resolve();
-          const url =
-            typeof input === 'string' || input instanceof URL
-              ? String(input)
-              : input.url;
-          const body =
-            typeof init?.body === 'string'
-              ? init.body
-              : init?.body instanceof URLSearchParams
-                ? init.body.toString()
-                : '';
-          requests.push({ url, body });
-          if (url.includes('/.well-known/oauth-protected-resource'))
-            return json({
-              resource: 'https://mcp.fhsc.com.vn/',
-              authorization_servers: ['https://mcp.fhsc.com.vn'],
-              scopes_supported: ['read:market', 'read:account'],
-              bearer_methods_supported: ['header'],
-            });
-          if (url.includes('/.well-known/oauth-authorization-server'))
-            return json(metadata);
-          if (url.endsWith('/oauth/register'))
-            return json({
-              client_id: 'client-id',
-              redirect_uris: [redirectUri],
-              token_endpoint_auth_method: 'none',
-              grant_types: ['authorization_code', 'refresh_token'],
-              response_types: ['code'],
-            });
-          if (url.endsWith('/oauth/token')) {
-            tokenCalls++;
-            return json({
-              access_token: `token-${tokenCalls}`,
-              token_type: 'Bearer',
-              expires_in: 60,
-              refresh_token: `refresh-${tokenCalls}`,
-              scope: 'read:market',
-            });
-          }
-          if (url.endsWith('/oauth/revoke'))
-            return new Response(null, { status: 200 });
-          if (url.endsWith('/mcp')) {
-            if (unauthorizedOnce) {
-              unauthorizedOnce = false;
-              return json({ error: 'expired' }, 401);
-            }
-            if (init?.method === 'GET' || init?.method === 'DELETE')
-              return new Response(null, { status: 405 });
-            const message = JSON.parse(body) as {
-              id?: number;
-              method: string;
-              params?: {
-                protocolVersion?: string;
-                name?: string;
-                arguments?: { type?: string };
-              };
-            };
-            if (message.method === 'initialize')
-              return json({
-                jsonrpc: '2.0',
-                id: message.id,
-                result: {
-                  protocolVersion: message.params?.protocolVersion,
-                  capabilities: { tools: {} },
-                  serverInfo: { name: 'fake-finhay', version: '1' },
-                },
-              });
-            if (message.method === 'notifications/initialized')
-              return new Response(null, { status: 202 });
-            if (
-              message.method === 'tools/call' &&
-              message.params?.name !== 'get_stock_quote'
-            ) {
-              const name = message.params?.name;
-              if (name === 'list_news' && missingNews)
-                return json({
-                  jsonrpc: '2.0',
-                  id: message.id,
-                  result: { isError: true, content: [] },
-                });
-              const data =
-                name === 'get_company_overview'
-                  ? { pe: 10 }
-                  : name === 'get_stock_history'
-                    ? { symbol: historySymbol, series: [{ c: 54000 }] }
-                    : name === 'list_news'
-                      ? { results: [] }
-                      : { items: [{ year: 2026, quarter: 2 }] };
-              return json({
-                jsonrpc: '2.0',
-                id: message.id,
-                result: { content: [], structuredContent: data },
-              });
-            }
-            if (message.method === 'tools/call')
-              return failQuote
-                ? json({ error: 'unavailable' }, 503)
-                : json({
-                    jsonrpc: '2.0',
-                    id: message.id,
-                    result: {
-                      content: [],
-                      structuredContent: {
-                        symbol: 'VCB',
-                        currency: 'VND',
-                        price: 54000,
-                        updated_at: '2026-11-06T09:00:00+07:00',
-                      },
-                    },
-                  });
-          }
-          throw new Error(`Unexpected request ${url}`);
-        },
-      );
-  });
-  afterEach(async () => {
-    jest.restoreAllMocks();
-    await db.destroy();
-  });
-
-  it('registers market-only access, binds the callback, encrypts tokens and reads a quote', async () => {
-    const { authorizationUrl } = await service.start('alice');
-    const url = new URL(authorizationUrl);
-    expect(url.searchParams.get('scope')).toBe('read:market');
-    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
-    const registration = requests.find((item) =>
-      item.url.endsWith('/oauth/register'),
+      .mockResolvedValue(success(quote));
+    expect(await service.quote('vcb')).toMatchObject({
+      source: 'Finhay',
+      symbol: 'VCB',
+      priceVnd: 54000,
+      updatedAt: quote.updated_at,
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(String(url)).toBe(
+      'https://open-api.fhsc.com.vn/market/quotes/stocks/VCB',
     );
-    expect(JSON.parse(registration!.body)).toMatchObject({
-      scope: 'read:market',
+    expect(init).toMatchObject({
+      headers: { 'X-FH-APIKEY': 'test-api-key' },
+      redirect: 'error',
     });
-    const state = url.searchParams.get('state');
-    await expect(service.callback('wrong', 'code')).rejects.toThrow();
-    await service.callback(state, 'code');
-    await expect(service.callback(state, 'code')).rejects.toThrow();
-    const row = await db
-      .getRepository(FinhayConnection)
-      .findOneByOrFail({ userId: 'alice' });
-    expect(row.encryptedData).not.toContain('token-1');
-    expect(await service.status('alice')).toEqual({ connected: true });
-    expect(await service.status('bob')).toEqual({ connected: false });
-    await expect(service.quote('bob', 'VCB')).rejects.toThrow();
-    expect(await service.quote('alice', 'vcb')).toMatchObject({
+  });
+
+  it('preserves an unknown quote timestamp and rejects invalid symbols and mismatched data', async () => {
+    const fetch = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(success({ ...quote, updated_at: undefined }))
+      .mockResolvedValueOnce(success({ ...quote, symbol: 'FPT' }));
+    expect((await service.quote('VCB')).updatedAt).toBeNull();
+    await expect(service.quote('VCB')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    await expect(service.quote('../VCB')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails closed without a key and does not reveal upstream errors', async () => {
+    const missing = new FinhayService(new ConfigService());
+    const fetch = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('secret', { status: 401 }));
+    expect(missing.isConfigured()).toBe(false);
+    await expect(missing.quote('VCB')).rejects.toThrow('not configured');
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(service.quote('VCB')).rejects.toThrow(
+      'Finhay quote unavailable',
+    );
+  });
+
+  it('maps documented REST data into the existing research snapshot', async () => {
+    const fetch = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = new URL(String(input));
+        if (url.pathname === '/market/quotes/stocks/VCB') return success(quote);
+        if (url.pathname === '/market/company-financial/overview')
+          return success({ pe: 10 });
+        if (url.pathname === '/market/v2/financial-statement/statement')
+          return success([{ year: 2026, quarter: 2, revenue: 10 }]);
+        if (url.pathname.endsWith('/history'))
+          return success({ symbol: 'VCB', series: [{ c: 54000 }] });
+        if (url.pathname === '/market/market-news')
+          return success({ results: [] });
+        throw new Error('Unexpected endpoint');
+      });
+    const result = await service.researchSnapshot('vcb');
+    expect(result).toMatchObject({
       symbol: 'VCB',
-      priceVnd: 54000,
-      source: 'Finhay',
-    });
-    expect(await service.disconnect('alice')).toEqual({
-      connected: false,
-      revoked: true,
-    });
-    expect(await service.status('alice')).toEqual({ connected: false });
-  });
-
-  it('persists rotated credentials before a failing market request', async () => {
-    const url = new URL((await service.start('alice')).authorizationUrl);
-    await service.callback(url.searchParams.get('state'), 'code');
-    const repo = db.getRepository(FinhayConnection);
-    const row = await repo.findOneByOrFail({ userId: 'alice' });
-    const secrets = unseal(row.encryptedData, key, 'alice');
-    secrets.expiresAt = Date.now() - 1;
-    row.encryptedData = seal(secrets, key, 'alice');
-    await repo.save(row);
-    failQuote = true;
-    await expect(service.quote('alice', 'VCB')).rejects.toThrow();
-    const saved = await repo.findOneByOrFail({ userId: 'alice' });
-    expect(
-      unseal(saved.encryptedData, key, 'alice').tokens?.refresh_token,
-    ).toBe('refresh-2');
-  });
-
-  it('refreshes once if Finhay rejects an apparently unexpired access token', async () => {
-    const url = new URL((await service.start('alice')).authorizationUrl);
-    await service.callback(url.searchParams.get('state'), 'code');
-    unauthorizedOnce = true;
-    expect(await service.quote('alice', 'VCB')).toMatchObject({
-      priceVnd: 54000,
-    });
-    expect(tokenCalls).toBe(2);
-  });
-
-  it('fetches only bounded market research tools for the connected owner', async () => {
-    const url = new URL((await service.start('alice')).authorizationUrl);
-    await service.callback(url.searchParams.get('state'), 'code');
-    const snapshot = await service.researchSnapshot('alice', 'vcb');
-    expect(snapshot).toMatchObject({
-      symbol: 'VCB',
-      source: 'Finhay',
       unavailable: [],
       evidence: {
+        quote,
         overview: { pe: 10 },
-        'income-statement': { items: [{ year: 2026 }] },
+        'income-statement': { items: [{ year: 2026, revenue: 10 }] },
         history: { symbol: 'VCB' },
         news: { results: [] },
       },
     });
-    const calls = requests
-      .filter(
-        (request) =>
-          request.url.endsWith('/mcp') && request.body.includes('tools/call'),
-      )
-      .map(
-        (request) =>
-          JSON.parse(request.body) as {
-            params: { name: string; arguments: Record<string, unknown> };
-          },
-      );
+    const calls = fetch.mock.calls.map(([input]) => new URL(String(input)));
     expect(calls).toHaveLength(7);
-    expect(calls.map((call) => call.params.name)).toEqual([
-      'get_stock_quote',
-      'get_company_overview',
-      'get_financial_statement',
-      'get_financial_statement',
-      'get_financial_statement',
-      'get_stock_history',
-      'list_news',
-    ]);
-    expect(calls[2].params.arguments).toMatchObject({
-      symbol: 'VCB',
-      period: 'quarterly',
-      limit: 5,
-    });
-    await expect(service.researchSnapshot('bob', 'VCB')).rejects.toThrow();
+    expect(calls[2].searchParams.get('type')).toBe('income-statement');
+    expect(calls[2].searchParams.get('limit')).toBe('5');
+    expect(calls[5].searchParams.get('resolution')).toBe('1D');
+    expect(calls[6].searchParams.get('topic')).toBe('stock');
   });
 
-  it('records missing or mismatched evidence without treating it as valid', async () => {
-    const url = new URL((await service.start('alice')).authorizationUrl);
-    await service.callback(url.searchParams.get('state'), 'code');
-    missingNews = true;
-    historySymbol = 'VIC';
-    const snapshot = await service.researchSnapshot('alice', 'VCB');
-    expect(snapshot.unavailable).toEqual(['history', 'news']);
-    expect(snapshot.evidence).not.toHaveProperty('history');
-    expect(snapshot.evidence).not.toHaveProperty('news');
-    expect(snapshot.evidence).toHaveProperty('income-statement');
+  it('marks malformed, failed and mismatched evidence unavailable', async () => {
+    jest.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/market/market-news')
+        return new Response('', { status: 429 });
+      if (url.pathname.endsWith('/history'))
+        return success({ symbol: 'FPT', series: [] });
+      if (url.searchParams.get('type') === 'cash-flow')
+        return success({ items: [] });
+      if (url.pathname === '/market/quotes/stocks/VCB') return success(quote);
+      if (url.pathname === '/market/company-financial/overview')
+        return success({ pe: 10 });
+      return success([{ year: 2026, revenue: 10 }]);
+    });
+    const result = await service.researchSnapshot('VCB');
+    expect(result.unavailable).toEqual(['cash-flow', 'history', 'news']);
+    expect(result.evidence).not.toHaveProperty('cash-flow');
+  });
+  it('stops requests after rate limiting until the provider reset', async () => {
+    const reset = Math.floor(Date.now() / 1000) + 60;
+    const fetch = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response('', {
+          status: 429,
+          headers: { 'X-RateLimit-Reset': String(reset) },
+        }),
+      );
+    const result = await service.researchSnapshot('VCB');
+    expect(result.unavailable).toEqual([
+      'quote',
+      'overview',
+      'income-statement',
+      'balance-sheet',
+      'cash-flow',
+      'history',
+      'news',
+    ]);
+    await expect(service.quote('VCB')).rejects.toThrow(
+      'Finhay quote unavailable',
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

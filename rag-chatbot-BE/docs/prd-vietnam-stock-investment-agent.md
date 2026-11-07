@@ -7,9 +7,8 @@ The first vertical slice adds an authenticated investment journal and UI. It
 records and retrieves user-owned interest, decisions, reported trades, and
 position snapshots, and derives holdings and average cost with missing-data
 warnings. Its PostgreSQL migration and concurrent duplicate requests were tested
-against an isolated database. Journal corrections preserve history. The Finhay
-market-only OAuth and quote/valuation path has controlled tests; full sign-in
-with a real account remains to be verified. Chat integration, research jobs, PDF
+against an isolated database. Journal corrections preserve history. The Finhay market-data provider uses a server-side API key for REST quote and
+valuation requests; verification with a real key remains outstanding. Chat integration, research jobs, PDF
 research orchestration, and report generation remain unimplemented. Company PDF
 indexing and page-cited vector retrieval use the monthly budget ledger; a real PDF
 and pgvector were tested with a mocked embedding provider. Live credentials,
@@ -161,16 +160,11 @@ does not imply it needs its own model or independently trained weights.
 
 ### Finhay and evidence
 
-An authenticated Finhay connection available in this coding conversation is not
-an application connection. Verify app-owned authorization, read-only market
-scope, token refresh, and reconnect behavior before relying on it in deployment.
-Keep tokens out of prompts, report evidence, queues, and traces.
-
-On 2026-11-06, Finhay's public OAuth discovery metadata advertised authorization
-code with PKCE S256, dynamic client registration, refresh tokens, and the
-`read:market` and `read:account` scopes. The public resource metadata advertises
-Bearer headers. Discovery does not establish that application registration,
-callback, refresh, revocation, or token storage works; those remain to be tested.
+Finhay market data is accessed through the server-side `FINHAY_API_KEY` using
+its REST API. The market-data provider strategy keeps provider-specific details
+out of valuation and research callers. Keep the key out of prompts, report
+evidence, queues, traces, and browser responses. Verify live contracts and
+permitted use before relying on the provider in deployment.
 
 Fetch and normalize required market facts deterministically and cache them by
 their source and date. An implementation may expose bounded tools for additional

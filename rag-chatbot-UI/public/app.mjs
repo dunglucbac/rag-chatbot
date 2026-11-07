@@ -142,10 +142,7 @@ function signedOut(message = '') {
   $('investment-document-search').reset();
   $('investment-form').reset();
   $('investment-error').textContent = '';
-  $('connect-finhay').disabled = false;
-  $('connect-finhay').hidden = false;
-  $('disconnect-finhay').hidden = true;
-  $('finhay-status').textContent = 'Checking Finhay connection…';
+  $('finhay-status').textContent = '';
   $('investment-budget').textContent = '';
   $('login-error').textContent = message;
 }
@@ -1161,21 +1158,23 @@ async function showInvestment(symbol) {
         el('p', 'form-error', investmentWarnings[warning] ?? warning),
       );
     if (state.finhayConnected) {
-      const valuation = el('p', 'form-note', 'Loading Finhay quote…');
+      const valuation = el('p', 'form-note', 'Loading market quote…');
       detail.append(valuation);
       try {
         const data = await api(
-          `/investments/finhay/valuation/${encodeURIComponent(symbol)}`,
+          `/investments/market-data/valuation/${encodeURIComponent(symbol)}`,
         );
         if (generation !== investmentGeneration || !$('investments').open)
           return;
         const quote = data.quote;
-        const timestamp = new Intl.DateTimeFormat('en-GB', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-          timeZone: 'Asia/Ho_Chi_Minh',
-        }).format(new Date(quote.updatedAt));
-        valuation.textContent = `Finhay quote: ${formatInvestmentVnd(quote.priceVnd)} · ${timestamp} Vietnam time${data.quoteStale ? ' · quote may be stale' : ''}. Market value: ${formatInvestmentVnd(data.marketValueVnd)} · Unrealized profit/loss: ${formatInvestmentVnd(data.unrealizedProfitVnd)}.`;
+        const timestamp = quote.updatedAt
+          ? `${new Intl.DateTimeFormat('en-GB', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+              timeZone: 'Asia/Ho_Chi_Minh',
+            }).format(new Date(quote.updatedAt))} Vietnam time`
+          : 'quote time unavailable';
+        valuation.textContent = `${quote.source} quote: ${formatInvestmentVnd(quote.priceVnd)} · ${timestamp}${data.quoteStale ? ' · quote may be stale' : ''}. Market value: ${formatInvestmentVnd(data.marketValueVnd)} · Unrealized profit/loss: ${formatInvestmentVnd(data.unrealizedProfitVnd)}.`;
       } catch (error) {
         if (generation === investmentGeneration && $('investments').open)
           valuation.textContent = `Quote unavailable: ${error.message}`;
@@ -1457,50 +1456,21 @@ async function loadInvestmentBudget() {
 async function loadFinhayStatus() {
   const token = state.token;
   try {
-    const status = await api('/investments/finhay/status');
+    const status = await api('/investments/market-data/status');
     if (token !== state.token) return;
     state.finhayConnected = status.connected;
     state.finhayStatusLoaded = true;
     $('finhay-status').textContent = status.connected
-      ? 'Finhay connected for market data.'
-      : 'Connect Finhay to see market prices.';
-    $('connect-finhay').hidden = status.connected;
-    $('disconnect-finhay').hidden = !status.connected;
+      ? 'Market data is configured.'
+      : 'Market data is not configured.';
   } catch (error) {
     if (token !== state.token) return;
     state.finhayConnected = false;
     state.finhayStatusLoaded = true;
-    $('finhay-status').textContent = `Finhay unavailable: ${error.message}`;
+    $('finhay-status').textContent =
+      `Market data unavailable: ${error.message}`;
   }
 }
-$('connect-finhay').addEventListener('click', async () => {
-  $('connect-finhay').disabled = true;
-  try {
-    const result = await post('/investments/finhay/connect');
-    window.location.assign(result.authorizationUrl);
-  } catch (error) {
-    $('finhay-status').textContent = error.message;
-    $('connect-finhay').disabled = false;
-  }
-});
-$('disconnect-finhay').addEventListener('click', async () => {
-  $('disconnect-finhay').disabled = true;
-  try {
-    const result = await api('/investments/finhay/connection', {
-      method: 'DELETE',
-    });
-    state.finhayConnected = false;
-    $('finhay-status').textContent = result.revoked
-      ? 'Finhay disconnected.'
-      : 'Disconnected locally; remote revocation could not be confirmed.';
-    $('connect-finhay').hidden = false;
-    $('disconnect-finhay').hidden = true;
-  } catch (error) {
-    $('finhay-status').textContent = error.message;
-  } finally {
-    $('disconnect-finhay').disabled = false;
-  }
-});
 async function saveInvestment(event) {
   event.preventDefault();
   const form = $('investment-form');
@@ -1692,7 +1662,6 @@ menu(false);
 async function start() {
   const fragment = new URLSearchParams(location.hash.slice(1));
   const receivedToken = fragment.get('access_token');
-  const finhayResult = fragment.get('finhay');
   if (fragment.has('sign_in_error')) {
     history.replaceState(null, '', location.pathname + location.search);
     signedOut(fragment.get('sign_in_error'));
@@ -1702,8 +1671,6 @@ async function start() {
     sessionStorage.setItem('ledger.token', receivedToken);
     history.replaceState(null, '', location.pathname + location.search);
   }
-  if (finhayResult)
-    history.replaceState(null, '', location.pathname + location.search);
   state.token = sessionStorage.getItem('ledger.token') ?? '';
   if (!state.token) {
     signedOut();
@@ -1718,12 +1685,6 @@ async function start() {
     $('boot').hidden = true;
     $('login').hidden = true;
     $('app').hidden = false;
-    if (finhayResult)
-      notify(
-        finhayResult === 'connected'
-          ? 'Finhay connected.'
-          : 'Finhay connection could not be completed.',
-      );
     renderTimeline();
     await loadHistory();
     const jobs = await api('/ingest/jobs');

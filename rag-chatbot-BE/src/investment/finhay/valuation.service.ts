@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InvestmentService } from '../investment.service';
-import { FinhayService } from './finhay.service';
+import { MarketDataProvider } from '../market-data/market-data.provider';
 
 function units(value: string): bigint | null {
   if (!/^\d+(?:\.\d{1,4})?$/.test(value)) return null;
@@ -17,12 +17,12 @@ function decimal(value: bigint): string {
 export class ValuationService {
   constructor(
     private readonly investments: InvestmentService,
-    private readonly finhay: FinhayService,
+    private readonly marketData: MarketDataProvider,
   ) {}
 
   async get(userId: string, symbol: string) {
     const stock = await this.investments.get(userId, symbol);
-    const quote = await this.finhay.quote(userId, stock.symbol);
+    const quote = await this.marketData.quote(stock.symbol);
     const price =
       quote.priceVnd === null ? null : units(String(quote.priceVnd));
     const shares =
@@ -32,14 +32,17 @@ export class ValuationService {
         ? null
         : units(stock.position.investedVnd);
     const market = price === null || shares === null ? null : price * shares;
-    const quoteTime = Date.parse(quote.updatedAt);
+    const quoteTime = quote.updatedAt ? Date.parse(quote.updatedAt) : NaN;
     const ageMs = Date.now() - quoteTime;
     return {
       quote,
       marketValueVnd: market === null ? null : decimal(market),
       unrealizedProfitVnd:
         market === null || cost === null ? null : decimal(market - cost),
-      quoteStale: ageMs > 15 * 60 * 1000 || ageMs < -5 * 60 * 1000,
+      quoteStale:
+        !Number.isFinite(quoteTime) ||
+        ageMs > 15 * 60 * 1000 ||
+        ageMs < -5 * 60 * 1000,
       positionWarnings: stock.position.warnings,
     };
   }
