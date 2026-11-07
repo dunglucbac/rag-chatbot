@@ -75,6 +75,10 @@
           <span data-icon="receipt"></span> Your receipts
           <span aria-hidden="true">↗</span>
         </button>
+        <button id="sidebar-investments" class="sidebar-link">
+          <span data-icon="chart"></span> Investments
+          <span aria-hidden="true">↗</span>
+        </button>
         <div class="sidebar-heading">
           RECENT CONVERSATIONS
           <button
@@ -292,6 +296,162 @@
         aria-live="polite"
       ></div>
       <button id="more-results" class="load-more" hidden>Load more</button>
+    </dialog>
+    <dialog id="investments" class="drawer" aria-labelledby="investments-title">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">YOUR INVESTMENT JOURNAL</span>
+          <h2 id="investments-title">
+            Investments<span class="brand-dot">.</span>
+          </h2>
+        </div>
+        <button
+          id="close-investments"
+          class="icon-button"
+          aria-label="Close investments"
+        >
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <p class="form-note">
+        Record your own positions and decisions. No brokerage orders are placed.
+      </p>
+      <p id="finhay-status" class="form-note" aria-live="polite"></p>
+      <p id="investment-budget" class="form-note" aria-live="polite"></p>
+      <div id="investment-list" class="drawer-results" aria-live="polite"></div>
+      <div id="investment-detail" aria-live="polite"></div>
+      <section
+        id="investment-documents"
+        hidden
+        aria-labelledby="investment-documents-title"
+      >
+        <h3 id="investment-documents-title">Company reports</h3>
+        <p class="form-note">
+          Upload a PDF in chat first. Indexing and searching use your AI budget.
+          A failed retry may incur another charge.
+        </p>
+        <div id="investment-document-list" aria-live="polite"></div>
+        <form id="investment-document-form">
+          <label
+            >Completed PDF upload<select name="ingestionJobId" required></select
+          ></label>
+          <button
+            id="more-investment-uploads"
+            class="text-button"
+            type="button"
+            hidden
+          >
+            Load older uploads
+          </button>
+          <label
+            >Report title<input name="title" maxlength="200" required
+          /></label>
+          <label
+            >Publication date<input name="publicationDate" type="date" required
+          /></label>
+          <label
+            ><input name="retryFailed" type="checkbox" /> Retry a previously
+            failed index</label
+          >
+          <button class="outline-button" type="submit">Index report</button>
+          <p id="investment-document-error" class="form-error" role="alert"></p>
+        </form>
+        <form id="investment-document-search">
+          <label
+            >Search report passages<input
+              name="query"
+              maxlength="2000"
+              required
+              placeholder="Credit risk, profitability…"
+          /></label>
+          <button class="outline-button" type="submit">Search reports</button>
+        </form>
+        <div id="investment-document-results" aria-live="polite"></div>
+      </section>
+      <form id="investment-form" class="editor-form">
+        <h3>Record an update</h3>
+        <p id="investment-mode" class="form-note" hidden></p>
+        <button
+          id="cancel-investment-correction"
+          class="text-button"
+          type="button"
+          hidden
+        >
+          Cancel correction
+        </button>
+        <label
+          >Stock symbol<input
+            name="symbol"
+            required
+            pattern="[A-Za-z0-9]{3,10}"
+            maxlength="10"
+            placeholder="VCB"
+        /></label>
+        <label
+          >Update type<select name="type">
+            <option value="interest">Interest level</option>
+            <option value="decision">Decision</option>
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+            <option value="position">Current position</option>
+          </select></label
+        >
+        <label>Date<input name="occurredOn" type="date" required /></label>
+        <label data-investment-types="interest"
+          >Interest<select name="level">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select></label
+        >
+        <label data-investment-types="decision"
+          >Decision<select name="decision">
+            <option value="wait">Wait</option>
+            <option value="buy">Buy</option>
+            <option value="hold">Hold</option>
+            <option value="reduce">Reduce</option>
+            <option value="avoid">Avoid</option>
+          </select></label
+        >
+        <label data-investment-types="buy sell position"
+          >Shares<input
+            name="shares"
+            type="number"
+            min="0"
+            max="1000000000"
+            step="1"
+        /></label>
+        <label data-investment-types="buy sell"
+          >Price per share (VND)<input
+            name="priceVnd"
+            inputmode="decimal"
+            pattern="[0-9]{1,12}(\.[0-9]{1,4})?"
+            placeholder="54000"
+        /></label>
+        <label data-investment-types="buy sell"
+          >Fees (VND, optional)<input
+            name="feesVnd"
+            inputmode="decimal"
+            pattern="[0-9]{1,12}(\.[0-9]{1,4})?"
+        /></label>
+        <label data-investment-types="position"
+          >Average cost per share (VND, if known)<input
+            name="averageCostVnd"
+            inputmode="decimal"
+            pattern="[0-9]{1,12}(\.[0-9]{1,4})?"
+        /></label>
+        <label
+          >Note (optional)<textarea
+            name="note"
+            maxlength="2000"
+            rows="2"
+          ></textarea>
+        </label>
+        <p id="investment-error" class="form-error" role="alert"></p>
+        <button id="save-investment" class="outline-button" type="submit">
+          Save update
+        </button>
+      </form>
     </dialog>
     <dialog id="editor" class="editor" aria-labelledby="editor-title">
       <div class="dialog-heading">

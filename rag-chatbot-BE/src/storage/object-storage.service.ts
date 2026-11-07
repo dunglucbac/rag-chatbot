@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -97,6 +98,34 @@ export class ObjectStorageService {
   async delete(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  async readPdf(key: string): Promise<Uint8Array> {
+    const object = await this.client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+    if (
+      !object.Body ||
+      !object.ContentLength ||
+      object.ContentLength > 25 * 1024 * 1024 ||
+      object.ContentType !== 'application/pdf'
+    ) {
+      throw new BadRequestException('A PDF up to 25 MB is required');
+    }
+    const bytes = await object.Body.transformToByteArray();
+    if (bytes.length !== object.ContentLength)
+      throw new BadRequestException(
+        'PDF size did not match the uploaded object',
+      );
+    return bytes;
+  }
+
+  async createReadUrl(key: string): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      { expiresIn: 300 },
     );
   }
 

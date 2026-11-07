@@ -25,6 +25,120 @@ Authorization: Bearer <access-token>
 
 ---
 
+## Investment journal
+
+These endpoints use the same Bearer session as chat. Investment data is scoped
+to the authenticated user and does not affect receipt spending summaries.
+Apply the TypeORM migrations before using them.
+
+- `GET /investments/stocks` lists the user's tracked symbols.
+- `GET /investments/stocks/:symbol` returns the symbol and its dated events.
+- `POST /investments/stocks/:symbol/events` records an event, creating the
+  tracked symbol if needed.
+
+Example recorded purchase (VND amounts are decimal strings):
+
+```json
+{
+  "requestId": "4e15685b-de2e-41e5-ab98-6091c8512a40",
+  "type": "buy",
+  "occurredOn": "2026-11-06",
+  "shares": 500,
+  "priceVnd": "54000",
+  "feesVnd": "10000",
+  "note": "Reported purchase"
+}
+```
+
+`requestId` is a client-generated UUID that must be unique per user. Retrying
+the same event with the same ID returns `deduplicated: true`; reusing that ID
+for different data or another symbol returns 409. The server never places a
+brokerage order.
+
+All events require `requestId`, `type`, and a calendar date `occurredOn` in
+`YYYY-MM-DD` format; `note` is optional. Supported event-specific fields are:
+
+- `interest`: `level` is `low`, `medium`, or `high`.
+- `decision`: `decision` is `buy`, `hold`, `reduce`, `avoid`, or `wait`.
+- `buy` / `sell`: positive integer `shares`, positive decimal-string
+  `priceVnd`, and optional nonnegative decimal-string `feesVnd`.
+- `position`: nonnegative integer `shares` and optional positive decimal-string
+  `averageCostVnd`, for a reported position without inventing earlier trades.
+
+To correct an entry, send a new event of the same type and symbol with a new
+`requestId` and `supersedesId` set to the original event ID. The original stays
+in history, and calculations use its replacement. Only the owning user can
+correct an event, and competing corrections return 409.
+
+Stock list and detail responses include the current interest, latest decision,
+and derived position as of the current Vietnam date. Position amounts are decimal
+strings. Average acquisition cost uses reported buy prices and buy fees; a sell
+reduces the remaining cost proportionally. A position snapshot replaces prior
+holdings and cost. Unknown opening cost stays unknown, and an unmatched sale
+makes holdings unknown until a later snapshot reconciles it. Warnings identify
+missing purchase fees, ambiguous same-day ordering, invalid or future events,
+and unknown cost basis.
+
+The Investments UI can record and correct these entries. It does not yet delete
+previous entries, update the journal through chat, or run stock research. Trade
+records are user reports, not broker-verified transactions.
+
+### Market data
+
+Set `FINHAY_API_KEY` on the backend to an API key created in the Finhay API
+management portal. The key is sent only to Finhay as `X-FH-APIKEY`; users do
+not need to connect individual Finhay accounts. The market-data strategy is
+bound in `InvestmentModule`, so another provider can implement
+`MarketDataProvider`. See [Finhay's quickstart](https://developers.fhsc.com.vn/quickstart).
+
+- `GET /investments/market-data/status` reports whether a key is configured; it does
+  not verify the key with Finhay.
+- `GET /investments/market-data/quote/:symbol` returns a validated market quote.
+- `GET /investments/market-data/valuation/:symbol` combines that quote with the
+  authenticated user's recorded position. An unknown timestamp is marked stale.
+- `GET /investments/market-data/research-snapshot/:symbol` returns bounded market
+  evidence and lists unavailable components. Financial statement arrays are
+  wrapped in `items` for the research worker.
+
+The old `/investments/finhay/*` read paths remain aliases. A `429` pauses
+further provider requests until Finhay’s reset time. These endpoints remain
+authenticated. Previous OAuth credentials in the
+`finhay_connections` table are not used or deleted by this change. Live API
+keys and provider contracts must be verified in the deployment environment.
+
+`GET /investments/budget` returns the current Vietnam calendar month, the US$10
+limit, spent, reserved, and remaining amounts as integer USD micro-units. The
+document embedding path reserves a conservative estimate before calling OpenAI
+and reconciles reported token usage afterward. When the billing outcome is
+unknown, its reservation remains pending. The provider rate must be configured
+explicitly; usage-based accounting may differ from the provider invoice.
+
+### Company-report PDFs
+
+Upload a PDF through the normal ingestion flow and wait for the job to complete.
+In the Investments view, select its stock and attach the completed PDF with its
+title and publication date. The application verifies upload ownership, extracts
+page text, and stores embeddings tagged with owner, stock, document ID, and page.
+The publication date is supplied by the user and is not independently verified.
+
+Configure `INVESTMENT_EMBEDDING_RATE_MICROS_PER_MILLION` to the verified current
+USD micro-unit input price per million tokens for `text-embedding-3-small` and
+configure `OPENAI_API_KEY`. Text from the selected PDF is sent to OpenAI to
+generate embeddings. Indexing and search reserve investment AI budget before
+requesting embeddings. Up to 300 PDF pages and 150,000 extracted characters are
+accepted, subject to the embedding request's token limit. Image-only scanned
+PDFs need page-level OCR and are currently rejected.
+
+- `GET /investments/stocks/:symbol/documents` lists owned reports.
+- `POST /investments/stocks/:symbol/documents` accepts `{ingestionJobId, title,
+  publicationDate, retryFailed?}`. A failed retry may incur another charge.
+- `POST /investments/stocks/:symbol/documents/search` accepts `{query, asOf?}`
+  and returns passages with report, publication date, and page references.
+- `GET /investments/stocks/:symbol/documents/:id/source` creates a five-minute
+  link to the owned source PDF.
+
+---
+
 ## Ingestion
 
 Files use a three-request, direct-to-object-storage flow. The API never proxies

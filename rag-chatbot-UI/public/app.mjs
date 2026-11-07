@@ -5,6 +5,7 @@ import {
   receiptInput,
   renderReply,
 } from './ui-model.mjs';
+import { formatInvestmentVnd, investmentInput } from './investment-model.mjs';
 
 const $ = (id) => document.getElementById(id);
 const icons = {
@@ -68,6 +69,8 @@ const state = {
   resultOffset: null,
   editorDirty: false,
   editorBusy: false,
+  finhayConnected: false,
+  finhayStatusLoaded: false,
 };
 let createPromise,
   viewGeneration = 0,
@@ -75,6 +78,11 @@ let createPromise,
   editorGeneration = 0,
   toastTimer,
   polling = false;
+let investmentGeneration = 0;
+let investmentPending = null;
+let investmentCorrection = null;
+let investmentDocumentSymbol = null;
+let investmentUploadOffset = null;
 
 function notify(message) {
   clearTimeout(toastTimer);
@@ -96,6 +104,10 @@ function signedOut(message = '') {
   viewGeneration++;
   resultsGeneration++;
   editorGeneration++;
+  investmentGeneration++;
+  investmentPending = null;
+  clearInvestmentCorrection();
+  investmentDocumentSymbol = null;
   Object.assign(state, {
     user: null,
     current: null,
@@ -106,6 +118,8 @@ function signedOut(message = '') {
     loading: false,
     localUploads: [],
     draftMessage: '',
+    finhayConnected: false,
+    finhayStatusLoaded: false,
   });
   state.jobs.clear();
   $('app').hidden = true;
@@ -118,6 +132,18 @@ function signedOut(message = '') {
   $('editor-content').replaceChildren();
   $('drawer').close();
   $('editor').close();
+  $('investments').close();
+  $('investment-list').replaceChildren();
+  $('investment-detail').replaceChildren();
+  $('investment-documents').hidden = true;
+  $('investment-document-list').replaceChildren();
+  $('investment-document-results').replaceChildren();
+  $('investment-document-form').reset();
+  $('investment-document-search').reset();
+  $('investment-form').reset();
+  $('investment-error').textContent = '';
+  $('finhay-status').textContent = '';
+  $('investment-budget').textContent = '';
   $('login-error').textContent = message;
 }
 async function api(path, options = {}) {
@@ -133,9 +159,7 @@ async function api(path, options = {}) {
   });
   if (token !== state.token) throw new Error('The signed-in account changed.');
   if (response.status === 401) {
-    signedOut(
-      'Your session has expired. Sign in with Google again.',
-    );
+    signedOut('Your session has expired. Sign in with Google again.');
     throw new Error('Please sign in again.');
   }
   if (response.status === 204) return null;
@@ -1027,6 +1051,511 @@ async function poll() {
     polling = false;
   }
 }
+
+const investmentWarnings = {
+  future_event_excluded:
+    'Future-dated entries are excluded from the current position.',
+  same_day_order_assumed:
+    'Multiple position entries share a date; their order is estimated from when they were saved.',
+  purchase_fees_not_provided: 'Purchase fees were not provided for every buy.',
+  invalid_event:
+    'A saved entry needs review before holdings can be calculated.',
+  unmatched_sale:
+    'A sale exceeds known holdings. Add a current position to reconcile.',
+  cost_basis_unknown: 'Average cost is unknown for part of this position.',
+};
+function vietnamToday() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+function updateInvestmentFields() {
+  const type = $('investment-form').elements.namedItem('type').value;
+  document.querySelectorAll('[data-investment-types]').forEach((label) => {
+    const visible = label.dataset.investmentTypes.split(' ').includes(type);
+    label.hidden = !visible;
+    const input = label.querySelector('input,select');
+    input.disabled = !visible;
+    input.required =
+      visible && (input.name === 'shares' || input.name === 'priceVnd');
+  });
+}
+function positionText(position) {
+  if (position.shares === null) return 'Shares unknown';
+  const shares = position.shares.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${shares} shares · Avg cost ${formatInvestmentVnd(position.averageCostVnd)}`;
+}
+async function loadInvestments() {
+  const generation = ++investmentGeneration;
+  $('investment-list').replaceChildren(
+    el('p', 'form-note', 'Loading investments…'),
+  );
+  try {
+    const stocks = await api('/investments/stocks');
+    if (generation !== investmentGeneration || !$('investments').open) return;
+    const content = $('investment-list');
+    content.replaceChildren();
+    if (!stocks.length)
+      content.append(
+        el(
+          'p',
+          'form-note',
+          'No stocks yet. Record an interest, decision, trade, or position below.',
+        ),
+      );
+    for (const stock of stocks) {
+      const row = button('', 'receipt-row', () => showInvestment(stock.symbol));
+      const info = el('div', 'receipt-summary');
+      info.append(
+        el('strong', '', stock.symbol),
+        el('small', '', positionText(stock.position)),
+      );
+      const tags = [
+        stock.interest?.level ? `Interest: ${stock.interest.level}` : '',
+        stock.decision?.decision ? `Decision: ${stock.decision.decision}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      if (tags) info.append(el('small', '', tags));
+      row.append(info, el('span', 'amount', 'View →'));
+      content.append(row);
+    }
+  } catch (error) {
+    if (generation === investmentGeneration && $('investments').open)
+      $('investment-list').replaceChildren(
+        el('p', 'form-error', error.message),
+      );
+  }
+}
+async function showInvestment(symbol) {
+  const generation = ++investmentGeneration;
+  $('investment-detail').replaceChildren(
+    el('p', 'form-note', 'Loading stock history…'),
+  );
+  try {
+    const stock = await api(
+      `/investments/stocks/${encodeURIComponent(symbol)}`,
+    );
+    if (!state.finhayStatusLoaded) await loadFinhayStatus();
+    if (generation !== investmentGeneration || !$('investments').open) return;
+    $('investment-form').elements.namedItem('symbol').value = stock.symbol;
+    const detail = $('investment-detail');
+    const position = stock.position;
+    detail.replaceChildren(
+      el('h3', '', stock.symbol),
+      el('p', 'form-note', positionText(position)),
+      el(
+        'p',
+        'form-note',
+        `Invested amount: ${formatInvestmentVnd(position.investedVnd)} · Position as of ${position.asOf}`,
+      ),
+    );
+    for (const warning of position.warnings)
+      detail.append(
+        el('p', 'form-error', investmentWarnings[warning] ?? warning),
+      );
+    if (state.finhayConnected) {
+      const valuation = el('p', 'form-note', 'Loading market quote…');
+      detail.append(valuation);
+      try {
+        const data = await api(
+          `/investments/market-data/valuation/${encodeURIComponent(symbol)}`,
+        );
+        if (generation !== investmentGeneration || !$('investments').open)
+          return;
+        const quote = data.quote;
+        const timestamp = quote.updatedAt
+          ? `${new Intl.DateTimeFormat('en-GB', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+              timeZone: 'Asia/Ho_Chi_Minh',
+            }).format(new Date(quote.updatedAt))} Vietnam time`
+          : 'quote time unavailable';
+        valuation.textContent = `${quote.source} quote: ${formatInvestmentVnd(quote.priceVnd)} · ${timestamp}${data.quoteStale ? ' · quote may be stale' : ''}. Market value: ${formatInvestmentVnd(data.marketValueVnd)} · Unrealized profit/loss: ${formatInvestmentVnd(data.unrealizedProfitVnd)}.`;
+      } catch (error) {
+        if (generation === investmentGeneration && $('investments').open)
+          valuation.textContent = `Quote unavailable: ${error.message}`;
+      }
+    }
+    detail.append(el('h3', '', 'History'));
+    for (const event of stock.events) {
+      const facts = [event.occurredOn, event.type];
+      if (event.level) facts.push(event.level);
+      if (event.decision) facts.push(event.decision);
+      if (event.shares !== undefined) facts.push(`${event.shares} shares`);
+      if (event.priceVnd)
+        facts.push(`price ${formatInvestmentVnd(event.priceVnd)}`);
+      if (event.averageCostVnd)
+        facts.push(`avg cost ${formatInvestmentVnd(event.averageCostVnd)}`);
+      if (event.feesVnd)
+        facts.push(`fees ${formatInvestmentVnd(event.feesVnd)}`);
+      const item = el('div', 'investment-history-item');
+      item.append(el('span', '', facts.join(' · ')));
+      if (event.note) item.append(el('small', '', event.note));
+      if (event.supersededById)
+        item.append(el('small', '', 'Corrected; retained in history.'));
+      else
+        item.append(
+          button('Correct', 'text-button', () =>
+            correctInvestment(stock.symbol, event),
+          ),
+        );
+      detail.append(item);
+    }
+    investmentDocumentSymbol = stock.symbol;
+    $('investment-documents').hidden = false;
+    $('investment-document-results').replaceChildren();
+    loadInvestmentDocuments(stock.symbol);
+    loadInvestmentUploads(false);
+  } catch (error) {
+    if (generation === investmentGeneration && $('investments').open)
+      $('investment-detail').replaceChildren(
+        el('p', 'form-error', error.message),
+      );
+  }
+}
+function clearInvestmentCorrection() {
+  investmentCorrection = null;
+  investmentPending = null;
+  $('investment-mode').hidden = true;
+  $('cancel-investment-correction').hidden = true;
+  $('investment-form').elements.namedItem('symbol').disabled = false;
+  $('investment-form').elements.namedItem('type').disabled = false;
+}
+function correctInvestment(symbol, event) {
+  const form = $('investment-form');
+  investmentCorrection = { id: event.id, symbol, type: event.type };
+  investmentPending = null;
+  for (const name of [
+    'type',
+    'occurredOn',
+    'level',
+    'decision',
+    'shares',
+    'priceVnd',
+    'feesVnd',
+    'averageCostVnd',
+    'note',
+  ]) {
+    form.elements.namedItem(name).value =
+      event[name] === undefined || event[name] === null
+        ? ''
+        : String(event[name]);
+  }
+  form.elements.namedItem('symbol').value = symbol;
+  form.elements.namedItem('symbol').disabled = true;
+  form.elements.namedItem('type').disabled = true;
+  $('investment-mode').textContent =
+    `Correcting ${event.type} on ${event.occurredOn}; the original remains in history.`;
+  $('investment-mode').hidden = false;
+  $('cancel-investment-correction').hidden = false;
+  updateInvestmentFields();
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function showInvestments() {
+  menu(false);
+  $('investment-detail').replaceChildren();
+  investmentDocumentSymbol = null;
+  $('investment-documents').hidden = true;
+  $('investment-error').textContent = '';
+  if (!$('investment-form').elements.namedItem('occurredOn').value)
+    $('investment-form').elements.namedItem('occurredOn').value =
+      vietnamToday();
+  updateInvestmentFields();
+  if (!$('investments').open) $('investments').showModal();
+  loadInvestments();
+  loadFinhayStatus();
+  loadInvestmentBudget();
+}
+async function loadInvestmentDocuments(symbol) {
+  const token = state.token;
+  const container = $('investment-document-list');
+  container.replaceChildren(el('p', 'form-note', 'Loading reports…'));
+  try {
+    const docs = await api(
+      `/investments/stocks/${encodeURIComponent(symbol)}/documents`,
+    );
+    if (token !== state.token || investmentDocumentSymbol !== symbol) return;
+    container.replaceChildren();
+    if (!docs.length)
+      container.append(
+        el('p', 'form-note', 'No indexed reports for this stock.'),
+      );
+    for (const doc of docs) {
+      const row = el('div', 'investment-history-item');
+      row.append(
+        el('span', '', `${doc.title} · ${doc.publicationDate} · ${doc.status}`),
+      );
+      if (doc.status === 'ready')
+        row.append(
+          button('Get source link', 'text-button', () =>
+            showDocumentLink(row, symbol, doc.id),
+          ),
+        );
+      container.append(row);
+    }
+  } catch (error) {
+    if (token === state.token && investmentDocumentSymbol === symbol)
+      container.replaceChildren(el('p', 'form-error', error.message));
+  }
+}
+async function showDocumentLink(container, symbol, id) {
+  try {
+    const source = await api(
+      `/investments/stocks/${encodeURIComponent(symbol)}/documents/${encodeURIComponent(id)}/source`,
+    );
+    const url = new URL(source.url);
+    if (
+      url.protocol !== 'https:' &&
+      !(
+        url.protocol === 'http:' &&
+        ['localhost', '127.0.0.1'].includes(url.hostname)
+      )
+    )
+      throw new Error('Invalid document link');
+    const link = el(
+      'a',
+      'text-button',
+      'Open source PDF (link expires in 5 minutes)',
+    );
+    link.href = url.toString();
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    container.append(link);
+  } catch (error) {
+    container.append(el('p', 'form-error', error.message));
+  }
+}
+async function loadInvestmentUploads(more) {
+  const token = state.token;
+  const select = $('investment-document-form').elements.namedItem(
+    'ingestionJobId',
+  );
+  if (!more) {
+    select.replaceChildren(new Option('Select a completed PDF', ''));
+    investmentUploadOffset = 0;
+  }
+  try {
+    const result = await api(
+      `/ingest/jobs?offset=${investmentUploadOffset ?? 0}`,
+    );
+    if (token !== state.token || !$('investments').open) return;
+    for (const job of result.jobs)
+      if (
+        job.fileType === 'pdf' &&
+        job.status === 'completed' &&
+        ![...select.options].some((option) => option.value === job.id)
+      )
+        select.append(new Option(job.originalFilename, job.id));
+    investmentUploadOffset = result.nextOffset;
+    $('more-investment-uploads').hidden = investmentUploadOffset === null;
+  } catch (error) {
+    if (token === state.token)
+      $('investment-document-error').textContent = error.message;
+  }
+}
+$('more-investment-uploads').addEventListener('click', () =>
+  loadInvestmentUploads(true),
+);
+$('investment-document-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const symbol = investmentDocumentSymbol;
+  if (!symbol) return;
+  const form = event.currentTarget;
+  const read = (name) => form.elements.namedItem(name).value;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  $('investment-document-error').textContent = '';
+  try {
+    await post(`/investments/stocks/${encodeURIComponent(symbol)}/documents`, {
+      ingestionJobId: read('ingestionJobId'),
+      title: read('title'),
+      publicationDate: read('publicationDate'),
+      retryFailed: form.elements.namedItem('retryFailed').checked,
+    });
+    if (investmentDocumentSymbol !== symbol) return;
+    notify('Company report indexed.');
+    await loadInvestmentDocuments(symbol);
+    await loadInvestmentBudget();
+  } catch (error) {
+    if (investmentDocumentSymbol === symbol)
+      $('investment-document-error').textContent = error.message;
+  } finally {
+    submit.disabled = false;
+  }
+});
+$('investment-document-search').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const symbol = investmentDocumentSymbol;
+  if (!symbol) return;
+  const form = event.currentTarget;
+  const submit = form.querySelector('[type=submit]');
+  submit.disabled = true;
+  $('investment-document-results').replaceChildren(
+    el('p', 'form-note', 'Searching reports…'),
+  );
+  try {
+    const result = await post(
+      `/investments/stocks/${encodeURIComponent(symbol)}/documents/search`,
+      { query: form.elements.namedItem('query').value },
+    );
+    if (investmentDocumentSymbol !== symbol) return;
+    const container = $('investment-document-results');
+    container.replaceChildren();
+    if (!result.results.length)
+      container.append(el('p', 'form-note', 'No matching report passages.'));
+    for (const match of result.results) {
+      const item = el('div', 'investment-history-item');
+      item.append(
+        el(
+          'strong',
+          '',
+          `${match.title} · page ${match.page} · ${match.publicationDate}`,
+        ),
+        el('p', 'form-note', match.text),
+        button('Get source link', 'text-button', () =>
+          showDocumentLink(item, symbol, match.documentId),
+        ),
+      );
+      container.append(item);
+    }
+    await loadInvestmentBudget();
+  } catch (error) {
+    if (investmentDocumentSymbol === symbol)
+      $('investment-document-results').replaceChildren(
+        el('p', 'form-error', error.message),
+      );
+  } finally {
+    submit.disabled = false;
+  }
+});
+function formatUsdMicros(value) {
+  const amount = BigInt(value);
+  const fraction = (amount % 1000000n)
+    .toString()
+    .padStart(6, '0')
+    .replace(/0+$/, '');
+  return `$${amount / 1000000n}${fraction ? `.${fraction}` : ''}`;
+}
+async function loadInvestmentBudget() {
+  const token = state.token;
+  try {
+    const budget = await api('/investments/budget');
+    if (token !== state.token) return;
+    $('investment-budget').textContent =
+      `AI budget ${budget.month}: ${formatUsdMicros(budget.spentMicros)} spent, ${formatUsdMicros(budget.reservedMicros)} reserved, ${formatUsdMicros(budget.remainingMicros)} remaining of ${formatUsdMicros(budget.limitMicros)}.`;
+  } catch (error) {
+    if (token === state.token)
+      $('investment-budget').textContent =
+        `AI budget unavailable: ${error.message}`;
+  }
+}
+async function loadFinhayStatus() {
+  const token = state.token;
+  try {
+    const status = await api('/investments/market-data/status');
+    if (token !== state.token) return;
+    state.finhayConnected = status.connected;
+    state.finhayStatusLoaded = true;
+    $('finhay-status').textContent = status.connected
+      ? 'Market data is configured.'
+      : 'Market data is not configured.';
+  } catch (error) {
+    if (token !== state.token) return;
+    state.finhayConnected = false;
+    state.finhayStatusLoaded = true;
+    $('finhay-status').textContent =
+      `Market data unavailable: ${error.message}`;
+  }
+}
+async function saveInvestment(event) {
+  event.preventDefault();
+  const form = $('investment-form');
+  const read = (name) => form.elements.namedItem(name).value;
+  const fields = Object.fromEntries(
+    [
+      'symbol',
+      'type',
+      'occurredOn',
+      'level',
+      'decision',
+      'shares',
+      'priceVnd',
+      'feesVnd',
+      'averageCostVnd',
+      'note',
+    ].map((name) => [name, read(name)]),
+  );
+  $('investment-error').textContent = '';
+  let data;
+  try {
+    data = investmentInput(fields, '');
+  } catch (error) {
+    $('investment-error').textContent = error.message;
+    return;
+  }
+  if (investmentCorrection) data.input.supersedesId = investmentCorrection.id;
+  const signature = JSON.stringify(data);
+  if (investmentPending?.signature !== signature)
+    investmentPending = { signature, id: crypto.randomUUID() };
+  data.input.requestId = investmentPending.id;
+  const controls = [...form.querySelectorAll('input,select,textarea,button')];
+  controls.forEach((control) => {
+    control.disabled = true;
+  });
+  try {
+    const result = await post(
+      `/investments/stocks/${encodeURIComponent(data.symbol)}/events`,
+      data.input,
+    );
+    investmentPending = null;
+    if (!$('investments').open) return;
+    clearInvestmentCorrection();
+    form.reset();
+    form.elements.namedItem('symbol').value = data.symbol;
+    form.elements.namedItem('occurredOn').value = vietnamToday();
+    notify(
+      result.deduplicated
+        ? 'Update was already saved.'
+        : 'Investment update saved.',
+    );
+    await loadInvestments();
+    await showInvestment(data.symbol);
+  } catch (error) {
+    if ($('investments').open)
+      $('investment-error').textContent = error.message;
+  } finally {
+    controls.forEach((control) => {
+      control.disabled = false;
+    });
+    updateInvestmentFields();
+    if (investmentCorrection) {
+      form.elements.namedItem('symbol').disabled = true;
+      form.elements.namedItem('type').disabled = true;
+    }
+  }
+}
+$('sidebar-investments').addEventListener('click', showInvestments);
+$('close-investments').addEventListener('click', () => {
+  investmentGeneration++;
+  $('investments').close();
+});
+$('investments').addEventListener('cancel', () => {
+  investmentGeneration++;
+});
+$('investment-form')
+  .elements.namedItem('type')
+  .addEventListener('change', updateInvestmentFields);
+$('investment-form').addEventListener('submit', saveInvestment);
+$('cancel-investment-correction').addEventListener('click', () => {
+  clearInvestmentCorrection();
+  $('investment-form').reset();
+  $('investment-form').elements.namedItem('occurredOn').value = vietnamToday();
+  updateInvestmentFields();
+});
 
 $('new-chat').addEventListener('click', newChat);
 $('menu').addEventListener('click', () => menu(true));

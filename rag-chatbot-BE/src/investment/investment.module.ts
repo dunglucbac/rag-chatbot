@@ -1,0 +1,38 @@
+import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
+import { InvestmentController } from './investment.controller';
+import { InvestmentService } from './investment.service';
+import { MarketDataController } from './market-data/market-data.controller';
+import { FinhayService } from './finhay/finhay.service';
+import { MarketDataProvider } from './market-data/market-data.provider';
+import { ValuationService } from './market-data/valuation.service';
+import { BudgetService } from './budget/budget.service';
+import { BudgetedModelService } from './budget/budgeted-model.service';
+import { LlmModule } from '../llm/llm.module';
+import { BudgetController } from './budget/budget.controller';
+import { InvestmentDocumentController } from './documents/document.controller';
+import { InvestmentDocumentService } from './documents/document.service';
+import { InvestmentEmbeddingService } from './documents/embedding.service';
+import { ObjectStorageModule } from '../storage/object-storage.module';
+import { VectorStoreModule } from '../vector-store/vector-store.module';
+
+@Module({
+  imports: [AuthModule, ObjectStorageModule, VectorStoreModule, LlmModule],
+  controllers: [
+    InvestmentController,
+    MarketDataController,
+    BudgetController,
+    InvestmentDocumentController,
+  ],
+  providers: [
+    InvestmentService,
+    FinhayService,
+    { provide: MarketDataProvider, useExisting: FinhayService },
+    ValuationService,
+    BudgetService,
+    BudgetedModelService,
+    InvestmentDocumentService,
+    InvestmentEmbeddingService,
+  ],
+})
+export class InvestmentModule {}

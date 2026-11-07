@@ -1,11 +1,11 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OpenAIEmbeddings } from '@langchain/openai';
 import { PGVectorStore } from '@langchain/community/vectorstores/pgvector';
 import { Document } from '@langchain/core/documents';
 
 @Injectable()
-export class VectorStoreService implements OnModuleInit {
+export class VectorStoreService implements OnModuleInit, OnModuleDestroy {
   private store: PGVectorStore;
 
   constructor(private readonly config: ConfigService) {}
@@ -38,8 +38,35 @@ export class VectorStoreService implements OnModuleInit {
     });
   }
 
+  async onModuleDestroy() {
+    await this.store?.end();
+  }
+
   async addDocuments(docs: Document[]) {
     await this.store.addDocuments(docs);
+  }
+
+  async addInvestmentVectors(vectors: number[][], docs: Document[]) {
+    await this.store.addVectors(vectors, docs);
+  }
+
+  async deleteInvestmentVectors(userId: string, documentId: string) {
+    await this.store.delete({ filter: { userId, documentId } });
+  }
+
+  async searchInvestmentVectors(
+    vector: number[],
+    userId: string,
+    symbol: string,
+    documentIds: string[],
+    k = 6,
+  ) {
+    if (!documentIds.length) return [];
+    return this.store.similaritySearchVectorWithScore(vector, k, {
+      userId,
+      symbol,
+      documentId: { in: documentIds },
+    });
   }
 
   async similaritySearch(query: string, k = 4) {

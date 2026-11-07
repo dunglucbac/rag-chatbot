@@ -7,6 +7,11 @@ import { Receipt } from '@modules/receipt/entities/receipt.entity';
 import { ReceiptItem } from '@modules/receipt/entities/receipt-item.entity';
 import { ChatSession } from '@modules/chat/entities/chat-session.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
+import { InvestmentStock } from '../investment/entities/investment-stock.entity';
+import { InvestmentEvent } from '../investment/entities/investment-event.entity';
+import { InvestmentBudget } from '../investment/entities/investment-budget.entity';
+import { InvestmentReservation } from '../investment/entities/investment-reservation.entity';
+import { InvestmentDocument } from '../investment/entities/investment-document.entity';
 
 @Module({
   imports: [
@@ -29,6 +34,11 @@ import { ChatMessage } from '../chat/entities/chat-message.entity';
             ReceiptItem,
             ChatSession,
             ChatMessage,
+            InvestmentStock,
+            InvestmentEvent,
+            InvestmentBudget,
+            InvestmentReservation,
+            InvestmentDocument,
           ],
           synchronize: false,
           logging: false,

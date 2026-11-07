@@ -1,0 +1,322 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
+import { z } from 'zod';
+import { InvestmentEvent } from './entities/investment-event.entity';
+import { InvestmentStock } from './entities/investment-stock.entity';
+import { calculatePosition } from './position';
+
+const date = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return (
+      Number.isFinite(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
+  }, 'Invalid date');
+const amount = z.string().regex(/^\d{1,12}(?:\.\d{1,4})?$/);
+const price = amount.refine(
+  (value) => /[1-9]/.test(value),
+  'Price must be positive',
+);
+const shares = z.number().int().nonnegative().max(1_000_000_000);
+const common = {
+  requestId: z
+    .string()
+    .uuid()
+    .transform((value) => value.toLowerCase()),
+  occurredOn: date,
+  supersedesId: z
+    .string()
+    .uuid()
+    .transform((value) => value.toLowerCase())
+    .optional(),
+  note: z.string().trim().max(2000).optional(),
+};
+const inputSchema = z.discriminatedUnion('type', [
+  z
+    .object({
+      ...common,
+      type: z.literal('interest'),
+      level: z.enum(['low', 'medium', 'high']),
+    })
+    .strict(),
+  z
+    .object({
+      ...common,
+      type: z.literal('decision'),
+      decision: z.enum(['buy', 'hold', 'reduce', 'avoid', 'wait']),
+    })
+    .strict(),
+  z
+    .object({
+      ...common,
+      type: z.literal('buy'),
+      shares: shares.positive(),
+      priceVnd: price,
+      feesVnd: amount.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...common,
+      type: z.literal('sell'),
+      shares: shares.positive(),
+      priceVnd: price,
+      feesVnd: amount.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      ...common,
+      type: z.literal('position'),
+      shares,
+      averageCostVnd: price.optional(),
+    })
+    .strict(),
+]);
+type EventInput = z.infer<typeof inputSchema>;
+
+function stockSymbol(value: string): string {
+  const symbol = value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{3,10}$/.test(symbol))
+    throw new BadRequestException('Invalid stock symbol');
+  return symbol;
+}
+
+function eventResult(event: InvestmentEvent) {
+  return {
+    id: event.id,
+    requestId: event.requestId,
+    type: event.type,
+    occurredOn: event.occurredOn,
+    supersedesId: event.supersedesId,
+    ...event.details,
+    createdAt: event.createdAt,
+  };
+}
+
+function todayInVietnam(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function summarize(events: InvestmentEvent[], asOf: string) {
+  const all = new Map(events.map((event) => [event.id, event]));
+  const superseded = new Set(
+    events.map((event) => event.supersedesId).filter(Boolean),
+  );
+  events = events.filter((event) => !superseded.has(event.id));
+  const original = (event: InvestmentEvent) => {
+    const seen = new Set<string>();
+    while (event.supersedesId && !seen.has(event.id)) {
+      seen.add(event.id);
+      const previous = all.get(event.supersedesId);
+      if (!previous) break;
+      event = previous;
+    }
+    return event;
+  };
+  events.sort((left, right) => {
+    const day = left.occurredOn.localeCompare(right.occurredOn);
+    if (day) return day;
+    const leftRoot = original(left);
+    const rightRoot = original(right);
+    return (
+      leftRoot.createdAt.getTime() - rightRoot.createdAt.getTime() ||
+      leftRoot.id.localeCompare(rightRoot.id)
+    );
+  });
+  const latest = (type: string) =>
+    [...events]
+      .reverse()
+      .find((event) => event.type === type && event.occurredOn <= asOf);
+  const interest = latest('interest');
+  const decision = latest('decision');
+  return {
+    position: calculatePosition(events, asOf),
+    interest: interest ? eventResult(interest) : null,
+    decision: decision ? eventResult(decision) : null,
+  };
+}
+
+@Injectable()
+export class InvestmentService {
+  constructor(private readonly dataSource: DataSource) {}
+
+  async list(userId: string) {
+    const stocks = await this.dataSource.getRepository(InvestmentStock).find({
+      where: { userId },
+      order: { symbol: 'ASC' },
+    });
+    const events = await this.dataSource.getRepository(InvestmentEvent).find({
+      where: { userId },
+      order: { occurredOn: 'ASC', createdAt: 'ASC', id: 'ASC' },
+    });
+    const groups = new Map<string, InvestmentEvent[]>();
+    for (const event of events) {
+      const group = groups.get(event.stockId) ?? [];
+      group.push(event);
+      groups.set(event.stockId, group);
+    }
+    const asOf = todayInVietnam();
+    return stocks.map(({ id, symbol, createdAt }) => ({
+      id,
+      symbol,
+      createdAt,
+      ...summarize(groups.get(id) ?? [], asOf),
+    }));
+  }
+
+  async get(userId: string, value: string) {
+    const symbol = stockSymbol(value);
+    const stock = await this.dataSource
+      .getRepository(InvestmentStock)
+      .findOneBy({ userId, symbol });
+    if (!stock) throw new NotFoundException('Stock not found');
+    const events = await this.dataSource.getRepository(InvestmentEvent).find({
+      where: { userId, stockId: stock.id },
+      order: { occurredOn: 'ASC', createdAt: 'ASC', id: 'ASC' },
+    });
+    const corrected = new Map(
+      events
+        .filter((event) => event.supersedesId)
+        .map((event) => [event.supersedesId, event.id]),
+    );
+    return {
+      id: stock.id,
+      symbol,
+      ...summarize(events, todayInVietnam()),
+      events: [...events].reverse().map((event) => ({
+        ...eventResult(event),
+        supersededById: corrected.get(event.id) ?? null,
+      })),
+    };
+  }
+
+  async record(userId: string, value: string, raw: unknown) {
+    const symbol = stockSymbol(value);
+    const result = inputSchema.safeParse(raw);
+    if (!result.success)
+      throw new BadRequestException({
+        message: 'Invalid investment event',
+        issues: result.error.issues,
+      });
+    const input = result.data;
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const existing = await manager
+          .getRepository(InvestmentEvent)
+          .findOneBy({ userId, requestId: input.requestId });
+        if (existing)
+          return this.existingResult(manager, userId, symbol, input, existing);
+        await manager
+          .createQueryBuilder()
+          .insert()
+          .into(InvestmentStock)
+          .values({ userId, symbol })
+          .orIgnore()
+          .execute();
+        const stock = await manager
+          .getRepository(InvestmentStock)
+          .findOneByOrFail({ userId, symbol });
+        const { requestId, type, occurredOn, supersedesId, ...details } = input;
+        if (supersedesId) {
+          const original = await manager
+            .getRepository(InvestmentEvent)
+            .findOneBy({ id: supersedesId, userId, stockId: stock.id });
+          if (!original)
+            throw new NotFoundException('Investment event not found');
+          if (original.type !== type)
+            throw new BadRequestException(
+              'Correction must keep the original event type',
+            );
+          const correction = await manager
+            .getRepository(InvestmentEvent)
+            .findOneBy({ supersedesId, userId });
+          if (correction)
+            throw new ConflictException(
+              'Investment event has already been corrected',
+            );
+        }
+        const event = manager.getRepository(InvestmentEvent).create({
+          userId,
+          stockId: stock.id,
+          requestId,
+          type,
+          occurredOn,
+          supersedesId: supersedesId ?? null,
+          details,
+        });
+        await manager.getRepository(InvestmentEvent).save(event);
+        return { symbol, event: eventResult(event), deduplicated: false };
+      });
+    } catch (error: unknown) {
+      // A concurrent retry can win the unique request ID race after our first lookup.
+      const existing = await this.dataSource
+        .getRepository(InvestmentEvent)
+        .findOneBy({ userId, requestId: input.requestId });
+      if (existing)
+        return this.existingResult(
+          this.dataSource.manager,
+          userId,
+          symbol,
+          input,
+          existing,
+        );
+      if (
+        input.supersedesId &&
+        (await this.dataSource
+          .getRepository(InvestmentEvent)
+          .findOneBy({ supersedesId: input.supersedesId, userId }))
+      )
+        throw new ConflictException(
+          'Investment event has already been corrected',
+        );
+      throw error;
+    }
+  }
+
+  private async existingResult(
+    manager: EntityManager,
+    userId: string,
+    symbol: string,
+    input: EventInput,
+    event: InvestmentEvent,
+  ) {
+    const stock = await manager
+      .getRepository(InvestmentStock)
+      .findOneBy({ id: event.stockId, userId });
+    const {
+      requestId: _requestId,
+      type,
+      occurredOn,
+      supersedesId,
+      ...details
+    } = input;
+    void _requestId;
+    if (
+      !stock ||
+      stock.symbol !== symbol ||
+      event.type !== type ||
+      event.occurredOn !== occurredOn ||
+      event.supersedesId !== (supersedesId ?? null) ||
+      JSON.stringify(event.details) !== JSON.stringify(details)
+    ) {
+      throw new ConflictException(
+        'Request ID was already used for a different investment event',
+      );
+    }
+    return { symbol, event: eventResult(event), deduplicated: true };
+  }
+}
